@@ -28,7 +28,7 @@ import {
   buildMasterCohortPdfDoc,
 } from '../../utils/studentPdfGenerator.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../../config/firebase.js';
+import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
@@ -108,12 +108,12 @@ export const AdminReportsTab: React.FC = () => {
       }
 
       const [enrolledSnap, realSections, realUsers, cohortSnap, assessSnap, subSnap] = await Promise.all([
-        getDocs(collection(db, 'enrolled_students')).catch(() => null),
+        auth.currentUser ? getDocs(collection(db, 'enrolled_students')).catch(() => null) : Promise.resolve(null),
         FirestoreDataService.getSectionsFromFirestore().catch(() => []),
-        FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-        getDocs(collection(db, 'cohort_progress')).catch(() => null),
-        getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
-        getDocs(collection(db, 'submissions')).catch(() => null),
+        auth.currentUser ? FirestoreDataService.getAllFirestoreUsers().catch(() => []) : Promise.resolve([]),
+        auth.currentUser ? getDocs(collection(db, 'cohort_progress')).catch(() => null) : Promise.resolve(null),
+        auth.currentUser ? getDocs(collection(db, 'assessment_test_submissions')).catch(() => null) : Promise.resolve(null),
+        auth.currentUser ? getDocs(collection(db, 'submissions')).catch(() => null) : Promise.resolve(null),
       ]);
 
       const cohortMap = new Map<string, any>();
@@ -404,15 +404,30 @@ export const AdminReportsTab: React.FC = () => {
 
     fetchAuthoritativeReportStudents();
 
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, (err) => console.warn('Reports cohort notice:', err));
-    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), triggerDebouncedSync, () => {});
-    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), triggerDebouncedSync, () => {});
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), triggerDebouncedSync, (err) => console.warn('Reports enrolled notice:', err));
-    const unsubSections = onSnapshot(collection(db, 'sections'), triggerDebouncedSync, (err) => console.warn('Reports sections notice:', err));
+    let unsubCohort = () => {};
+    let unsubSubmissions = () => {};
+    let unsubAssessmentSubmissions = () => {};
+    let unsubEnrolled = () => {};
+    let unsubSections = () => {};
     let unsubUsers: (() => void) | null = null;
-    try {
-      unsubUsers = onSnapshot(collection(db, 'users'), triggerDebouncedSync, () => {});
-    } catch {}
+
+    if (auth.currentUser) {
+      unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Reports cohort notice:', err);
+      });
+      unsubSubmissions = onSnapshot(collection(db, 'submissions'), triggerDebouncedSync, () => {});
+      unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), triggerDebouncedSync, () => {});
+      unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), triggerDebouncedSync, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Reports enrolled notice:', err);
+      });
+      unsubSections = onSnapshot(collection(db, 'sections'), triggerDebouncedSync, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Reports sections notice:', err);
+      });
+      try {
+        unsubUsers = onSnapshot(collection(db, 'users'), triggerDebouncedSync, () => {});
+      } catch {}
+    }
+
     const unsubMeshUsers = realtimeSync.on('USERS', triggerDebouncedSync);
     const unsubMeshSections = realtimeSync.on('SECTIONS', triggerDebouncedSync);
     const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', triggerDebouncedSync);

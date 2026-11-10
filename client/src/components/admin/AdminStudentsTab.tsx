@@ -19,7 +19,7 @@ import {
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase.js';
+import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 
@@ -83,21 +83,21 @@ export const AdminStudentsTab: React.FC = () => {
       );
     };
 
+    // Discover active section name (defaults to "Batch 1")
+    let activeSectionName = 'Batch 1';
+    try {
+      const rawSec = localStorage.getItem('logicq_admin_sections') || localStorage.getItem('logicq_faculty_sections_backup_v2');
+      if (rawSec) {
+        const parsed = JSON.parse(rawSec);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].sectionName) {
+          activeSectionName = parsed[0].sectionName;
+        }
+      }
+    } catch {}
+
     const loadStudents = async (showLoading = true) => {
       try {
         if (showLoading) setIsLoading(true);
-
-        // Discover active section name (defaults to "Batch 1")
-        let activeSectionName = 'Batch 1';
-        try {
-          const rawSec = localStorage.getItem('logicq_admin_sections') || localStorage.getItem('logicq_faculty_sections_backup_v2');
-          if (rawSec) {
-            const parsed = JSON.parse(rawSec);
-            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].sectionName) {
-              activeSectionName = parsed[0].sectionName;
-            }
-          }
-        } catch {}
 
         // 1. Check local cache first for instant render
         try {
@@ -122,12 +122,12 @@ export const AdminStudentsTab: React.FC = () => {
           }
         } catch {}
 
-        // 2. Fetch authoritative Firestore users alongside cohort_progress & submissions
+        // 2. Fetch authoritative Firestore users alongside cohort_progress & submissions (authenticated only)
         const [users, cohortSnap, assessSnap, subSnap] = await Promise.all([
-          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-          getDocs(collection(db, 'cohort_progress')).catch(() => null),
-          getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
-          getDocs(collection(db, 'submissions')).catch(() => null),
+          auth.currentUser ? FirestoreDataService.getAllFirestoreUsers().catch(() => []) : Promise.resolve([]),
+          auth.currentUser ? getDocs(collection(db, 'cohort_progress')).catch(() => null) : Promise.resolve(null),
+          auth.currentUser ? getDocs(collection(db, 'assessment_test_submissions')).catch(() => null) : Promise.resolve(null),
+          auth.currentUser ? getDocs(collection(db, 'submissions')).catch(() => null) : Promise.resolve(null),
         ]);
 
         const cohortMap = new Map<string, any>();
@@ -281,125 +281,131 @@ export const AdminStudentsTab: React.FC = () => {
     // Initial load with spinner only if empty
     loadStudents(true);
 
-    // Live real-time Firestore listener on 'enrolled_students' (0ms instant updates across all browsers)
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), (snap) => {
-      if (!isMounted) return;
-      const liveList: AdminStudentRecord[] = [];
-      snap.forEach((d) => {
-        const raw = d.data();
-        if (!raw || FirestoreDataService.isPurgedStudent(raw) || isRohanRecord(raw)) return;
-        const prnClean = (raw.prn || '').toUpperCase().trim();
-        const email = (raw.email || '').toLowerCase().trim();
-        const isBound = Boolean(
-          raw.isEmailBoundV2 ||
-          raw.emailVerified ||
-          (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
-        );
-        const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
-        const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
-
-        const isMtechStudent =
-          raw.sectionId === 'sec-mw6l4r2s' ||
-          (raw.department && raw.department.toLowerCase().includes('mtech')) ||
-          (raw.course && raw.course.toLowerCase().includes('mtech')) ||
-          (raw.sectionName && raw.sectionName.toLowerCase().includes('mtech')) ||
-          (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
-
-        const resolvedSection = isMtechStudent
-          ? 'Integrated Mtech'
-          : ((raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.course || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')));
-
-        liveList.push({
-          id: d.id,
-          name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
-          prn: prnClean || '—',
-          email: email || '—',
-          section: resolvedSection,
-          identityStatus: isBound ? 'BOUND' : 'PENDING',
-          academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
-          integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
-          miniProjectUnlocked: isUnlocked,
-          lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
-        });
-      });
-
-      if (liveList.length > 0) {
-        setStudents((prev) => {
-          const merged = FirestoreDataService.deduplicateStudentRecords([...prev, ...liveList]);
-          try {
-            localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
-        setIsLoading(false);
-      } else {
-        loadStudents(false);
-      }
-    }, (err) => {
-      console.warn('Live enrolled_students onSnapshot notice:', err);
-    });
-
-    // Live real-time listener on cohort_progress for miniProject and points
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), (snap) => {
-      if (!isMounted) return;
-      snap.docChanges().forEach((change) => {
-        const prnClean = change.doc.id.toUpperCase().trim();
-        const data = change.doc.data();
-        if (data && prnClean) {
-          setStudents((prev) =>
-            prev.map((s) => {
-              if (FirestoreDataService.arePrnsMatching(s.prn, prnClean) || (data.studentEmail && s.email && s.email.toLowerCase() === String(data.studentEmail).toLowerCase())) {
-                const totalSolved = data.totalSolved ?? (Array.isArray(data.completedProblems) ? data.completedProblems.length : 0);
-                const computedAcademic = data?.moduleProgress?.academicScore !== undefined
-                  ? Number(data.moduleProgress.academicScore)
-                  : Math.min(100, Math.round(((data.totalPoints || totalSolved * 20 || s.academicScore || 0) / 100) * 100));
-                const newTabSwitches = data?.moduleProgress?.tabSwitches !== undefined
-                  ? Number(data.moduleProgress.tabSwitches)
-                  : (s.tabSwitchCount ?? 0);
-                const newPasteBursts = data?.moduleProgress?.pasteBursts !== undefined
-                  ? Number(data.moduleProgress.pasteBursts)
-                  : (s.clipboardAttempts ?? 0);
-                const computedIntegrity = data?.moduleProgress?.integrityScore !== undefined
-                  ? Number(data.moduleProgress.integrityScore)
-                  : (newTabSwitches > 0 || newPasteBursts > 0 ? Math.max(0, 100 - newTabSwitches * 5 - newPasteBursts * 10) : (s.integrityScore ?? 100));
-
-                return {
-                  ...s,
-                  academicScore: computedAcademic,
-                  integrityScore: computedIntegrity,
-                  tabSwitchCount: newTabSwitches,
-                  clipboardAttempts: newPasteBursts,
-                  miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
-                    ? Boolean(data.moduleProgress.miniProjectUnlocked)
-                    : (data.miniProjectUnlocked !== undefined
-                        ? Boolean(data.miniProjectUnlocked)
-                        : Boolean(data.miniProjectActive)),
-                  lastActive: data?.moduleProgress?.lastActiveTime
-                    ? new Date(data.moduleProgress.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : s.lastActive,
-                };
-              }
-              return s;
-            })
-          );
-        }
-      });
-    }, () => {});
-
+    let unsubEnrolled = () => {};
+    let unsubCohort = () => {};
     let unsubUsers: (() => void) | null = null;
-    try {
-      unsubUsers = onSnapshot(collection(db, 'users'), () => {
+    let unsubSubmissions = () => {};
+    let unsubAssessmentSubmissions = () => {};
+
+    // Live real-time Firestore listeners (active when authenticated)
+    if (auth.currentUser) {
+      unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), (snap) => {
+        if (!isMounted) return;
+        const liveList: AdminStudentRecord[] = [];
+        snap.forEach((d) => {
+          const raw = d.data();
+          if (!raw || FirestoreDataService.isPurgedStudent(raw) || isRohanRecord(raw)) return;
+          const prnClean = (raw.prn || '').toUpperCase().trim();
+          const email = (raw.email || '').toLowerCase().trim();
+          const isBound = Boolean(
+            raw.isEmailBoundV2 ||
+            raw.emailVerified ||
+            (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
+          );
+          const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
+          const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
+
+          const resolvedSection = (raw.sectionName && raw.sectionName !== 'Academic Section' && raw.sectionName !== 'Integrated Mtech' && raw.sectionName !== 'General')
+            ? raw.sectionName
+            : 'Batch 1';
+
+          liveList.push({
+            id: d.id,
+            name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
+            prn: prnClean || '—',
+            email: email || '—',
+            section: resolvedSection,
+            identityStatus: isBound ? 'BOUND' : 'PENDING',
+            academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
+            integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
+            miniProjectUnlocked: isUnlocked,
+            lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+          });
+        });
+
+        if (liveList.length > 0) {
+          setStudents((prev) => {
+            const merged = FirestoreDataService.deduplicateStudentRecords([...prev, ...liveList]);
+            try {
+              localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+          setIsLoading(false);
+        } else {
+          loadStudents(false);
+        }
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live enrolled_students onSnapshot notice:', err);
+      });
+
+      // Live real-time listener on cohort_progress for miniProject and points
+      unsubCohort = onSnapshot(collection(db, 'cohort_progress'), (snap) => {
+        if (!isMounted) return;
+        snap.docChanges().forEach((change) => {
+          const prnClean = change.doc.id.toUpperCase().trim();
+          const data = change.doc.data();
+          if (data && prnClean) {
+            setStudents((prev) =>
+              prev.map((s) => {
+                if (FirestoreDataService.arePrnsMatching(s.prn, prnClean) || (data.studentEmail && s.email && s.email.toLowerCase() === String(data.studentEmail).toLowerCase())) {
+                  const totalSolved = data.totalSolved ?? (Array.isArray(data.completedProblems) ? data.completedProblems.length : 0);
+                  const computedAcademic = data?.moduleProgress?.academicScore !== undefined
+                    ? Number(data.moduleProgress.academicScore)
+                    : Math.min(100, Math.round(((data.totalPoints || totalSolved * 20 || s.academicScore || 0) / 100) * 100));
+                  const newTabSwitches = data?.moduleProgress?.tabSwitches !== undefined
+                    ? Number(data.moduleProgress.tabSwitches)
+                    : (s.tabSwitchCount ?? 0);
+                  const newPasteBursts = data?.moduleProgress?.pasteBursts !== undefined
+                    ? Number(data.moduleProgress.pasteBursts)
+                    : (s.clipboardAttempts ?? 0);
+                  const computedIntegrity = data?.moduleProgress?.integrityScore !== undefined
+                    ? Number(data.moduleProgress.integrityScore)
+                    : (newTabSwitches > 0 || newPasteBursts > 0 ? Math.max(0, 100 - newTabSwitches * 5 - newPasteBursts * 10) : (s.integrityScore ?? 100));
+
+                  return {
+                    ...s,
+                    academicScore: computedAcademic,
+                    integrityScore: computedIntegrity,
+                    tabSwitchCount: newTabSwitches,
+                    clipboardAttempts: newPasteBursts,
+                    miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
+                      ? Boolean(data.moduleProgress.miniProjectUnlocked)
+                      : (data.miniProjectUnlocked !== undefined
+                          ? Boolean(data.miniProjectUnlocked)
+                          : Boolean(data.miniProjectActive)),
+                    lastActive: data?.moduleProgress?.lastActiveTime
+                      ? new Date(data.moduleProgress.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : s.lastActive,
+                  };
+                }
+                return s;
+              })
+            );
+          }
+        });
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live cohort_progress notice:', err);
+      });
+
+      try {
+        unsubUsers = onSnapshot(collection(db, 'users'), () => {
+          loadStudents(false);
+        }, () => {});
+      } catch {}
+
+      unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
         loadStudents(false);
-      }, () => {});
-    } catch {}
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live submissions notice:', err);
+      });
 
-    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
-      loadStudents(false);
-    }, () => {});
-
-    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
-      loadStudents(false);
-    }, () => {});
+      unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
+        loadStudents(false);
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live assessment_test_submissions notice:', err);
+      });
+    }
 
     const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents(false));
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents(false));

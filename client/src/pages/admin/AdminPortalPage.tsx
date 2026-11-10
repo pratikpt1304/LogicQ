@@ -39,7 +39,7 @@ import { AdminAnswerBankTab } from '../../components/admin/AdminAnswerBankTab.js
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../../config/firebase.js';
+import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { api } from '../../api/client.js';
 import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
@@ -143,8 +143,8 @@ export const AdminPortalPage: React.FC = () => {
       try {
         const [realSections, realUsers, cohortSnap] = await Promise.all([
           FirestoreDataService.getSectionsFromFirestore().catch(() => []),
-          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-          getDocs(collection(db, 'cohort_progress')).catch(() => null),
+          auth.currentUser ? FirestoreDataService.getAllFirestoreUsers().catch(() => []) : Promise.resolve([]),
+          auth.currentUser ? getDocs(collection(db, 'cohort_progress')).catch(() => null) : Promise.resolve(null),
         ]);
 
         let backendSections: any[] = [];
@@ -408,35 +408,51 @@ export const AdminPortalPage: React.FC = () => {
     // 1. Initial authoritative load
     loadRealData();
 
-    // 2. Real-time Firestore Live Listeners (0ms delay)
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => {
-      loadRealData();
-    }, (err) => console.warn('Live cohort onSnapshot notice:', err));
-
-    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
-      loadRealData();
-    }, (err) => console.warn('Live submissions onSnapshot notice:', err));
-
-    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
-      loadRealData();
-    }, (err) => console.warn('Live assessment submissions onSnapshot notice:', err));
-
-    const unsubSections = onSnapshot(collection(db, 'sections'), () => {
-      loadRealData();
-    }, (err) => console.warn('Live sections onSnapshot notice:', err));
-
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
-      loadRealData();
-    }, (err) => console.warn('Live enrolled onSnapshot notice:', err));
-
+    // 2. Real-time Firestore Live Listeners (active when authenticated)
+    let unsubCohort = () => {};
+    let unsubSubmissions = () => {};
+    let unsubAssessmentSubmissions = () => {};
+    let unsubSections = () => {};
+    let unsubEnrolled = () => {};
     let unsubUsers: (() => void) | null = null;
-    try {
-      unsubUsers = onSnapshot(collection(db, 'users'), () => {
+
+    if (auth.currentUser) {
+      unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => {
         loadRealData();
-      }, () => {
-        // Ignore permission-denied gracefully
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live cohort onSnapshot notice:', err);
       });
-    } catch {}
+
+      unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
+        loadRealData();
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live submissions onSnapshot notice:', err);
+      });
+
+      unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
+        loadRealData();
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live assessment submissions onSnapshot notice:', err);
+      });
+
+      unsubSections = onSnapshot(collection(db, 'sections'), () => {
+        loadRealData();
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live sections onSnapshot notice:', err);
+      });
+
+      unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
+        loadRealData();
+      }, (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Live enrolled onSnapshot notice:', err);
+      });
+
+      try {
+        unsubUsers = onSnapshot(collection(db, 'users'), () => {
+          loadRealData();
+        }, () => {});
+      } catch {}
+    }
 
     // 3. Multi-Tab Realtime Mesh Listeners
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadRealData());

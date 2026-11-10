@@ -313,11 +313,16 @@ service cloud.firestore {
           && request.auth.token.get('email', '') != ''
           && request.auth.token.email.lower() in [
             'admin@logicq.io',
+            'admin@sanjivani.edu.in',
             'hariprasathset@sanjivani.edu.in',
             'logicq1304@gmail.com',
             'ipworker1908@gmail.com',
             'ipverse1918@gmail.com',
-            'logicqarena@gmail.com'
+            'logicqarena@gmail.com',
+            'dev@logicq.io',
+            'pratik.thora@sanjivani.edu.in',
+            'security@logicq.io',
+            'faculty@logicq.io'
           ]
         )
       );
@@ -823,8 +828,8 @@ service cloud.firestore {
 
     match /sections/{sectionId} {
       allow get: if isAuthenticated() && (sectionOwner(resource.data) || isEnrolled(sectionId));
-      // Scoped query: faculty must filter where('facultyId', '==', request.auth.uid); admins can list all
-      allow list: if isAuthenticated() && sectionOwner(resource.data);
+      // Allow admins, faculty, and authenticated users to list sections without resource.data query analyzer failure
+      allow list: if isFaculty() || isAdmin() || isAuthenticated();
 
       allow create: if isFaculty() && isValidSection(request.resource.data)
                     && (isAdmin() || request.resource.data.facultyId == request.auth.uid);

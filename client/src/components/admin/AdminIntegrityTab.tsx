@@ -33,7 +33,7 @@ import {
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, doc, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../../config/firebase.js';
+import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
 import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
@@ -403,12 +403,12 @@ export const AdminIntegrityTab: React.FC = () => {
           }
         } catch {}
 
-        // 1. Fetch directly from enrolled_students, users, submissions, and live cohort progress
+        // 1. Fetch directly from enrolled_students, users, submissions, and live cohort progress (authenticated only)
         const [enrolledSnap, firestoreUsers, assessmentSubmissions, cohortSnap] = await Promise.all([
-          getDocs(collection(db, 'enrolled_students')).catch(() => null),
-          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-          FirestoreDataService.getAssessmentSubmissions().catch(() => []),
-          getDocs(collection(db, 'cohort_progress')).catch(() => null),
+          auth.currentUser ? getDocs(collection(db, 'enrolled_students')).catch(() => null) : Promise.resolve(null),
+          auth.currentUser ? FirestoreDataService.getAllFirestoreUsers().catch(() => []) : Promise.resolve([]),
+          auth.currentUser ? FirestoreDataService.getAssessmentSubmissions().catch(() => []) : Promise.resolve([]),
+          auth.currentUser ? getDocs(collection(db, 'cohort_progress')).catch(() => null) : Promise.resolve(null),
         ]);
 
         const studentsMap = new Map<string, any>();
@@ -766,16 +766,35 @@ export const AdminIntegrityTab: React.FC = () => {
 
     fetchAuthenticStudents();
 
-    // Live real-time Firestore synchronization for 0ms student forensics stream
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live cohort notice:', err));
-    const unsubSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live assessment submissions notice:', err));
-    const unsubGenSubmissions = onSnapshot(collection(db, 'submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live submissions notice:', err));
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live enrolled notice:', err));
-    const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live sections notice:', err));
+    // Live real-time Firestore synchronization for 0ms student forensics stream (authenticated only)
+    let unsubCohort = () => {};
+    let unsubSubmissions = () => {};
+    let unsubGenSubmissions = () => {};
+    let unsubEnrolled = () => {};
+    let unsubSections = () => {};
     let unsubUsers: (() => void) | null = null;
-    try {
-      unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
-    } catch {}
+
+    if (auth.currentUser) {
+      unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Integrity live cohort notice:', err);
+      });
+      unsubSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => fetchAuthenticStudents(), (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Integrity live assessment submissions notice:', err);
+      });
+      unsubGenSubmissions = onSnapshot(collection(db, 'submissions'), () => fetchAuthenticStudents(), (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Integrity live submissions notice:', err);
+      });
+      unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Integrity live enrolled notice:', err);
+      });
+      unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => {
+        if (err?.code !== 'permission-denied') console.warn('Integrity live sections notice:', err);
+      });
+      try {
+        unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
+      } catch {}
+    }
+
     const unsubMeshUsers = realtimeSync.on('USERS', () => fetchAuthenticStudents());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => fetchAuthenticStudents());
     const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => fetchAuthenticStudents());

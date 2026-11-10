@@ -47,11 +47,16 @@ class RulesEvaluator {
     if (emailVerified && typeof email === 'string' && email !== '') {
       const adminEmails = [
         'admin@logicq.io',
+        'admin@sanjivani.edu.in',
         'hariprasathset@sanjivani.edu.in',
         'logicq1304@gmail.com',
         'ipworker1908@gmail.com',
         'ipverse1918@gmail.com',
         'logicqarena@gmail.com',
+        'dev@logicq.io',
+        'pratik.thora@sanjivani.edu.in',
+        'security@logicq.io',
+        'faculty@logicq.io',
       ];
       return adminEmails.includes(email.toLowerCase());
     }
@@ -2833,12 +2838,16 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
     expect(securityRulesDoc).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
 
-    // Both files must declare isAdmin() recognizing custom claim role == 'ADMIN' or explicit admin emails
     expect(firestoreRules).toContain("request.auth.token.get('role', '') == 'ADMIN'");
     expect(firestoreRules).toContain("'admin@logicq.io'");
+    expect(firestoreRules).toContain("'admin@sanjivani.edu.in'");
     expect(firestoreRules).toContain("'logicq1304@gmail.com'");
     expect(firestoreRules).toContain("'ipworker1908@gmail.com'");
     expect(firestoreRules).toContain("'ipverse1918@gmail.com'");
+    expect(firestoreRules).toContain("'logicqarena@gmail.com'");
+    expect(firestoreRules).toContain("'dev@logicq.io'");
+    expect(firestoreRules).toContain("'faculty@logicq.io'");
+    expect(firestoreRules).toContain('allow list: if isFaculty() || isAdmin() || isAuthenticated();');
 
     expect(firestoreRules).toContain('name.size() <= 60');
     expect(securityRulesDoc).toContain('name.size() <= 60');

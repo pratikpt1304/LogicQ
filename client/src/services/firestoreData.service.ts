@@ -3524,20 +3524,24 @@ export class FirestoreDataService {
         }
       };
 
-      try {
-        const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
-        enrolledSnap.forEach((d) => {
-          const sData = d.data();
-          if (sData && !FirestoreDataService.isPurgedStudent(sData)) {
-            const item = { id: d.id, ...sData };
-            if (sData.sectionId) addEnrolledRecord(sData.sectionId, item);
-            if (sData.joinCode) addEnrolledRecord(sData.joinCode, item);
-            if (sData.sectionName) addEnrolledRecord(sData.sectionName, item);
-            if (sData.subject) addEnrolledRecord(sData.subject, item);
+      if (auth.currentUser) {
+        try {
+          const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
+          enrolledSnap.forEach((d) => {
+            const sData = d.data();
+            if (sData && !FirestoreDataService.isPurgedStudent(sData)) {
+              const item = { id: d.id, ...sData };
+              if (sData.sectionId) addEnrolledRecord(sData.sectionId, item);
+              if (sData.joinCode) addEnrolledRecord(sData.joinCode, item);
+              if (sData.sectionName) addEnrolledRecord(sData.sectionName, item);
+              if (sData.subject) addEnrolledRecord(sData.subject, item);
+            }
+          });
+        } catch (enrErr: any) {
+          if (enrErr?.code !== 'permission-denied') {
+            console.warn('enrolled_students pre-fetch notice:', enrErr);
           }
-        });
-      } catch (enrErr) {
-        console.warn('enrolled_students pre-fetch notice:', enrErr);
+        }
       }
 
       // Also scan users collection for students enrolled in sections (Admin/Faculty only)
@@ -3675,8 +3679,10 @@ export class FirestoreDataService {
           FirestoreDataService.saveSectionToFirestore(sec).catch(() => {});
         }
       }
-    } catch (err) {
-      console.warn('getSectionsFromFirestore error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('getSectionsFromFirestore error:', err);
+      }
     }
 
     // Clean out LQ-IMTC and demo sections
@@ -5575,8 +5581,10 @@ export class FirestoreDataService {
         localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(tests));
       } catch {}
       return tests;
-    } catch (err) {
-      console.warn('Failed to fetch assessment tests from Firestore, using local fallback:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Failed to fetch assessment tests from Firestore, using local fallback:', err);
+      }
       try {
         const local = localStorage.getItem('logicq_assessment_tests_backup_v1');
         if (!local) return [];
