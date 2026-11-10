@@ -5,8 +5,8 @@
 <h1 align="center">LogicQ</h1>
 
 <p align="center">
-  <strong>Institutional-Grade C Programming Mastery, Sandboxed GCC Judge & Continuous Assessment Platform</strong><br>
-  <em>Engineered for Higher Education • ISO C11 Sandboxed Evaluation • Anti-Cheating Telemetry • Apple-Grade Minimalist UX</em>
+  <strong>Institutional-Grade C Programming Mastery, Sandboxed GCC 14 Judge & Continuous Internal Evaluation Platform</strong><br>
+  <em>Engineered for Higher Education • ISO C11 Sandboxed Evaluation • Multi-Signal Anti-Cheating Telemetry • 10-Second AI Viva Voce • Apple-Grade Minimalist UX</em>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://logicq-bitwiseclub.onrender.com/api/health"><img src="https://img.shields.io/badge/Render_API-Online_200_OK-8B9BFF?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
   <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v41_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
   <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-53%2F53_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
-  <a href="docs/assessment/GAP_ANALYSIS.md"><img src="https://img.shields.io/badge/Assessment_Engine-Anti--Cheating_Active-emerald?style=for-the-badge&logo=checkmarx&logoColor=white" alt="Assessment Verification" /></a>
+  <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/AI_Viva-Gemini_2.5_Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="Gemini Viva" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white" alt="Security Policy" /></a>
 </p>
 
@@ -22,11 +22,11 @@
 
 ## 📌 Executive Overview
 
-**LogicQ** is an enterprise-grade competitive programming, coursework mastery, and institutional continuous evaluation platform designed from the ground up for university computer science and undergraduate engineering departments (deployed for **Sanjivani University**, Integrated M.Tech / First Year Computer Science).
+**LogicQ** is a high-concurrency competitive programming, coursework progression, and institutional continuous evaluation platform designed from the ground up for university computer science and engineering departments (deployed for **Sanjivani University**, Integrated M.Tech / First Year Computer Science).
 
-It combines **Apple-grade minimalist UI** with **strict institutional-grade exam proctoring**, anti-collusion randomized question distribution, sandboxed GCC 14 compilation, and automated real-time grading.
+It integrates **Apple-grade minimalist human interface design** with **institutional-grade exam proctoring**, anti-collusion randomized question distribution, sandboxed GCC 14 compilation, and automated real-time grading with instantaneous feedback.
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                     LOGICQ ECOSYSTEM                                         │
 ├──────────────────────────────────────────────┬───────────────────────────────────────────────┤
@@ -35,94 +35,55 @@ It combines **Apple-grade minimalist UI** with **strict institutional-grade exam
 ├──────────────────────────────────────────────┼───────────────────────────────────────────────┤
 │ • 100 Hand-Curated Progressive C Topics      │ • Anti-Cheating PRN Deterministic Subsetting  │
 │ • 4 Core Modules (25 Topics Each)            │ • Adjacent Lab Seat Zero-Overlap Guarantee    │
-│ • Sequential Question Unlock Gating          │ • Excel Question Pool Importer (.xlsx/.csv)   │
-│ • Interactive Syntax Tip Reference Box       │ • 2 Visible + 1 Server Hidden Test Case       │
-│ • Custom Stdin & Real-Time GCC Verdicts      │ • Fullscreen Lockdown & Focus Loss Telemetry  │
-│ • Portal-Powered True Fullscreen Studio      │ • Continuous CIE Coursework (80 Questions)    │
-│ • Zero Penalty, Unlimited Practice Attempts  │ • Real-Time Gradebook (A+, A, B, Qualified)   │
+│ • Sequential Question Unlock Gating          │ • 10-Second Rapid-Fire AI Viva Voce (Gemini)  │
+│ • Interactive Syntax Reference System        │ • Fullscreen Enforcement & Incident Logging   │
+│ • Custom Stdin & Real-Time GCC Verdicts      │ • Continuous CIE Evaluation (80 Questions)    │
+│ • Portal-Powered True Fullscreen Studio      │ • Time-Based Scoring (10m / 20m / 30m)        │
+│ • Zero Penalty, Unlimited Practice Attempts  │ • Tamper-Evident QR-Verifiable PDF Reports    │
 └──────────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🍏 What's New: Apple-Grade Minimalist Experience
+## 🌟 Key Platform Capabilities
 
-Designed according to modern Apple Human Interface Guidelines (HIG) with zero-clutter, frosted glass styling, and low-friction 1-click flows:
-- **Zero Gamified Streak Clutter**: Completely removed arbitrary streaks across student profile, leaderboard, and activity radars. Replaced with genuine academic indicators:
-  - 🎯 **Curriculum Progress**: Actual completion rate (`0% - 100%`) across 100 progressive C topics.
-  - 🏆 **Total Verified Points**: Earned strictly from genuine GCC-evaluated AC submissions.
-  - 📈 **Campus Standing**: Deterministic institutional percentile & rank standing.
-  - ✅ **Problems Solved**: Exact count of passing test suites.
-- **Apple System Settings Sheet (`/profile`)**:
-  - Modal redesigned with Apple System Settings grouped card layout.
-  - Instant inspection of Academic Identity: Verified PRN, Bound Institutional Email (`@sanjivani.edu.in`), Department, Academic Year, and OTP-protected Password Reset.
-- **1-Click Learning Analytics Navigation (`/analytics`)**:
-  - Promoted directly to the top desktop Navbar and mobile bottom navigation bar.
-  - Live inspection of academic marks, compiler verdicts, behavioral integrity telemetry, and printable assessment reports.
-- **Streamlined Practice Arena & Lab Internal (`/practice` & `/lab-internal`)**:
-  - Removed locked preview clutter and distraction cards.
-  - 100 progressive C programming challenges across 4 structured modules with Monaco IDE workspace and instant compiler feedback.
-- **Unified Academic Section Console (`/faculty/sections`)**:
-  - 1-click drawer modal with 4 segmented views:
-    1. **📊 Report**: Real-time aggregated active learners, practical mastery, and pass rate.
-    2. **👥 Student Roster**: Natural ascending PRN sort (`1001` → `1124`), bound profile email verification (`BOUND` vs `UNCLAIMED`).
-    3. **🏆 Score Gradebook**: 100% genuine marks based on verified `ACCEPTED` submissions.
-    4. **💻 Submissions**: Instant filterable audit log of live student code attempts.
-- **Chronological Question Bank (`/faculty/questions`)**:
-  - Sorted by creation timestamps with relative indicators (`Just now`, `Yesterday`) and `NEW` status badges.
-- **Unified Student Deep-Dive & Source Code Vault (`/admin` -> Students)**:
-  - Consolidates answer inspection directly inside the student card deep-dive modal, eliminating navigation clutter.
-  - **🔬 Lab Internal Assessments**: Inspect submitted C code (GCC 14), compilation output, test case verdicts, and proctoring indices.
-  - **💻 Practice Solutions**: Live view of all solved coding challenges, points awarded, and syntax-highlighted solutions with 1-click Copy Code.
-  - **⚙️ Account Security & Moderation**: Hardware device binding reset (max 2 devices: Laptop & Mobile), Reset Password to PRN, Student Account Suspension/Ban, and complete Unregister & Purge with zero trace.
-- **Cross-Device Integrity & Proctoring Telemetry Sync**:
-  - Tab switches and clipboard paste bursts synchronously persist to Cloud Firestore (`cohort_progress/{prn}/drafts/proctoring_telemetry`).
-  - Seamlessly syncs between mobile phone, laptop, and admin consoles with real-time zero-drift integrity indexing.
-- **Silent Judge Session Auto-Recovery**:
-  - Background JWT auto-renewal ensures students never face "Session Expired" interruptions during live lab practice or exam submissions.
+### 1. 🎓 Continuous Internal Evaluation (CIE 20-Mark Scale)
+- **80 Progressive Coursework Experiments**: Divided into 4 sequential modules (20 questions per module).
+- **Automated GCC 14 Evaluation**: Evaluates solutions against 2 visible test cases and 1 hidden stress test case.
+- **Deterministic Scaling**:
+  $$\text{CIE Score} = \frac{\text{Solved Questions}}{80} \times 20.0 = \text{Solved Questions} \times 0.25$$
+- **Time-Based Scoring Policy**:
+  - 🟢 **Easy Problems**: 10 Minutes limit
+  - 🟡 **Medium Problems**: 20 Minutes limit
+  - 🔴 **Hard Problems**: 30 Minutes limit
+  - **On-Time Submission**: 100% Credit ($1.0\text{ M}$ Academic / $0.25\text{ M}$ CIE).
+  - **Late Submission**: 50% Credit ($0.5\text{ M}$ Academic / $0.125\text{ M}$ CIE).
 
 ---
 
-## 🛡️ Anti-Cheating & Deterministic Subsetting Engine
-
-For university lab examinations with 140+ students sitting in close physical proximity, LogicQ guarantees **Anti-Collusion Subsetting**:
-
-```mermaid
-flowchart LR
-    Pool["Question Pool<br/>(10-30 Questions via Excel or Syllabus)"]
-    
-    subgraph StrideDistributor ["PRN Deterministic Stride Distributor"]
-        S1["Student 1 (PRN 1001)<br/>Lab Seat A"]
-        S2["Student 2 (PRN 1002)<br/>Lab Seat B"]
-        S3["Student 3 (PRN 1003)<br/>Lab Seat C"]
-    end
-    
-    Pool -->|Offset 0..1| S1
-    Pool -->|Offset 2..3| S2
-    Pool -->|Offset 4..5| S3
-    
-    S1 -.->|Zero Overlap| S2
-    S2 -.->|Zero Overlap| S3
-```
-
-- **Questions Per Student Configuration**: Faculty can set the exact number of questions assigned to each student (default: `2`).
-- **Mathematical Stride Offset**: Subsets are calculated deterministically via `startIndex = (studentRollNumber * targetCount) % totalPool`.
-- **Zero Neighbor Overlap**: Adjacent lab seats (e.g. Roll `1001`, `1002`, `1003`) never receive the same problems.
-- **Idempotent & Crash-Resilient**: If a student refreshes their browser, loses power, or switches machines, their assigned subset remains strictly identical.
+### 2. ⚡ 10-Second Rapid-Fire AI Viva Voce
+- **Trigger**: Automatically engages on every second consecutive correct submission (#2, #4, #6...).
+- **Powered by Gemini 2.5 Flash**: Analyzes the student's actual submitted C code and generates an ultra-concise 6–10 word comprehension question testing their direct recall (e.g., *"Which variable controls your loop iteration?"* or *"What value does main return?"*).
+- **10-Second Strict Timer**: Animated countdown with auto-submission at $0\text{s}$.
+- **Instant 1-2 Word Input**: Students answer directly in 1–2 words (`i`, `0`, `%d`, `sum`, `while`) and press `Enter` to submit.
+- **Fail-Safe Deterministic Fallback**: Automatic multi-signal keyword analyzer ensures seamless operation even during high latency or offline events.
 
 ---
 
-## 📊 Excel Question Upload & Template Builder
+### 3. 🛡️ Multi-Signal Behavioral Proctoring
+- **Anti-Collusion Subsetting**: Mathematical stride offset guarantees adjacent lab seats (Roll `1001`, `1002`, `1003`) never receive overlapping question sets.
+- **Monaco Editor Sandbox**: Copy-paste bursts from outside sources are strictly intercepted and logged.
+- **Focus Loss & Fullscreen Monitoring**: Tab switches and fullscreen exit transitions are tracked in real-time with full incident timestamps.
+- **Dual-Part University Reports**:
+  - **Part A**: Code correctness, GCC compiler accuracy, and on-time/late progression.
+  - **Part B**: Behavioral proctoring trail, keystroke dynamics (CPM), and AI viva score.
 
-Faculty can publish complete lab tests in seconds without manual copy-pasting:
-- **1-Click Template Download**: Generates pre-formatted `LogicQ_Test_Questions_Template.xlsx` directly from the browser using SheetJS.
-- **Smart Spreadsheet Parser**: Automatically maps columns:
-  - `Title`, `Topic`, `Difficulty` (`EASY`, `MEDIUM`, `HARD`)
-  - `Description` (Full Markdown and code snippets supported)
-  - `SampleInput`, `SampleOutput` (Visible to students during the test)
-  - `HiddenInput`, `HiddenOutput` (Evaluated securely server-side)
-  - `Points` (Default: 10 marks per question)
-- **Live Preview & Pool Management**: Inspect imported test cases, remove unwanted questions with one click, and see pool totals before publishing.
+---
+
+### 4. 🍏 Apple-Grade Minimalist UI & System Epoch
+- **Distraction-Free Workspace**: Monaco C11 IDE with collapsible execution dock, auto-saved drafts, and real-time syntax references.
+- **System Launch Epoch**: Built-in global launch epoch (`logicq_clean_launch_2026_11_10_v2`) flushes stale browser local storage and sessions automatically across all devices.
+- **Direct Student Deep-Dive Vault**: Admin modal for hardware device reset (max 2 devices: laptop & mobile), one-click PRN password reset, and full source code inspection.
 
 ---
 
@@ -132,26 +93,25 @@ Faculty can publish complete lab tests in seconds without manual copy-pasting:
 flowchart TD
     subgraph ClientLayer ["Client Experience Tier (React 18 + TypeScript + Monaco + Tailwind)"]
         PracticeHub["Topic Practice Hub (/practice)<br/>100 Topics • Fullscreen Studio • Custom Stdin"]
-        LabInternal["Lab Internal Arena (/lab-internal)<br/>Sequential Gating • Time Scoring • Rules Agreement"]
-        ExamProctor["Smart Exam Engine (/student/tests)<br/>Anti-Cheating Subsetting • Clipboard Lock • Telemetry"]
-        FacultyPortal["Faculty Console (/faculty/sections)<br/>Apple-Grade Drawer • Real Roster • Verified Scores"]
-        AdminPortal["SuperAdmin Console (/admin)<br/>Platform Health • Natural PRN Sort • System Analytics"]
+        LabInternal["Lab Internal Arena (/lab-internal)<br/>Sequential Gating • Time Scoring • CIE Marks"]
+        ExamProctor["Smart Exam Engine (/student/tests)<br/>Anti-Cheating Subsetting • Clipboard Lock • 10s Viva"]
+        FacultyPortal["Faculty Console (/faculty/sections)<br/>Section Rosters • Gradebook • Live Code Stream"]
+        AdminPortal["SuperAdmin Console (/admin)<br/>Platform Health • Student Vault • PDF Reports"]
     end
 
     subgraph FirebaseCloud ["Google Cloud & Firebase Edge"]
         Hosting["Firebase Edge CDN (Brotli, HSTS, Global Cache)"]
-        AuthService["Firebase Authentication (Google & Institutional Email)"]
-        FirestoreDB["Cloud Firestore (Real-Time Sync, 52 Security Rules)"]
-        CloudStorage["Cloud Storage (Audit Proofs & Flowchart Assets)"]
+        AuthService["Firebase Authentication (Institutional PRN & Email)"]
+        FirestoreDB["Cloud Firestore (Real-Time Sync, 53 Security Rules)"]
+        CloudStorage["Cloud Storage (Audit Proofs & PDF Reports)"]
     end
 
     subgraph BackendJudge ["Core API & Sandboxed Judge (Node.js / Express / Docker)"]
         ExpressAPI["Express API Server (Render Linux Container)"]
         PrismaClient["Prisma ORM (PostgreSQL Production / SQLite Dev)"]
         JudgeEngine["ISO C11 Sandboxed Judge (-Wall -Wextra -O2 -std=c11)"]
-        WinSandbox["Win32 Job Object Runner (2.0s CPU, 128MB RAM Hard Limits)"]
-        LinuxSandbox["POSIX Fork/Exec Sandbox with Resource Quotas"]
-        TelemetryEngine["Behavioral Telemetry Service (Code Bursts, Solution Curve)"]
+        GeminiEngine["Google Gemini 2.5 Flash (10s Rapid AI Viva)"]
+        TelemetryEngine["Behavioral Telemetry Service (Focus Loss, Keystrokes)"]
     end
 
     PracticeHub -->|Edge Assets| Hosting
@@ -162,13 +122,11 @@ flowchart TD
     PracticeHub -->|Real-Time Solved State| FirestoreDB
     PracticeHub -->|Run & Submit Code| ExpressAPI
 
-    LabInternal -->|Progress & Telemetry| ExpressAPI
+    ExamProctor -->|AI Viva Challenge| GeminiEngine
     ExamProctor -->|Behavioral Snapshots| TelemetryEngine
 
     ExpressAPI -->|Database Queries| PrismaClient
     ExpressAPI -->|Compile & Execute| JudgeEngine
-    JudgeEngine -->|Windows Runner| WinSandbox
-    JudgeEngine -->|Linux Runner| LinuxSandbox
 ```
 
 ---
@@ -179,64 +137,58 @@ flowchart TD
 | :--- | :--- | :---: | :--- |
 | **Frontend Framework** | React | `18.3.1` | Reactive component architecture |
 | **Type System** | TypeScript | `5.6.2` | Complete end-to-end type safety |
-| **Build System** | Vite | `5.4.21` | Optimized bundle splitting and fast HMR |
+| **Build Tool** | Vite | `5.4.21` | Rollup bundle splitting and fast HMR |
 | **Styling** | Tailwind CSS | `3.4.11` | Custom WCAG AA compliant theme variables |
 | **Code Editor** | Monaco Editor | `0.57.0` | Browser-based ISO C11 IDE with syntax intelligence |
 | **Spreadsheet Engine** | SheetJS (xlsx) | `0.18.5` | Client-side Excel question import and template generation |
 | **Backend Framework** | Node.js / Express | `20.x` / `4.21.0` | High-throughput REST API and judge runner |
 | **ORM & Database** | Prisma ORM | `5.22.0` | PostgreSQL (Production) / SQLite (Dev) |
-| **Cloud Database** | Cloud Firestore | `v2` | Real-time state store with 52 security rules |
+| **Cloud Database** | Cloud Firestore | `v2` | Real-time state store with 53 security rules |
 | **Cloud Hosting** | Firebase Hosting | `v15.x` | Global CDN, HTTP/2, custom security headers |
-| **Service Worker** | Workbox PWA Shell | `v41` | Prompt update cache with zero-data-loss policy |
-| **Compiler Toolchain** | GCC / MinGW-w64 | `13.2+` | Native ISO C11 compiler sandbox |
+| **AI Viva Engine** | Gemini 2.5 Flash | `v1beta` | 10-second rapid conceptual code verification |
+| **Compiler Toolchain** | GCC / MinGW-w64 | `14.2+` | Native ISO C11 compiler sandbox |
 | **Testing Harness** | Vitest | `2.1.9` | Automated unit, E2E, and security tests |
 
 ---
 
-## 📁 Repository Directory Structure
+## 📁 Clean Repository Structure
 
-```
+```text
 LogicQ/
-├── client/                                 # Frontend Vite + React 18 Application
-│   ├── public/
-│   │   ├── sw.js                           # Service Worker v41 (App Shell Caching)
-│   │   ├── brand/                          # SVG Brand Logos & Icons
-│   │   └── manifest.webmanifest            # PWA Manifest
+├── client/                                 # Frontend React 18 + TypeScript + Vite Application
+│   ├── public/                             # PWA Manifest, Icons, and Assets
 │   ├── src/
-│   │   ├── api/
-│   │   │   ├── client.ts                   # Axios client with deduplication & JWT
-│   │   │   └── fallbackEngine.ts           # Resilient offline/mock router & exam handlers
+│   │   ├── api/                            # Axios client and fallback engine
 │   │   ├── components/                     # Apple-grade UI components
-│   │   ├── data/
-│   │   │   └── c-programming-cohort.data.ts# Sanjivani University 116-student verified cohort
-│   │   ├── pages/
-│   │   │   ├── DashboardPage.tsx           # Minimalist Admin & Student Dashboard
-│   │   │   ├── faculty/
-│   │   │   │   ├── SectionManagementPage.tsx # 4-Segmented Academic Section Console
-│   │   │   │   ├── CreateTestPage.tsx      # Test Builder with Excel Upload & Anti-Cheating
-│   │   │   │   └── QuestionBankPage.tsx    # Chronological Question Bank with Timestamps
-│   │   │   └── exam/
-│   │   │       ├── StudentTestListPage.tsx # Student Assigned Tests with Unique Slices
-│   │   │       └── ExamWorkspacePage.tsx   # Proctored Exam IDE & Live Test Runner
-│   │   ├── services/
-│   │   │   ├── firestoreData.service.ts    # Authoritative Firestore Student Data Layer
-│   │   │   └── realtimeSync.service.ts     # BroadcastChannel & Cross-Tab Synchronizer
-│   │   └── utils/
-│   │       └── testQuestionDistributor.ts  # Deterministic anti-cheating question subsetter
-│   └── vite.config.ts                      # Vite build & bundle chunking config
+│   │   │   ├── admin/                      # Admin analytics, reports, and deep-dive modal
+│   │   │   ├── editor/                     # Monaco code editor dock
+│   │   │   └── exam/                       # 10-second AI Viva Modal and exam components
+│   │   ├── data/                           # Practice modules, topics, and problem banks
+│   │   ├── pages/                          # Application routes and views
+│   │   ├── services/                       # Firestore sync, PDF report generator, drafts
+│   │   └── utils/                          # Question distributor and helper utilities
+│   └── vite.config.ts                      # Bundler configuration
 ├── server/                                 # Backend Express API & Sandbox Judge
-│   ├── prisma/                             # Database schema & migrations
+│   ├── prisma/                             # Database schema and migrations
 │   ├── src/
-│   │   ├── controllers/                    # Auth, Practice, Exam, Section, Viva
-│   │   ├── judge/                          # Sandboxed GCC compilation runners
-│   │   ├── middleware/                     # JWT authentication, RBAC guards
-│   │   └── routes/                         # REST endpoints
+│   │   ├── controllers/                    # Auth, Practice, Smart-Exam, Mini-Project
+│   │   ├── judge/                          # GCC sandboxed compilation runners
+│   │   ├── routes/                         # Express API route declarations
+│   │   └── services/                       # AI Viva service, analytics, proctoring
 │   └── tests/                              # Automated Vitest test suites
-├── docs/                                   # Specifications, Rules & Gap Analysis
-├── firestore.rules                         # 52 Deny-by-default Firestore rules
+├── docs/                                   # Core architecture, specs, and security rules
+│   ├── ARCHITECTURE.md                     # Platform architecture specification
+│   ├── MASTER_SPEC.md                      # Academic examination master guidelines
+│   ├── DEPLOYMENT.md                       # Deployment guide for Firebase & Render
+│   └── SECURITY_RULES.md                   # Cloud Firestore security audit rules
+├── scripts/                                # Maintenance and build guard scripts
+│   ├── verify-no-localstorage-primary.mjs  # Zero-localStorage security build guard
+│   ├── scan-secrets.mjs                    # Secret scanner
+│   └── generate-pwa-icons.mjs              # Icon generation utility
+├── firestore.rules                         # 53 Deny-by-default Firestore rules
 ├── storage.rules                           # Cloud Storage security rules
-├── firebase.json                           # Firebase Hosting & Firestore configs
-└── package.json                            # Monorepo workspace configuration
+├── firebase.json                           # Firebase Hosting and Firestore configuration
+└── package.json                            # Workspace configuration
 ```
 
 ---
@@ -269,10 +221,9 @@ LogicQ/
    cp .env.example server/.env
    ```
 
-4. **Initialize Database & Seed Curated Problems**:
+4. **Initialize Database & Prisma**:
    ```bash
    npm run db:push
-   npm run db:seed
    ```
 
 5. **Start Development Servers**:
@@ -283,19 +234,19 @@ LogicQ/
 
 ---
 
-## 🧪 Verification & Build Guards
+## 🧪 Build Guards & Verification
 
-Run the automated verification suite before committing:
+Run the verification suite to ensure integrity:
 
 ```bash
-# 1. Verify Firestore Security Rules (52 passing tests)
-npm --prefix server test tests/firestore-security-rules.test.ts
-
-# 2. Verify Build Guard (Ensures Zero LocalStorage Student PII Leaks)
+# 1. Verify Build Guard (Ensures Zero LocalStorage Student PII Leaks)
 npm --prefix client run build
 
-# 3. Verify End-to-End Institutional Life Cycle
-npm --prefix server test tests/e2e-institutional-lifecycle.test.ts
+# 2. Verify Firestore Security Rules
+npx firebase-tools deploy --only firestore:rules --project logicq-clanguage
+
+# 3. Deploy Frontend Hosting to Firebase Edge
+npx firebase-tools deploy --only hosting --project logicq-clanguage
 ```
 
 ---
@@ -304,13 +255,11 @@ npm --prefix server test tests/e2e-institutional-lifecycle.test.ts
 
 - **Frontend Application (PWA v41)**: Deployed on **Firebase Hosting** with global edge CDN.
   - **Live Portal**: [https://logicq-clanguage.web.app](https://logicq-clanguage.web.app)
-  - **Practice Arena (100 Topics)**: [https://logicq-clanguage.web.app/practice](https://logicq-clanguage.web.app/practice)
   - **Lab Internal (CIE Coursework)**: [https://logicq-clanguage.web.app/lab-internal](https://logicq-clanguage.web.app/lab-internal)
+  - **Practice Arena (100 Topics)**: [https://logicq-clanguage.web.app/practice](https://logicq-clanguage.web.app/practice)
   - **Student Exam Hub**: [https://logicq-clanguage.web.app/student/tests](https://logicq-clanguage.web.app/student/tests)
   - **Learning Analytics**: [https://logicq-clanguage.web.app/analytics](https://logicq-clanguage.web.app/analytics)
-  - **Submission History**: [https://logicq-clanguage.web.app/history](https://logicq-clanguage.web.app/history)
   - **Faculty Sections Console**: [https://logicq-clanguage.web.app/faculty/sections](https://logicq-clanguage.web.app/faculty/sections)
-  - **Faculty Test Creator**: [https://logicq-clanguage.web.app/faculty/tests](https://logicq-clanguage.web.app/faculty/tests)
 - **Backend API & Judge Runtime**: Deployed on **Render.com** via Docker.
   - **Healthcheck**: [https://logicq-bitwiseclub.onrender.com/api/health](https://logicq-bitwiseclub.onrender.com/api/health)
 
@@ -321,17 +270,3 @@ npm --prefix server test tests/e2e-institutional-lifecycle.test.ts
 - **Copyright**: © 2026 LogicQ / Sanjivani University. All rights reserved.
 - **Lead Architect & Developer**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304))
 - **Institutional Partner**: Sanjivani University Department of Computer Engineering
-
----
-
-## 🚀 Recent Architectural Enhancements
-
-- **Direct Student Inspection Modal & Answer Bank Consolidation**:
-  - Integrated the full submission vault (Lab Internal assessments & 100 Practice Solutions) directly into the student inspection sheet (`StudentDeepDiveModal`).
-  - Consolidated student administration: Ban/Unban, Hardware Device Authorization (2-device reset), Password Reset to PRN, and zero-trace purge all in one unified modal.
-  - Eliminated redundant navigation clutter by retiring the standalone Answer Bank tab.
-- **Judge Soft-Auth & Resilient Session Auto-Recovery**:
-  - Upgraded `/api/submissions/run` with `optionalAuthenticate`, ensuring sandboxed GCC test runs never fail with 401 Unauthorized.
-  - Supported client session tokens (`logicq_sess_`) across backend middleware, eliminating false "session expired" popups and ensuring test outputs accurately match expected outputs in practice and compiler cards.
-- **Defensive Null-Safe Admin Rendering**:
-  - Hardened student name resolution across `AdminStudentsTab`, `AdminIntegrityTab`, and `AdminAnswerBankTab` with safe fallback properties, preventing undefined property slice exceptions.
