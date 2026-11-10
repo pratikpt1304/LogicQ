@@ -42,14 +42,16 @@ class RulesEvaluator {
   static isAdmin(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     if (ctx.auth.token?.role === 'ADMIN') return true;
+    const emailVerified = ctx.auth.token?.email_verified === true;
     const email = ctx.auth.token?.email;
-    if (typeof email === 'string') {
+    if (emailVerified && typeof email === 'string' && email !== '') {
       const adminEmails = [
         'admin@logicq.io',
         'hariprasathset@sanjivani.edu.in',
         'logicq1304@gmail.com',
         'ipworker1908@gmail.com',
         'ipverse1918@gmail.com',
+        'logicqarena@gmail.com',
       ];
       return adminEmails.includes(email.toLowerCase());
     }
@@ -64,9 +66,20 @@ class RulesEvaluator {
   static isFaculty(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     if (RulesEvaluator.isAdmin(ctx)) return true;
+    if (ctx.auth.token?.role === 'FACULTY') return true;
+    const emailVerified = ctx.auth.token?.email_verified === true;
+    const email = ctx.auth.token?.email;
     const role = ctx.auth.token?.role;
-    const isFacultyRole = role === 'FACULTY' || role === 'TEACHER' || role === 'INSTRUCTOR' || ctx.auth.token?.isFaculty === true;
-    return isFacultyRole && RulesEvaluator.isInstitutionalEmail(ctx.auth.token?.email);
+    if (
+      emailVerified &&
+      typeof email === 'string' &&
+      email !== '' &&
+      RulesEvaluator.isInstitutionalEmail(email) &&
+      (['FACULTY', 'TEACHER', 'INSTRUCTOR'].includes(role) || ctx.auth.token?.isFaculty === true)
+    ) {
+      return true;
+    }
+    return false;
   }
 
   static isOwnerId(ctx: FirestoreRuleContext, id: string): boolean {
@@ -170,7 +183,13 @@ class RulesEvaluator {
   }
 
   static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
-    return true;
+    if (!ctx.auth) return false;
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
+  }
+
+  static evaluateSectionStudentList(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
   }
 
   static isValidSection(data: Record<string, any>): boolean {
@@ -912,27 +931,27 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
   const adminIpWorker: AuthContext = {
     uid: 'admin_ipworker',
-    token: { email: 'ipworker1908@gmail.com' },
+    token: { email: 'ipworker1908@gmail.com', email_verified: true },
   };
 
   const adminLogicQ: AuthContext = {
     uid: 'admin_logicq',
-    token: { email: 'logicq1304@gmail.com' },
+    token: { email: 'logicq1304@gmail.com', email_verified: true },
   };
 
   const adminLogicQUpper: AuthContext = {
     uid: 'admin_logicq_upper',
-    token: { email: 'LOGICQ1304@GMAIL.COM' },
+    token: { email: 'LOGICQ1304@GMAIL.COM', email_verified: true },
   };
 
   const adminIpVerse: AuthContext = {
     uid: 'admin_ipverse',
-    token: { email: 'ipverse1918@gmail.com' },
+    token: { email: 'ipverse1918@gmail.com', email_verified: true },
   };
 
   const adminLogicQIo: AuthContext = {
     uid: 'admin_logicq_io',
-    token: { email: 'admin@logicq.io' },
+    token: { email: 'admin@logicq.io', email_verified: true },
   };
 
   it('CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL', () => {
@@ -2657,7 +2676,7 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(securityRulesDoc).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
 
     // Both files must declare isAdmin() recognizing custom claim role == 'ADMIN' or explicit admin emails
-    expect(firestoreRules).toContain("request.auth.token.role == 'ADMIN'");
+    expect(firestoreRules).toContain("request.auth.token.get('role', '') == 'ADMIN'");
     expect(firestoreRules).toContain("'admin@logicq.io'");
     expect(firestoreRules).toContain("'logicq1304@gmail.com'");
     expect(firestoreRules).toContain("'ipworker1908@gmail.com'");
@@ -2971,9 +2990,9 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.evaluateSectionCreate(invalidSectionCtx)).toBe(false);
 
-    // 5. Section and roster deletion: permitted for all clients (including JWT-authenticated web clients where request.auth is null)
-    expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(true);
+    // 5. Section delete restriction: faculty or admin only
+    expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(false);
     expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(true);
     expect(RulesEvaluator.evaluateSectionStudentDelete(unauthenticatedCtx)).toBe(true);
     expect(RulesEvaluator.evaluateEnrolledStudentDelete(unauthenticatedCtx)).toBe(true);
@@ -3526,6 +3545,147 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // 3. Valid UID matches even when claims are missing
     expect(RulesEvaluator.isOwnerId({ auth: emptyClaimStudent }, 'student_valid_uid')).toBe(true);
+
+    // 4. Empty PRN claim (prn: '') fails isOwnerId
+    const emptyPrnStudent: AuthContext = {
+      uid: 'student_valid_uid',
+      token: {
+        prn: '',
+        email: 'alice@sanjivani.edu.in',
+        email_verified: true,
+      },
+    };
+    expect(RulesEvaluator.isOwnerId({ auth: emptyPrnStudent }, '2026AIMF0001')).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: emptyPrnStudent }, '')).toBe(false);
+  });
+
+  it('UNVERIFIED EMAIL PRIVILEGE ESCALATION PREVENTION & CUSTOM CLAIMS: Hardens isAdmin() and isFaculty()', () => {
+    // 1. Unverified email (email_verified: false) matching an admin address fails isAdmin() and fails section delete / roster list
+    const unverifiedAdminCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'attacker_fake_admin',
+        token: {
+          email: 'admin@logicq.io',
+          email_verified: false,
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isAdmin(unverifiedAdminCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(unverifiedAdminCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentList(unverifiedAdminCtx)).toBe(false);
+
+    const unverifiedGmailAdminCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'attacker_gmail',
+        token: {
+          email: 'logicq1304@gmail.com',
+          email_verified: false,
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isAdmin(unverifiedGmailAdminCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(unverifiedGmailAdminCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentList(unverifiedGmailAdminCtx)).toBe(false);
+
+    // 2. Verified email (email_verified: true) matching an admin address passes isAdmin()
+    const verifiedAdminCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'legit_admin',
+        token: {
+          email: 'admin@logicq.io',
+          email_verified: true,
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isAdmin(verifiedAdminCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(verifiedAdminCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentList(verifiedAdminCtx)).toBe(true);
+
+    const verifiedLogicQArenaCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'legit_arena_admin',
+        token: {
+          email: 'logicqarena@gmail.com',
+          email_verified: true,
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isAdmin(verifiedLogicQArenaCtx)).toBe(true);
+
+    // 3. request.auth.token.role === 'ADMIN' passes isAdmin() even without email
+    const customClaimAdminCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'service_admin_no_email',
+        token: {
+          role: 'ADMIN',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isAdmin(customClaimAdminCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(customClaimAdminCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentList(customClaimAdminCtx)).toBe(true);
+
+    // 4. request.auth.token.role === 'FACULTY' passes isFaculty() even without email (custom token path)
+    const customClaimFacultyCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'service_faculty_no_email',
+        token: {
+          role: 'FACULTY',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isFaculty(customClaimFacultyCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(customClaimFacultyCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentList(customClaimFacultyCtx)).toBe(true);
+
+    // Unverified institutional email with faculty claim fails isFaculty()
+    const unverifiedFacultyCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'unverified_faculty',
+        token: {
+          email: 'teacher@sanjivani.edu.in',
+          email_verified: false,
+          role: 'TEACHER',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isFaculty(unverifiedFacultyCtx)).toBe(false);
+
+    // Verified institutional email with faculty claim passes isFaculty()
+    const verifiedFacultyCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'verified_faculty',
+        token: {
+          email: 'teacher@sanjivani.edu.in',
+          email_verified: true,
+          role: 'TEACHER',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isFaculty(verifiedFacultyCtx)).toBe(true);
+
+    // 5. Empty PRN claim (prn: '') fails isOwnerId
+    const emptyPrnCtx: FirestoreRuleContext = {
+      auth: {
+        uid: 'student_alice',
+        token: {
+          prn: '',
+          email: 'alice@sanjivani.edu.in',
+          email_verified: true,
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.isOwnerId(emptyPrnCtx, '2026AIMF0001')).toBe(false);
+    expect(RulesEvaluator.isOwnerId(emptyPrnCtx, '')).toBe(false);
   });
 });
 

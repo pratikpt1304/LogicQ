@@ -131,12 +131,14 @@ To allow smooth student onboarding directly from the client without compromising
 ### Administrative Authority & Access Invariants (`isAdmin()`)
 
 Administrative privileges are evaluated via the `isAdmin()` helper function. A user is authorized as an administrator if authenticated and either:
-1. Possesses the Firebase Auth custom claim `role == 'ADMIN'` (`request.auth.token.role == 'ADMIN'`).
-2. Has a verified institutional admin email matching one of the designated administrative accounts:
+1. Possesses the Firebase Auth custom claim `role == 'ADMIN'` (`request.auth.token.get('role', '') == 'ADMIN'`).
+2. Has a verified email (`request.auth.token.get('email_verified', false) == true`) matching one of the designated administrative accounts:
    - `admin@logicq.io`
+   - `hariprasathset@sanjivani.edu.in`
    - `logicq1304@gmail.com`
    - `ipworker1908@gmail.com`
    - `ipverse1918@gmail.com`
+   - `logicqarena@gmail.com`
 
 Any user lacking both the `'ADMIN'` role custom claim and a matching institutional email evaluates `isAdmin()` to `false`, denying administrative access across private profiles, error reports, hidden test cases, upload reviews, and administrative audit streams.
 
@@ -179,14 +181,19 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.role == 'ADMIN'
-        || (request.auth.token.email is string && request.auth.token.email.lower() in [
-          'admin@logicq.io',
-          'hariprasathset@sanjivani.edu.in',
-          'logicq1304@gmail.com',
-          'ipworker1908@gmail.com',
-          'ipverse1918@gmail.com'
-        ])
+        request.auth.token.get('role', '') == 'ADMIN'
+        || (
+          request.auth.token.get('email_verified', false) == true
+          && request.auth.token.get('email', '') != ''
+          && request.auth.token.email.lower() in [
+            'admin@logicq.io',
+            'hariprasathset@sanjivani.edu.in',
+            'logicq1304@gmail.com',
+            'ipworker1908@gmail.com',
+            'ipverse1918@gmail.com',
+            'logicqarena@gmail.com'
+          ]
+        )
       );
     }
 
@@ -198,9 +205,13 @@ service cloud.firestore {
 
     function isFaculty() {
       return isAuthenticated() && (
-        isAdmin() || (
-          (request.auth.token.role == 'FACULTY' || request.auth.token.role == 'TEACHER' || request.auth.token.role == 'INSTRUCTOR' || request.auth.token.isFaculty == true)
+        isAdmin()
+        || request.auth.token.get('role', '') == 'FACULTY'
+        || (
+          request.auth.token.get('email_verified', false) == true
+          && request.auth.token.get('email', '') != ''
           && isInstitutionalEmail(request.auth.token.email)
+          && (request.auth.token.get('role', '') in ['FACULTY', 'TEACHER', 'INSTRUCTOR'] || request.auth.token.get('isFaculty', false) == true)
         )
       );
     }
