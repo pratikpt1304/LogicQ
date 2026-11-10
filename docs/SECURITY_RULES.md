@@ -174,6 +174,23 @@ Any user lacking both the `'ADMIN'` role custom claim and a matching institution
   - `list`: Permitted strictly to `sectionOwner(parentSection(sectionId))` (Faculty owner or Admin). Students cannot enumerate peer rosters.
   - `write`: Strictly prohibited to all clients (`allow write: if false;`). Enrolments, CSV imports, join-code redemptions, and removals execute strictly via backend APIs with Firebase Admin SDK.
 
+### Assessment Test Content Leak Prevention & Strict Identifier Ownership Invariants (`assessment_tests`, `assessment_public`, `isOwnerId`, `isStudentOwner`)
+
+- **Strict Identifier Ownership (`isOwnerId(targetId)` & `isStudentOwner(data, identifier)`)**:
+  - `isOwnerId(targetId)` requires authenticated caller, non-empty string identifier (`targetId is string && targetId != ''`), and matches either `targetId == request.auth.uid` or verified PRN custom claim (`request.auth.token.get('prn', '') != '' && targetId == request.auth.token.get('prn', '')`).
+  - `isStudentOwner(data, identifier)` delegates strictly to `isOwnerId(identifier)`.
+  - Non-string or empty string identifiers categorically fail, preventing token fallback bypasses and identifier collision vulnerabilities.
+- **Assessment Test Question & Solution Leak Prevention (`assessment_tests/{testId}`)**:
+  - Contains complete question banks, unit test cases, and hidden test fixtures.
+  - **Read Access (`get`, `list`)**: Strictly restricted to `isFaculty()` (inclusive of `isAdmin()`). Authenticated students are categorically denied read access to prevent advance question and test case leaks.
+  - **Write Access (`create`, `update`)**: Restricted to `isFaculty()` and validated against `isValidAssessmentTest(request.resource.data)`.
+  - **Delete Access (`delete`)**: Strictly restricted to `isAdmin()` (non-admin faculty cannot delete assessments).
+- **Public Assessment Metadata (`assessment_public/{testId}`)**:
+  - Student-facing assessment metadata (e.g., `id`, `title`, `durationMinutes`, `sectionId`, `status`, scheduled window). Absolutely no questions or test cases.
+  - **Read Access (`get`)**: Permitted if `isFaculty()` or if an authenticated student is enrolled in the matching section (`isAuthenticated() && isEnrolled(resource.data.sectionId)`).
+  - **List Access (`list`)**: Restricted to `isFaculty()`.
+  - **Write Access (`create`, `update`, `delete`)**: Blocked to all clients (`allow write: if false;`). Populated strictly by backend services using Firebase Admin SDK.
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -234,6 +251,17 @@ service cloud.firestore {
           && (request.auth.token.get('role', '') in ['FACULTY', 'TEACHER', 'INSTRUCTOR'] || request.auth.token.get('isFaculty', false) == true)
         )
       );
+    }
+
+    function isOwnerId(targetId) {
+      return isAuthenticated() && targetId is string && targetId != '' && (
+        targetId == request.auth.uid ||
+        (request.auth.token.get('prn', '') != '' && targetId == request.auth.token.get('prn', ''))
+      );
+    }
+
+    function isStudentOwner(data, identifier) {
+      return isOwnerId(identifier);
     }
 
     function uidNotModified() {
@@ -820,9 +848,17 @@ service cloud.firestore {
     }
 
     match /assessment_tests/{testId} {
-      allow read: if true;
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentTest(request.resource.data);
-      allow delete: if true;
+      // Contains full questions and test cases: strictly readable and manageable by faculty/admin only
+      allow get, list: if isFaculty();
+      allow create, update: if isFaculty() && isValidAssessmentTest(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Student-facing metadata only: title, window, duration, sectionId, status; no questions or test cases
+    match /assessment_public/{testId} {
+      allow get: if isFaculty() || (isAuthenticated() && isEnrolled(resource.data.sectionId));
+      allow list: if isFaculty();
+      allow write: if false; // Server Admin SDK only
     }
   }
 }
@@ -835,7 +871,7 @@ service cloud.firestore {
 All cheating permutations and attack vectors in [`server/tests/firestore-security-rules.test.ts`](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/server/tests/firestore-security-rules.test.ts) cover:
 
 ```
- ✓ tests/firestore-security-rules.test.ts (26 tests)
+ ✓ tests/firestore-security-rules.test.ts (27 tests)
    ✓ CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL
    ✓ CHEAT ATTEMPT 2: Student attempts to elevate their own role to ADMIN -> MUST FAIL
    ✓ CHEAT ATTEMPT 3: Student attempts to read hidden test cases -> MUST FAIL
@@ -865,5 +901,6 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ SESSION EVENTS: Student creates and reads own session events with valid reason codes, but cannot forge events for other users or invalid reason codes -> MUST SUCCEED / FAIL
    ✓ SESSION EVENTS: Admin reads all session events, while students cannot read other students' session events -> MUST SUCCEED / FAIL
    ✓ SESSION EVENTS: Updates and deletions are blocked for all users (immutable append-only) -> MUST FAIL
+   ✓ ASSESSMENT TEST CONTENT LEAK PREVENTION & STRICT IDENTIFIER OWNERSHIP: Restricts full tests to faculty/admin, allows enrolled students public metadata only, enforces Admin-only delete and strict isOwnerId/isStudentOwner -> MUST SUCCEED / FAIL
 ```
 

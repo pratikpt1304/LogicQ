@@ -82,46 +82,24 @@ class RulesEvaluator {
     return false;
   }
 
-  static isOwnerId(ctx: FirestoreRuleContext, id: string): boolean {
-    if (!ctx.auth) return false;
-    if (typeof id !== 'string' || id === '') return false;
-    const uid = ctx.auth.uid;
-    const prn = typeof ctx.auth.token?.prn === 'string' ? ctx.auth.token.prn : '';
-    const email = typeof ctx.auth.token?.email === 'string' ? ctx.auth.token.email : '';
-    const emailVerified = ctx.auth.token?.email_verified === true;
+  static isAuthenticated(ctx: FirestoreRuleContext): boolean {
+    return ctx.auth !== null && ctx.auth !== undefined;
+  }
+
+  static isOwnerId(ctx: FirestoreRuleContext, targetId: any): boolean {
+    if (!RulesEvaluator.isAuthenticated(ctx)) return false;
+    if (typeof targetId !== 'string' || targetId === '') return false;
+    const uid = ctx.auth!.uid;
+    const prn = typeof ctx.auth!.token?.prn === 'string' ? ctx.auth!.token.prn : '';
 
     return (
-      id === uid ||
-      (prn !== '' && id === prn) ||
-      (email !== '' && emailVerified && id.toLowerCase() === email.toLowerCase())
+      targetId === uid ||
+      (prn !== '' && targetId === prn)
     );
   }
 
-  static isStudentOwner(ctx: FirestoreRuleContext, data: Record<string, any>, identifier: string): boolean {
-    if (!ctx.auth) return false;
-    const authUid = ctx.auth.uid;
-    const authPrn = typeof ctx.auth.token?.prn === 'string' ? ctx.auth.token.prn : undefined;
-    const authEmail = typeof ctx.auth.token?.email === 'string' ? ctx.auth.token.email.toLowerCase() : undefined;
-
-    if (
-      identifier === authUid ||
-      (authPrn && identifier === authPrn) ||
-      (authEmail && identifier.toLowerCase() === authEmail)
-    ) {
-      return true;
-    }
-
-    if (data && typeof data === 'object') {
-      if (data.userId === authUid || data.uid === authUid || data.studentId === authUid) return true;
-      if (authUid === data.prn || authUid === data.studentPrn) return true;
-      if (authPrn && (data.prn === authPrn || data.studentPrn === authPrn)) return true;
-      if (authEmail) {
-        if (typeof data.email === 'string' && authEmail === data.email.toLowerCase()) return true;
-        if (typeof data.studentEmail === 'string' && authEmail === data.studentEmail.toLowerCase()) return true;
-        if (typeof data.boundEmail === 'string' && authEmail === data.boundEmail.toLowerCase()) return true;
-      }
-    }
-    return false;
+  static isStudentOwner(ctx: FirestoreRuleContext, _data: any, identifier: any): boolean {
+    return RulesEvaluator.isOwnerId(ctx, identifier);
   }
 
   static evaluateCohortProgressGet(ctx: FirestoreRuleContext, prn: string): boolean {
@@ -660,6 +638,76 @@ class RulesEvaluator {
   }
 
   static evaluateAssessmentSubmissionWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static isValidAssessmentTest(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'title', 'sectionTarget', 'sectionId', 'unitTarget', 'durationMinutes',
+      'totalMarks', 'status', 'questions', 'questionCount', 'antiCheatingRotation',
+      'randomiseQuestions', 'lockOnSubmit', 'createdAt', 'updatedAt', 'difficultyProfile',
+      'selectionMode', 'scheduledAt', 'deadline', 'activeStudents', 'totalEnrolled',
+      'suspiciousEvents', 'section', 'moduleId', '_count'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    if (typeof data.id !== 'string' || data.id.length > 128) return false;
+    if (typeof data.title !== 'string' || data.title.length < 1 || data.title.length > 200) return false;
+    if ('sectionTarget' in data && (typeof data.sectionTarget !== 'string' || data.sectionTarget.length > 100)) return false;
+    if ('sectionId' in data && (typeof data.sectionId !== 'string' || data.sectionId.length > 100)) return false;
+    if (typeof data.status !== 'string' || data.status.length > 50) return false;
+    if ('durationMinutes' in data && !Number.isInteger(data.durationMinutes)) return false;
+    if ('totalMarks' in data && !Number.isInteger(data.totalMarks)) return false;
+    if ('questions' in data && (!Array.isArray(data.questions) || data.questions.length > 100)) return false;
+    if ('antiCheatingRotation' in data && typeof data.antiCheatingRotation !== 'boolean') return false;
+    if ('randomiseQuestions' in data && typeof data.randomiseQuestions !== 'boolean') return false;
+    if ('lockOnSubmit' in data && typeof data.lockOnSubmit !== 'boolean') return false;
+    if ('difficultyProfile' in data && (typeof data.difficultyProfile !== 'string' || data.difficultyProfile.length > 50)) return false;
+    if ('selectionMode' in data && (typeof data.selectionMode !== 'string' || data.selectionMode.length > 50)) return false;
+    if ('activeStudents' in data && !Number.isInteger(data.activeStudents)) return false;
+    if ('totalEnrolled' in data && !Number.isInteger(data.totalEnrolled)) return false;
+    if ('suspiciousEvents' in data && !Number.isInteger(data.suspiciousEvents)) return false;
+    if ('section' in data && (typeof data.section !== 'object' || data.section === null || Array.isArray(data.section))) return false;
+    if ('moduleId' in data && (typeof data.moduleId !== 'string' || data.moduleId.length > 100)) return false;
+    if ('_count' in data && (typeof data._count !== 'object' || data._count === null || Array.isArray(data._count))) return false;
+    return true;
+  }
+
+  static evaluateAssessmentTestRead(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx);
+  }
+
+  static evaluateAssessmentTestCreate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidAssessmentTest(data);
+  }
+
+  static evaluateAssessmentTestUpdate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidAssessmentTest(data);
+  }
+
+  static evaluateAssessmentTestDelete(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isAdmin(ctx);
+  }
+
+  static evaluateAssessmentPublicRead(
+    ctx: FirestoreRuleContext,
+    enrolledStudents?: Record<string, string[]> | string[]
+  ): boolean {
+    return (
+      RulesEvaluator.isFaculty(ctx) ||
+      (RulesEvaluator.isAuthenticated(ctx) &&
+        RulesEvaluator.isEnrolled(ctx, ctx.resource?.data?.sectionId, enrolledStudents))
+    );
+  }
+
+  static evaluateAssessmentPublicWrite(_ctx: FirestoreRuleContext): boolean {
     return false;
   }
 
@@ -3345,9 +3393,9 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'student_123')).toBe(true);
     // 2. Matches token.prn
     expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, '2026AIML0001')).toBe(true);
-    // 3. Matches verified email (case-insensitive)
-    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'student@sanjivani.edu.in')).toBe(true);
-    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'STUDENT@SANJIVANI.EDU.IN')).toBe(true);
+    // 3. Email does NOT match isOwnerId (strict identifier ownership: UID or PRN only)
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'student@sanjivani.edu.in')).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'STUDENT@SANJIVANI.EDU.IN')).toBe(false);
 
     // 4. Unverified email MUST NOT match
     expect(RulesEvaluator.isOwnerId({ auth: unverifiedStudent }, 'unverified@sanjivani.edu.in')).toBe(false);
@@ -3451,7 +3499,8 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
 
     // Helper definition
-    expect(firestoreRules).toContain('function isOwnerId(id)');
+    expect(firestoreRules).toContain('function isOwnerId(targetId)');
+    expect(firestoreRules).toContain('function isStudentOwner(data, identifier)');
     expect(firestoreRules).toContain("request.auth.token.get('email_verified', false) == true");
 
     // cohort_progress/{prn} rules
@@ -3476,6 +3525,15 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain('match /private/{docId}');
     expect(firestoreRules).toContain('match /students/{studentId}');
     expect(firestoreRules).toContain('allow write: if false; // Joins, CSV imports, and removals go strictly through the backend API');
+
+    // assessment_tests and assessment_public rules
+    expect(firestoreRules).toContain('match /assessment_tests/{testId}');
+    expect(firestoreRules).toContain('allow get, list: if isFaculty();');
+    expect(firestoreRules).toContain('allow create, update: if isFaculty() && isValidAssessmentTest(request.resource.data);');
+    expect(firestoreRules).toContain('allow delete: if isAdmin();');
+    expect(firestoreRules).toContain('match /assessment_public/{testId}');
+    expect(firestoreRules).toContain('allow get: if isFaculty() || (isAuthenticated() && isEnrolled(resource.data.sectionId));');
+    expect(firestoreRules).toContain('allow list: if isFaculty();');
   });
 
   it('SECTION HARDENING & FACULTY OWNERSHIP: Enforces facultyId binding on create/update and title validation', () => {
@@ -3956,6 +4014,151 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     // Faculty A (owner) and Admin CAN read roster
     expect(RulesEvaluator.evaluateSectionStudentList({ auth: facultyA, request: {} }, sectionAData)).toBe(true);
     expect(RulesEvaluator.evaluateSectionStudentList(adminCtx, sectionAData)).toBe(true);
+  });
+
+  it('ASSESSMENT TEST CONTENT LEAK PREVENTION & STRICT IDENTIFIER OWNERSHIP: Restricts full tests to faculty/admin, allows enrolled students public metadata only, enforces Admin-only delete and strict isOwnerId/isStudentOwner', () => {
+    const studentAlice: AuthContext = {
+      uid: 'student_alice',
+      token: { email: 'alice@sanjivani.edu.in', role: 'STUDENT', prn: '2026AIML0001', email_verified: true },
+    };
+    const studentBob: AuthContext = {
+      uid: 'student_bob',
+      token: { email: 'bob@sanjivani.edu.in', role: 'STUDENT', prn: '2026AIML0002', email_verified: true },
+    };
+    const facultyUser: AuthContext = {
+      uid: 'faculty_1',
+      token: { email: 'prof@sanjivani.edu.in', role: 'FACULTY', email_verified: true },
+    };
+    const adminUser: AuthContext = {
+      uid: 'admin_root',
+      token: { email: 'admin@logicq.io', role: 'ADMIN', email_verified: true },
+    };
+
+    const validAssessmentTestData = {
+      id: 'test_midterm_1',
+      title: 'Midterm Lab Assessment',
+      sectionId: 'section_algorithms',
+      status: 'PUBLISHED',
+      durationMinutes: 90,
+      totalMarks: 100,
+      questions: [
+        { id: 'q1', prompt: 'Solve two sum', hiddenTestCases: ['hidden_1', 'hidden_2'] }
+      ],
+      lockOnSubmit: true,
+      randomiseQuestions: true,
+    };
+
+    const assessmentTestCtx = (auth: AuthContext | null): FirestoreRuleContext => ({
+      auth,
+      resource: { data: validAssessmentTestData },
+      request: {},
+    });
+
+    const enrolledRoster = {
+      section_algorithms: ['student_alice', '2026AIML0001'],
+    };
+
+    const publicMetadataDoc = {
+      id: 'test_midterm_1',
+      title: 'Midterm Lab Assessment',
+      sectionId: 'section_algorithms',
+      status: 'PUBLISHED',
+      durationMinutes: 90,
+    };
+
+    const publicAssessmentCtx = (auth: AuthContext | null): FirestoreRuleContext => ({
+      auth,
+      resource: { data: publicMetadataDoc },
+      request: {},
+    });
+
+    // 1. Authenticated student cannot read /assessment_tests/{testId} (fails/denied - leak prevention)
+    expect(RulesEvaluator.evaluateAssessmentTestRead(assessmentTestCtx(studentAlice))).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentTestRead(assessmentTestCtx(studentBob))).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentTestRead(assessmentTestCtx(null))).toBe(false);
+
+    // 2. Faculty and Admin can read /assessment_tests/{testId}
+    expect(RulesEvaluator.evaluateAssessmentTestRead(assessmentTestCtx(facultyUser))).toBe(true);
+    expect(RulesEvaluator.evaluateAssessmentTestRead(assessmentTestCtx(adminUser))).toBe(true);
+
+    // 3. Faculty can create/update valid assessment test
+    const facultyCreateCtx: FirestoreRuleContext = {
+      auth: facultyUser,
+      request: { resource: { data: validAssessmentTestData } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentTestCreate(facultyCreateCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateAssessmentTestUpdate(facultyCreateCtx)).toBe(true);
+
+    // Student cannot create or update assessment tests
+    const studentCreateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: validAssessmentTestData } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentTestCreate(studentCreateCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentTestUpdate(studentCreateCtx)).toBe(false);
+
+    // Invalid assessment test data fails validation
+    const invalidAssessmentData = {
+      ...validAssessmentTestData,
+      title: '', // size < 1 fails validation
+    };
+    const facultyInvalidCreateCtx: FirestoreRuleContext = {
+      auth: facultyUser,
+      request: { resource: { data: invalidAssessmentData } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentTestCreate(facultyInvalidCreateCtx)).toBe(false);
+
+    // 4. Non-admin faculty cannot delete assessment test (admin only)
+    const facultyDeleteCtx: FirestoreRuleContext = {
+      auth: facultyUser,
+      resource: { data: validAssessmentTestData },
+      request: {},
+    };
+    const adminDeleteCtx: FirestoreRuleContext = {
+      auth: adminUser,
+      resource: { data: validAssessmentTestData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateAssessmentTestDelete(facultyDeleteCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentTestDelete(assessmentTestCtx(studentAlice))).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentTestDelete(adminDeleteCtx)).toBe(true);
+
+    // 5. Enrolled student can read /assessment_public/{testId} for their section
+    expect(RulesEvaluator.evaluateAssessmentPublicRead(publicAssessmentCtx(studentAlice), enrolledRoster)).toBe(true);
+    // Faculty can also read public assessment metadata
+    expect(RulesEvaluator.evaluateAssessmentPublicRead(publicAssessmentCtx(facultyUser), enrolledRoster)).toBe(true);
+    expect(RulesEvaluator.evaluateAssessmentPublicRead(publicAssessmentCtx(adminUser), enrolledRoster)).toBe(true);
+
+    // 6. Non-enrolled student cannot read /assessment_public/{testId}
+    expect(RulesEvaluator.evaluateAssessmentPublicRead(publicAssessmentCtx(studentBob), enrolledRoster)).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentPublicRead(publicAssessmentCtx(null), enrolledRoster)).toBe(false);
+
+    // Client write to /assessment_public/{testId} is strictly blocked (Admin SDK only)
+    expect(RulesEvaluator.evaluateAssessmentPublicWrite({ auth: studentAlice, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentPublicWrite({ auth: facultyUser, request: {} })).toBe(false);
+
+    // 7. Empty string '' or non-string identifier fails isOwnerId and isStudentOwner
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, '')).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, null as any)).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, undefined as any)).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, 12345 as any)).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, {} as any)).toBe(false);
+
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, '')).toBe(false);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, null as any)).toBe(false);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, undefined as any)).toBe(false);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, 12345 as any)).toBe(false);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, {} as any)).toBe(false);
+
+    // Valid identifiers (UID or PRN token claim) succeed
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, 'student_alice')).toBe(true);
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, '2026AIML0001')).toBe(true);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, 'student_alice')).toBe(true);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, '2026AIML0001')).toBe(true);
+
+    // Mismatched identifier fails
+    expect(RulesEvaluator.isOwnerId({ auth: studentAlice }, 'student_bob')).toBe(false);
+    expect(RulesEvaluator.isStudentOwner({ auth: studentAlice }, {}, 'student_bob')).toBe(false);
   });
 });
 
