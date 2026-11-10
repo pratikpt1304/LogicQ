@@ -261,6 +261,10 @@ rules_version = '2';
 //   - problem / user / metadata: map (optional)
 //   - sectionId: string (optional, <= 100 chars)
 //
+// Subcollection: assessment_test_submissions/{docId}/proctoring/{eventId} & assessment_submissions/{docId}/proctoring/{eventId}
+// Fields:
+//   - Isolated cheating incidents, quarantined attempts, forensic telemetry (faculty/admin read only)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -541,9 +545,11 @@ service cloud.firestore {
 
     match /submissions/{submissionId} {
       // Submissions readable only by faculty/admin or the authenticated student owner
+      // Supports Firestore query analyzer optimization for list queries via direct field access
       allow get, list: if isFaculty() || isAdmin() || (
         isAuthenticated() && (
-          resource.data.get('userId', '') == request.auth.uid
+          (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.studentId == request.auth.uid)
+          || resource.data.get('userId', '') == request.auth.uid
           || resource.data.get('uid', '') == request.auth.uid
           || resource.data.get('studentId', '') == request.auth.uid
         )
@@ -1069,28 +1075,47 @@ service cloud.firestore {
     }
 
     match /assessment_test_submissions/{docId} {
+      // Submissions readable only by faculty/admin or the authenticated student owner
+      // Supports Firestore query analyzer optimization for list queries via direct field access
       allow get, list: if isFaculty() || isAdmin() || (
         isAuthenticated() && (
-          resource.data.get('userId', '') == request.auth.uid
+          (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.studentId == request.auth.uid)
+          || resource.data.get('userId', '') == request.auth.uid
           || resource.data.get('uid', '') == request.auth.uid
           || resource.data.get('studentId', '') == request.auth.uid
         )
       );
       // Evaluations and submissions are strictly written by server
       allow write: if false;
+
+      // Dedicated proctoring subcollection: isolates cheating incidents, quarantined attempts,
+      // and detection flags so faculty/admin can inspect them while student reads are denied
+      match /proctoring/{eventId} {
+        allow read: if isFaculty() || isAdmin();
+        allow write: if false;
+      }
     }
 
     match /assessment_submissions/{docId} {
       // Alias collection matching assessment_test_submissions semantics
+      // Supports Firestore query analyzer optimization for list queries via direct field access
       allow get, list: if isFaculty() || isAdmin() || (
         isAuthenticated() && (
-          resource.data.get('userId', '') == request.auth.uid
+          (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.studentId == request.auth.uid)
+          || resource.data.get('userId', '') == request.auth.uid
           || resource.data.get('uid', '') == request.auth.uid
           || resource.data.get('studentId', '') == request.auth.uid
         )
       );
       // Evaluations and submissions are strictly written by server
       allow write: if false;
+
+      // Dedicated proctoring subcollection: isolates cheating incidents, quarantined attempts,
+      // and detection flags so faculty/admin can inspect them while student reads are denied
+      match /proctoring/{eventId} {
+        allow read: if isFaculty() || isAdmin();
+        allow write: if false;
+      }
     }
   }
 }

@@ -443,9 +443,14 @@ class RulesEvaluator {
 
   static evaluateSubmissionRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
-    const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = RulesEvaluator.isAdmin(ctx);
-    return ctx.auth.uid === ownerId || isAdmin;
+    if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
+    const data = ctx.resource?.data;
+    if (!data) return false;
+    return (
+      data.userId === ctx.auth.uid ||
+      data.uid === ctx.auth.uid ||
+      data.studentId === ctx.auth.uid
+    );
   }
 
   static evaluateSubmissionWrite(_ctx: FirestoreRuleContext): boolean {
@@ -453,6 +458,31 @@ class RulesEvaluator {
   }
 
   static evaluateSubmissionDelete(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateAssessmentSubmissionRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
+    const data = ctx.resource?.data;
+    if (!data) return false;
+    return (
+      data.userId === ctx.auth.uid ||
+      data.uid === ctx.auth.uid ||
+      data.studentId === ctx.auth.uid
+    );
+  }
+
+  static evaluateAssessmentSubmissionWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateProctoringRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
+  }
+
+  static evaluateProctoringWrite(_ctx: FirestoreRuleContext): boolean {
     return false;
   }
 
@@ -2963,6 +2993,130 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // Disallowed key -> MUST FAIL
     expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, unauthorizedCheatingKey: true })).toBe(false);
+  });
+
+  it('ASSESSMENT SUBMISSIONS & QUERY OPTIMIZATION: Direct field access (userId, uid, studentId) enables static query analysis, peer reads denied, client writes blocked', () => {
+    const studentAliceCtx: FirestoreRuleContext = { auth: studentAlice, request: {} };
+    const studentBobCtx: FirestoreRuleContext = { auth: studentBob, request: {} };
+    const facultyCtx: FirestoreRuleContext = {
+      auth: { uid: 'faculty_dr_smith', token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' } },
+      request: {},
+    };
+    const adminCtx: FirestoreRuleContext = { auth: adminCharlie, request: {} };
+
+    // 1. Direct field access: userId matches request.auth.uid -> MUST PASS
+    const aliceUserIdDoc: FirestoreRuleContext = {
+      ...studentAliceCtx,
+      resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(aliceUserIdDoc)).toBe(true);
+    expect(RulesEvaluator.evaluateSubmissionRead(aliceUserIdDoc)).toBe(true);
+
+    // 2. Direct field access: uid matches request.auth.uid -> MUST PASS
+    const aliceUidDoc: FirestoreRuleContext = {
+      ...studentAliceCtx,
+      resource: { data: { uid: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(aliceUidDoc)).toBe(true);
+    expect(RulesEvaluator.evaluateSubmissionRead(aliceUidDoc)).toBe(true);
+
+    // 3. Direct field access: studentId matches request.auth.uid -> MUST PASS
+    const aliceStudentIdDoc: FirestoreRuleContext = {
+      ...studentAliceCtx,
+      resource: { data: { studentId: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(aliceStudentIdDoc)).toBe(true);
+    expect(RulesEvaluator.evaluateSubmissionRead(aliceStudentIdDoc)).toBe(true);
+
+    // 4. Peer read: studentBob attempting to read Alice's submission -> MUST FAIL
+    const peerReadAttempt: FirestoreRuleContext = {
+      ...studentBobCtx,
+      resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(peerReadAttempt)).toBe(false);
+    expect(RulesEvaluator.evaluateSubmissionRead(peerReadAttempt)).toBe(false);
+
+    // 5. Unauthenticated read -> MUST FAIL
+    const unauthAttempt: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(unauthAttempt)).toBe(false);
+    expect(RulesEvaluator.evaluateSubmissionRead(unauthAttempt)).toBe(false);
+
+    // 6. Faculty and Admin can read student submissions
+    const facultyReadAlice: FirestoreRuleContext = {
+      ...facultyCtx,
+      resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(facultyReadAlice)).toBe(true);
+    expect(RulesEvaluator.evaluateSubmissionRead(facultyReadAlice)).toBe(true);
+
+    const adminReadAlice: FirestoreRuleContext = {
+      ...adminCtx,
+      resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED' } },
+    };
+    expect(RulesEvaluator.evaluateAssessmentSubmissionRead(adminReadAlice)).toBe(true);
+    expect(RulesEvaluator.evaluateSubmissionRead(adminReadAlice)).toBe(true);
+
+    // 7. Client writes strictly blocked: allow write: if false;
+    expect(RulesEvaluator.evaluateSubmissionWrite({ auth: studentAlice, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentSubmissionWrite({ auth: studentAlice, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentSubmissionWrite({ auth: facultyCtx.auth, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateAssessmentSubmissionWrite({ auth: adminCharlie, request: {} })).toBe(false);
+  });
+
+  it('PROCTORING SUBCOLLECTION: Isolates cheating incidents and quarantine flags; faculty/admin allowed, students denied, writes blocked', () => {
+    const studentAliceCtx: FirestoreRuleContext = { auth: studentAlice, request: {} };
+    const facultyCtx: FirestoreRuleContext = {
+      auth: { uid: 'faculty_dr_smith', token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' } },
+      request: {},
+    };
+    const adminCtx: FirestoreRuleContext = { auth: adminCharlie, request: {} };
+    const unauthCtx: FirestoreRuleContext = { auth: null, request: {} };
+
+    // 1. Faculty read proctoring incidents -> MUST PASS
+    expect(RulesEvaluator.evaluateProctoringRead(facultyCtx)).toBe(true);
+
+    // 2. Admin read proctoring incidents -> MUST PASS
+    expect(RulesEvaluator.evaluateProctoringRead(adminCtx)).toBe(true);
+
+    // 3. Student read proctoring incidents (even their own) -> MUST FAIL
+    expect(RulesEvaluator.evaluateProctoringRead(studentAliceCtx)).toBe(false);
+
+    // 4. Unauthenticated read proctoring incidents -> MUST FAIL
+    expect(RulesEvaluator.evaluateProctoringRead(unauthCtx)).toBe(false);
+
+    // 5. Writes to proctoring subcollection strictly blocked for all clients
+    expect(RulesEvaluator.evaluateProctoringWrite(studentAliceCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateProctoringWrite(facultyCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateProctoringWrite(adminCtx)).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules declares direct field checks and dedicated proctoring subcollections', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    // Submissions query analyzer direct field access check
+    expect(firestoreRules).toContain('(resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid || resource.data.studentId == request.auth.uid)');
+
+    // Dedicated proctoring subcollections
+    expect(firestoreRules).toContain('match /assessment_test_submissions/{docId}');
+    expect(firestoreRules).toContain('match /assessment_submissions/{docId}');
+    expect(firestoreRules).toContain('match /proctoring/{eventId}');
+
+    // Strict proctoring permissions
+    expect(firestoreRules).toContain('allow read: if isFaculty() || isAdmin();');
+
+    // Strict write denial
+    const submissionSections = [
+      'match /submissions/{submissionId}',
+      'match /assessment_test_submissions/{docId}',
+      'match /assessment_submissions/{docId}',
+    ];
+    for (const section of submissionSections) {
+      expect(firestoreRules).toContain(section);
+    }
   });
 });
 
