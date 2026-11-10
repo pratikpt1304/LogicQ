@@ -85,35 +85,42 @@ export class AiVivaService {
   }
 
   /**
-   * Generates a conceptual, code-specific viva question testing the student's actual C implementation (Section 30).
+   * Generates a rapid, ultra-concise code-specific viva question testing the student's actual C implementation.
+   * Target: 6 to 10 words, quick 1-2 word answerable within 10 seconds.
    */
   private static async generateCodeSpecificQuestion(code: string): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       try {
-        const prompt = `You are an institutional CS examiner conducting a quick 1-minute viva on a student's C solution.
+        const prompt = `You are an examiner conducting a rapid 10-second viva check on a student's C solution.
 Code submitted by student:
 \`\`\`c
 ${code.slice(0, 2000)}
 \`\`\`
-Generate exactly ONE sharp, code-specific question testing their genuine comprehension of this specific implementation.
-Reference specific variable names, loop conditions, memory allocations, or logic operators they used in their code.
-The question must be answerable in 1-2 brief sentences by someone who wrote the code themselves.
-Return ONLY the question text without preamble.`;
+Generate exactly ONE very short, rapid-fire question (maximum 6 to 10 words) testing quick recall of their own code.
+The question MUST be simple and quick so the student can answer in 1 or 2 words within 10 seconds.
+Examples of good short questions:
+- "Which variable controls your loop iteration?"
+- "What condition breaks or stops your loop?"
+- "What integer value does your main return?"
+- "Which format specifier did you use in scanf?"
+- "Which variable stores your final answer or count?"
+- "Which relational operator did you use to test equality?"
+Do NOT ask long essays or theoretical explanations. Return ONLY the short question text without preamble or quotes.`;
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 150 },
+            generationConfig: { temperature: 0.1, maxOutputTokens: 60 },
           }),
         });
 
         if (res.ok) {
           const data: any = await res.json();
-          const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (generatedText && generatedText.length > 10) {
+          const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()?.replace(/^["']|["']$/g, '');
+          if (generatedText && generatedText.length > 5 && generatedText.length < 120) {
             return generatedText;
           }
         }
@@ -122,21 +129,24 @@ Return ONLY the question text without preamble.`;
       }
     }
 
-    // High quality deterministic fallback based on code analysis
-    if (code.includes('scanf')) {
-      return 'In your code, explain the purpose of your scanf return value check or format specifier, and how your program handles malformed input.';
-    }
+    // High quality deterministic short fallbacks (quick 1-2 word answers)
     if (code.includes('for') || code.includes('while')) {
-      return 'Briefly explain the termination condition in your primary loop and how you guaranteed it does not execute out-of-bounds or loop indefinitely.';
+      return 'Which variable controls your loop iteration?';
     }
-    if (code.includes('*') || code.includes('&')) {
-      return 'Explain why you used pointer dereferencing or address-of operators here, and what memory location is being accessed.';
+    if (code.includes('scanf')) {
+      return 'Which format specifier (%d, %c, %s) did you pass to scanf?';
     }
-    return 'In 1 to 2 sentences, explain the core algorithm and variables you utilized in your main function to solve this problem.';
+    if (code.includes('return')) {
+      return 'What integer value does your main function return?';
+    }
+    if (code.includes('if')) {
+      return 'Which condition does your if statement check?';
+    }
+    return 'Name one variable declared in your main function.';
   }
 
   /**
-   * Evaluates student's viva response using Gemini with strict grounding, or advanced multi-signal heuristic fallback.
+   * Evaluates student's rapid viva response using Gemini with strict grounding, or advanced multi-signal heuristic fallback.
    */
   private static async evaluateVivaAnswerWithAi(input: {
     questionText: string;
@@ -148,17 +158,17 @@ Return ONLY the question text without preamble.`;
     const { questionText, codeContext, studentAnswer, submittedBeforeTimeout, durationSec } = input;
     const ans = studentAnswer.trim();
 
-    if (ans.length < 5) {
+    if (ans.length === 0) {
       return {
         relevanceScore: 0,
-        aiEvaluation: 'No substantive explanation submitted.',
+        aiEvaluation: 'No answer submitted within the 10-second limit.',
       };
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       try {
-        const evalPrompt = `You are an institutional CS professor evaluating a student's viva voce response.
+        const evalPrompt = `You are evaluating a student's rapid 10-second viva response for their C solution.
 Question Asked:
 "${questionText}"
 
@@ -167,16 +177,16 @@ Student's C Code Submitted:
 ${(codeContext || '').slice(0, 2000)}
 \`\`\`
 
-Student's Viva Voce Answer:
+Student's Viva Answer (1-2 words or brief phrase):
 "${ans}"
 
 Submission Timing: ${submittedBeforeTimeout ? 'On-time' : 'Late/Timed-out'} (${durationSec} seconds taken)
 
-Evaluate this response on a 100-point scale:
-1. Conceptual Understanding (0-40): Does the student understand the algorithmic principles behind their code?
-2. Code Context Match (0-40): Does the answer directly address the specific code implementation and variables?
-3. Authenticity & Clarity (0-20): Does the response read like genuine student understanding rather than an LLM prompt response or deflection?
-${!submittedBeforeTimeout ? '(Penalty: Deduct 25 points because submission was after the time limit expired)' : ''}
+Since the student had only 10 seconds, accept very brief, direct, or 1-2 word answers (e.g. "i", "0", "%d", "sum", "n", "while loop", "equality").
+- If the student's short answer is factually correct according to their code and the question, award 85-100 points.
+- If partially relevant or close, award 55-75 points.
+- If completely wrong, off-topic, or gibberish, award 0-30 points.
+${!submittedBeforeTimeout ? '(Penalty: Deduct 20 points because submission was after the 10-second limit)' : ''}
 
 Respond ONLY with a valid JSON object matching this schema:
 {
@@ -362,7 +372,7 @@ Respond ONLY with a valid JSON object matching this schema:
     if (!viva) return { pending: false };
 
     const elapsed = Math.round((Date.now() - viva.startedAt.getTime()) / 1000);
-    const remainingSec = Math.max(0, 150 - elapsed);
+    const remainingSec = Math.max(0, 10 - elapsed);
 
     return {
       pending: true,

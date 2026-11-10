@@ -13,7 +13,7 @@ interface AiVivaModalProps {
 export const AiVivaModal: React.FC<AiVivaModalProps> = ({
   vivaId,
   questionText,
-  initialRemainingSec = 60,
+  initialRemainingSec = 10,
   onCompleted,
 }) => {
   const [answer, setAnswer] = useState('');
@@ -21,11 +21,11 @@ export const AiVivaModal: React.FC<AiVivaModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
-  const MAX_CHARS = 300;
-  const isUrgent = remainingSec <= 15;
-  const percentage = Math.max(0, Math.min(100, (remainingSec / (initialRemainingSec || 60)) * 100));
+  const MAX_CHARS = 120;
+  const isUrgent = remainingSec <= 4;
+  const percentage = Math.max(0, Math.min(100, (remainingSec / (initialRemainingSec || 10)) * 100));
 
-  // Strict 60-second countdown
+  // Strict 10-second countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setRemainingSec((prev) => {
@@ -101,8 +101,8 @@ export const AiVivaModal: React.FC<AiVivaModalProps> = ({
                 <Sparkles className="w-4 h-4 text-blue-400" />
               </div>
               <div>
-                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest">Quick Check</p>
-                <h2 className="text-base font-bold text-white leading-tight">Code Understanding Verification</h2>
+                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest">Rapid Check (10s)</p>
+                <h2 className="text-base font-bold text-white leading-tight">Quick Code Recall Verification</h2>
               </div>
             </div>
 
@@ -120,18 +120,17 @@ export const AiVivaModal: React.FC<AiVivaModalProps> = ({
           </div>
 
           {/* Notice */}
-          <div className="flex items-start gap-2.5 bg-blue-500/5 border border-blue-500/15 rounded-xl px-4 py-3">
+          <div className="flex items-start gap-2.5 bg-blue-500/5 border border-blue-500/15 rounded-xl px-4 py-2.5">
             <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-gray-400 leading-relaxed">
-              This is a routine check triggered after consecutive correct submissions.
-              It is <span className="text-white font-medium">not an accusation</span> — just a quick understanding check.
+              Answer with a <span className="text-white font-medium">quick 1–2 word answer</span> based on the code you just wrote.
             </p>
           </div>
 
           {/* Question */}
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Question — based on your submitted code</p>
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm text-white leading-relaxed">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Quick Question — Based on your code</p>
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-sm font-medium text-white leading-relaxed">
               {questionText}
             </div>
           </div>
@@ -140,35 +139,35 @@ export const AiVivaModal: React.FC<AiVivaModalProps> = ({
           <form onSubmit={handleManualSubmit} className="space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your Answer</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your Answer (1-2 words)</p>
                 <span className={`text-xs font-mono ${answer.length > MAX_CHARS * 0.9 ? 'text-yellow-400' : 'text-gray-600'}`}>
                   {answer.length}/{MAX_CHARS}
                 </span>
               </div>
-              <textarea
+              <input
+                type="text"
                 required
                 autoFocus
-                rows={3}
                 maxLength={MAX_CHARS}
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Briefly explain your approach, logic, or why you made specific choices in your code..."
-                className="w-full bg-gray-900 border border-gray-700 focus:border-blue-500 rounded-xl p-3 text-sm text-white placeholder:text-gray-600 focus:outline-none transition-colors resize-none"
+                placeholder="Type quick 1-2 word answer and press Enter..."
+                className="w-full bg-gray-900 border border-gray-700 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder:text-gray-600 focus:outline-none transition-colors"
               />
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-600">
-                Auto-submits when timer reaches 0
+              <p className="text-[11px] text-gray-500">
+                ⚡ Press Enter to submit · Auto-submits at 0s
               </p>
               <button
                 type="submit"
                 disabled={isSubmitting || answer.trim().length === 0}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors shadow-lg shadow-blue-900/20"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors shadow-lg shadow-blue-900/20 cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{isSubmitting ? 'Submitting...' : 'Submit Answer'}</span>
+                <span>{isSubmitting ? 'Submitting...' : 'Submit (Enter)'}</span>
               </button>
             </div>
           </form>

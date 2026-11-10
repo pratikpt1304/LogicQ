@@ -1657,7 +1657,7 @@ export const AdminIntegrityTab: React.FC = () => {
                     AI Viva Defense Simulation
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    What students see when AI triggers a 60-second oral/written viva
+                    What students see when AI triggers a rapid 10-second recall check
                   </p>
                 </div>
               </div>
@@ -1673,28 +1673,28 @@ export const AdminIntegrityTab: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-900 dark:text-purple-200 space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                  Concept Challenge (60s Timer)
+                  Rapid Recall Challenge (10s Timer)
                 </span>
                 <p className="font-semibold text-xs sm:text-sm">
-                  "In your `isPowerOfTwo` function, why does `(n &amp; (n - 1)) == 0` correctly verify powers of two without a loop? Explain the binary representation behavior."
+                  "Which variable did you use to control your loop iteration?"
                 </p>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Student Defense Explanation
+                  Student Rapid Answer
                 </span>
-                <p className="text-slate-700 dark:text-slate-300 italic">
-                  "A power of two in binary has only a single bit set, like 16 which is 10000. Subtracting 1 flips all lower bits to 1 (15 is 01111). Doing bitwise AND gives 0 only when there is exactly one set bit."
+                <p className="text-slate-700 dark:text-slate-300 font-mono font-medium">
+                  "i"
                 </p>
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-emerald-700 dark:text-emerald-300">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span className="font-bold">Evaluation: Genuine Comprehension</span>
+                  <span className="font-bold">Evaluation: Verified Code Author</span>
                 </div>
-                <span className="font-mono font-bold">Score: 98 / 100</span>
+                <span className="font-mono font-bold">Score: 100 / 100</span>
               </div>
             </div>
 

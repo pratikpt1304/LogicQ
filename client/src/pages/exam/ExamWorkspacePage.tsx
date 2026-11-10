@@ -898,7 +898,7 @@ export const ExamWorkspacePage: React.FC = () => {
           setActiveViva({
             vivaId: res.vivaId,
             questionText: res.vivaQuestionText,
-            remainingSec: 60,
+            remainingSec: 10,
           });
         }
       } else {
