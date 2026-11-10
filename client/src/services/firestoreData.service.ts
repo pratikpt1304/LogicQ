@@ -4595,7 +4595,7 @@ export class FirestoreDataService {
     let score = 100;
     score -= (telemetry.tabSwitchCount || 0) * 5;
     score -= (telemetry.copyPasteAttempts || 0) * 10;
-    score -= (telemetry.fullscreenExits || 0) * 5;
+    // Fullscreen exit is tracked in audit telemetry logs but does NOT penalize/deduct integrity score
     score -= (telemetry.autoLockCount || 0) * 20;
     return Math.max(0, Math.min(100, score));
   }

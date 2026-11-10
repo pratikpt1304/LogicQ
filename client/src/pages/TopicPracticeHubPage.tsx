@@ -468,8 +468,10 @@ export const TopicPracticeHubPage: React.FC = () => {
           problemSlug: activeTopicRef.current.id,
           problemTitle: activeTopicRef.current.problem.title,
           reason: `Fullscreen exited (Exit #${count})`,
+          isCheatAttempt: false,
         }).catch(() => {});
-        toast.error(`⚠️ Fullscreen exited! (Exit #${count}) Fullscreen is required during practice.`);
+        toast.info(`⚠️ Fullscreen exited (Exit #${count}). Returned to practice arena. Your code is auto-saved.`);
+        handleCloseTopic();
       }
     };
 

@@ -502,31 +502,29 @@ export const ExamWorkspacePage: React.FC = () => {
             totalKeystrokes,
             largestBurstChars,
             activeSec,
-            status: 'CRITICAL_BREACH',
+            status: 'NEEDS_REVIEW',
             incident: {
               type: 'FULLSCREEN_EXIT',
-              details: 'Fullscreen perimeter violated: Student exited proctored full-screen mode.',
-              severity: 'CRITICAL',
+              details: 'Fullscreen perimeter exited: Student minimized or exited proctored full-screen mode.',
+              severity: 'WARNING',
             },
           }).catch(() => {});
           return next;
         });
-        addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter violated: Student minimized or exited full-screen examination.', 'CRITICAL');
+        addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter exited: Student minimized or exited full-screen mode.', 'WARNING');
 
         const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
         FirestoreDataService.recordProctoringIncident(targetUser, {
           type: 'FULLSCREEN_EXIT',
-          reason: 'Student exited proctored full-screen mode. Examination session terminated.',
+          reason: 'Student exited proctored full-screen mode.',
           problemSlug: problemId || assignmentId,
           problemTitle: problemData?.title || 'Continuous Practical Assessment',
           moduleTitle: assignmentData?.title || 'Lab Internal Assessment',
           category: 'LAB_INTERNAL',
-          isCheatAttempt: true,
+          isCheatAttempt: false,
         }).catch(() => {});
 
-        toast.error('Proctoring Violation: Full-screen exit detected! You have been removed from the exam session.', {
-          duration: 6000,
-        });
+        toast.info('Fullscreen Exited: Returned to tests dashboard. Your code is auto-saved.');
 
         isExitingRef.current = true;
         if (typeof document !== 'undefined' && document.fullscreenElement) {

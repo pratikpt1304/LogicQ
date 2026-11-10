@@ -442,6 +442,13 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     ...testSubmissions.map((s) => Number(s.totalKeystrokes) || 0)
   );
 
+  const fullscreenExits = Math.max(
+    Number(mod.fullscreenExits) || 0,
+    Number(telemetryDraft?.fullscreenExits) || 0,
+    Number(student.fullscreenExits) || 0,
+    ...testSubmissions.map((s) => Number(s.fullscreenExits || s.fullScreenExitCount) || 0)
+  );
+
   // Dynamic Integrity Score: Starts at 100%, deducts 5% per tab switch, 10% per paste burst
   const integrityScore = Math.max(
     0,
@@ -785,7 +792,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   <span>•</span>
                                 </>
                               )}
-                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
+                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes • {sub.fullscreenExits || sub.fullScreenExitCount || 0} Fullscreen Exits</span>
                             </div>
                           </div>
                         </div>
@@ -871,7 +878,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                           </pre>
 
                           {/* Proctoring mini-bar */}
-                          <div className="grid grid-cols-3 gap-2 text-[10px]">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
                             <div className="p-2 rounded-lg bg-white/5 border border-white/10">
                               <span className="text-slate-400 block">Clipboard Pastes</span>
                               <span className={`font-bold text-sm block mt-0.5 ${(sub.copyPasteAttempts || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
@@ -882,6 +889,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="text-slate-400 block">Tab Switches</span>
                               <span className={`font-bold text-sm block mt-0.5 ${(sub.tabSwitchCount || 0) > 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
                                 {sub.tabSwitchCount || 0}
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block">Fullscreen Exits</span>
+                              <span className={`font-bold text-sm block mt-0.5 ${(sub.fullscreenExits || sub.fullScreenExitCount || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {sub.fullscreenExits || sub.fullScreenExitCount || 0}
                               </span>
                             </div>
                             <div className="p-2 rounded-lg bg-white/5 border border-white/10">
@@ -984,6 +997,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span>{sub.tabSwitchCount || 0} Tabs</span>
                               <span>•</span>
                               <span>{sub.copyPasteAttempts || sub.pasteBursts || 0} Pastes</span>
+                              <span>•</span>
+                              <span>{sub.fullscreenExits || 0} Fullscreen Exits</span>
                             </div>
                           </div>
                         </div>

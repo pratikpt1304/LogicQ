@@ -269,7 +269,7 @@ export const AdminIntegrityTab: React.FC = () => {
                           : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
                           : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
                           : 'CODE_RUN',
-                      severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt || inc.type === 'FULLSCREEN_EXIT') ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
+                      severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt) ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
                       title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
                            : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
                            : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Paste Burst Blocked'
@@ -490,13 +490,14 @@ export const AdminIntegrityTab: React.FC = () => {
             const isSessionActive = Boolean(mod.activeSession) || studentSubs.length > 0 || hasCompletedProblems || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0 || fullscreenExits > 0;
 
             const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' =
-              (fullscreenExits > 0 || pasteBursts > 2 || tabSwitches > 3 || mod.status === 'CRITICAL_BREACH')
+              (pasteBursts > 2 || tabSwitches > 3 || mod.status === 'CRITICAL_BREACH')
                 ? 'CRITICAL_BREACH'
-                : (tabSwitches > 0 || pasteBursts > 0 || mod.status === 'NEEDS_REVIEW')
+                : (fullscreenExits > 0 || tabSwitches > 0 || pasteBursts > 0 || mod.status === 'NEEDS_REVIEW')
                 ? 'NEEDS_REVIEW'
                 : 'CLEAN';
 
-            const integrityScore = Math.max(0, Math.min(100, 100 - (tabSwitches * 5) - (pasteBursts * 10) - (fullscreenExits * 25)));
+            // Fullscreen exits are tracked in logs but do NOT deduct integrity score
+            const integrityScore = Math.max(0, Math.min(100, 100 - (tabSwitches * 5) - (pasteBursts * 10)));
 
             const lastSolvedId = hasCompletedProblems ? cData.completedProblems[cData.completedProblems.length - 1] : null;
             const primaryContext = resolveProblemContext(latestSub?.problemTitle || latestSub?.problemId || lastSolvedId, latestSub?.testTitle, latestSub?.submissionType);
@@ -606,9 +607,9 @@ export const AdminIntegrityTab: React.FC = () => {
                 moduleName: currentModule,
                 problemTitle: currentProblem,
                 type: 'FULLSCREEN_EXIT',
-                severity: 'CRITICAL',
-                title: `Proctored Fullscreen Violated (${fullscreenExits} Exits)`,
-                details: 'Candidate minimized or exited proctored full-screen boundary.',
+                severity: 'WARNING',
+                title: `Proctored Fullscreen Exited (${fullscreenExits} Exits)`,
+                details: `Candidate exited proctored full-screen boundary (${fullscreenExits} times). Session returned to preserve focus.`,
               });
             }
 
