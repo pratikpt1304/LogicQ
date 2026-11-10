@@ -48,6 +48,38 @@ const cleanAllActiveDirs = () => {
   activeTempDirs.clear();
 };
 
+/**
+ * Returns an isolated environment dictionary containing only essential compiler/runtime paths.
+ * CRITICAL: Zero process.env secrets (DATABASE_URL, JWT_*, GEMINI_*, SMTP_*, etc.) are passed to child processes.
+ */
+function getSanitizedExecutionEnv(workDir: string, gccDir?: string): NodeJS.ProcessEnv {
+  const isWindows = process.platform === 'win32';
+  const cleanPath = isWindows
+    ? (gccDir ? `${gccDir};${process.env.PATH || 'C:\\Windows\\System32;C:\\Windows'}` : (process.env.PATH || 'C:\\Windows\\System32;C:\\Windows'))
+    : (gccDir ? `${gccDir}:/usr/local/bin:/usr/bin:/bin` : '/usr/local/bin:/usr/bin:/bin');
+
+  const env: NodeJS.ProcessEnv = {
+    PATH: cleanPath,
+  };
+
+  if (isWindows) {
+    env.SYSTEMROOT = process.env.SYSTEMROOT || 'C:\\Windows';
+    env.SYSTEMDRIVE = process.env.SYSTEMDRIVE || 'C:';
+    env.TEMP = workDir;
+    env.TMP = workDir;
+  } else {
+    env.TMPDIR = workDir;
+    env.HOME = workDir;
+    env.LANG = 'C.UTF-8';
+    env.LC_ALL = 'C.UTF-8';
+    if (gccDir) {
+      env.LD_LIBRARY_PATH = `${gccDir}:/usr/local/lib:/usr/lib:/lib`;
+    }
+  }
+
+  return env;
+}
+
 if (typeof process !== 'undefined') {
   process.once('exit', cleanAllActiveDirs);
   process.once('SIGINT', () => {
@@ -489,14 +521,18 @@ static inline char* __lq_getenv(const char *name) {
         '-lm',
       ];
 
+      const sanitizeOutputPaths = (text: string): string => {
+        return text
+          .split(tempDir).join('.')
+          .split(getJudgeWorkingRoot()).join('.')
+          .split(sourceFile).join('solution.c')
+          .split(preludeFile).join('sandbox_prelude.h');
+      };
+
       const { stdout, stderr } = await execFileAsync(gcc, compileArgs, {
         timeout: options?.timeLimitMs || 10000,
         cwd: tempDir,
-        env: {
-          ...process.env,
-          PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
-          SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-        },
+        env: getSanitizedExecutionEnv(tempDir, gccDir),
       });
 
       if (isWindows) {
@@ -519,7 +555,7 @@ static inline char* __lq_getenv(const char *name) {
         }
       };
 
-      const rawCompileOutput = (stdout || '') + (stderr || '');
+      const rawCompileOutput = sanitizeOutputPaths((stdout || '') + (stderr || ''));
       const diagReport = mapCompilerOutput(rawCompileOutput, code);
 
       return {
@@ -540,7 +576,12 @@ static inline char* __lq_getenv(const char *name) {
         unregisterTempDir(tempDir);
       }
 
-      const rawCompileOutput = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
+      const rawErr = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
+      const rawCompileOutput = rawErr
+        .split(tempDir).join('.')
+        .split(getJudgeWorkingRoot()).join('.')
+        .split(sourceFile).join('solution.c')
+        .split(preludeFile).join('sandbox_prelude.h');
       const diagReport = mapCompilerOutput(rawCompileOutput, code);
       return {
         success: false,
@@ -607,11 +648,7 @@ static inline char* __lq_getenv(const char *name) {
         child = spawn(runnerExe, runnerArgs, {
           cwd: workDir,
           shell: false,
-          env: {
-            ...process.env,
-            PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
-            SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-          },
+          env: getSanitizedExecutionEnv(workDir, gccDir),
           stdio: ['pipe', 'pipe', 'pipe'],
         });
       } catch (_err) {
@@ -785,11 +822,8 @@ static inline char* __lq_getenv(const char *name) {
         child = spawn(binaryPath, [], {
           cwd: workDir,
           shell: false,
-          env: {
-            ...process.env,
-            PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
-            SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-          },
+          detached: process.platform !== 'win32',
+          env: getSanitizedExecutionEnv(workDir, gccDir),
           stdio: ['pipe', 'pipe', 'pipe'],
         });
       } catch (spawnErr: any) {
@@ -816,8 +850,12 @@ static inline char* __lq_getenv(const char *name) {
         try {
           if (process.platform === 'win32' && child.pid) {
             spawnSync('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore' });
-          } else {
-            child.kill('SIGKILL');
+          } else if (child.pid) {
+            try {
+              process.kill(-child.pid, 'SIGKILL');
+            } catch {
+              child.kill('SIGKILL');
+            }
           }
         } catch {
           try { child.kill('SIGKILL'); } catch {}
@@ -832,7 +870,19 @@ static inline char* __lq_getenv(const char *name) {
         }
         if (totalStdoutBytes >= maxPipeBytes && !killed) {
           killed = true;
-          child.kill('SIGKILL');
+          try {
+            if (process.platform === 'win32' && child.pid) {
+              spawnSync('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore' });
+            } else if (child.pid) {
+              try {
+                process.kill(-child.pid, 'SIGKILL');
+              } catch {
+                child.kill('SIGKILL');
+              }
+            }
+          } catch {
+            try { child.kill('SIGKILL'); } catch {}
+          }
           clearTimeout(timer);
           resolve({
             verdict: Verdict.MEMORY_LIMIT_EXCEEDED,

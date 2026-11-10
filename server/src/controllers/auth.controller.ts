@@ -815,6 +815,8 @@ export const completeProfile = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+const DUMMY_HASH = bcrypt.hashSync('timing-equalizer-logicq-guard-2026', 10);
+
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = loginSchema.safeParse(req.body);
@@ -830,129 +832,39 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const identifier = parsed.data.identifier.trim();
     const { password } = parsed.data;
 
+    if (typeof password !== 'string' || !password || password.length > 128) {
+      res.status(400).json({ success: false, message: 'Invalid credentials format' });
+      return;
+    }
+
     const cohortStudent = findCohortStudent(identifier);
     const cohortEmail = cohortStudent?.email?.toLowerCase();
 
-    let user = await prisma.user.findFirst({
+    const user = await prisma.user.findFirst({
       where: {
         OR: [
           { email: identifier.toLowerCase() },
           ...(cohortEmail ? [{ email: cohortEmail }] : []),
           { prn: identifier.toUpperCase() },
-          { prn: identifier },
           { username: identifier.toLowerCase() },
         ],
       },
     });
 
-    if (!user) {
-      user = await ensureWalkthroughOrAdminUser(identifier);
-    }
+    // Constant-time comparison: Always run bcrypt so response time does not reveal user existence
+    const isPasswordValid = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
 
-    if (!user && cohortStudent) {
-      try {
-        user = await prisma.user.create({
-          data: {
-            username: cohortStudent.prn.toLowerCase(),
-            email: cohortStudent.email,
-            prn: cohortStudent.prn,
-            role: 'STUDENT',
-            fullName: cohortStudent.fullName,
-            displayName: cohortStudent.fullName,
-            passwordHash: await bcrypt.hash(cohortStudent.prn, 10),
-            college: cohortStudent.college,
-            department: cohortStudent.department,
-            year: cohortStudent.year,
-            division: 'A',
-            profileComplete: true,
-          },
-        });
-      } catch (createErr) {
-        user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { email: cohortStudent.email.toLowerCase() },
-              { username: cohortStudent.prn.toLowerCase() },
-              { prn: cohortStudent.prn.toUpperCase() },
-            ],
-          },
-        });
-        if (user && !user.prn) {
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: { prn: cohortStudent.prn },
-          });
-        }
-      }
-      if (user) {
-        await prisma.prnIndex.upsert({
-          where: { prn: cohortStudent.prn },
-          create: { prn: cohortStudent.prn, userId: user.id },
-          update: { userId: user.id },
-        }).catch(() => {});
-      }
-    }
-
-    if (!user) {
+    if (!user || !user.passwordHash || !isPasswordValid) {
       res.status(401).json({ success: false, message: 'Invalid credentials' });
       return;
     }
 
+    // Only reveal suspension/ban status AFTER authenticating with the correct password
     if (user.isBanned) {
       res.status(403).json({
         success: false,
         message: 'Your account has been suspended by an administrator.',
       });
-      return;
-    }
-
-    let isPasswordValid = false;
-    if (user.passwordHash) {
-      try {
-        isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-      } catch {}
-    } else {
-      // Only for uninitialized legacy user records without a passwordHash yet
-      const isPrnMatch = Boolean(user.prn && password.toUpperCase() === user.prn.toUpperCase());
-      const isMasterPwd = password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy';
-      if (isPrnMatch || isMasterPwd) {
-        isPasswordValid = true;
-        try {
-          const newHash = await bcrypt.hash(password, 10);
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: { passwordHash: newHash },
-          });
-        } catch {}
-      }
-    }
-
-    // Cohort student self-healing password synchronization:
-    // If user is an enrolled institutional student, allow their PRN or updated password and auto-sync hash
-    if (!isPasswordValid && cohortStudent) {
-      const isPrnMatch = Boolean(cohortStudent.prn && password.toUpperCase() === cohortStudent.prn.toUpperCase());
-      const isMasterPwd = password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy';
-      if (isPrnMatch || isMasterPwd || (typeof password === 'string' && password.length >= 6)) {
-        isPasswordValid = true;
-        try {
-          const newHash = await bcrypt.hash(password, 10);
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: { passwordHash: newHash },
-          });
-        } catch {}
-      }
-    }
-
-    if (!isPasswordValid) {
-      if (user.prn && password.toUpperCase() === user.prn.toUpperCase()) {
-        res.status(401).json({
-          success: false,
-          message: 'You have updated your password. The default PRN password is no longer valid. Please enter your new password.',
-        });
-        return;
-      }
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
       return;
     }
 

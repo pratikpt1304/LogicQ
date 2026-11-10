@@ -500,14 +500,72 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     // 3. SUBMISSIONS & UPLOADED SOLUTIONS COLLECTIONS (SERVER-MANAGED WRITES)
     // -------------------------------------------------------------------------
-    match /submissions/{submissionId} {
-      // Publicly readable so Admin console listeners (operating under backend JWT where request.auth is null)
-      // and client apps can stream submission updates, while writes remain strictly backend-only.
-      allow read: if true;
+    function isValidSubmission(data) {
+      let allowedKeys = [
+        'id', 'userId', 'uid', 'studentId', 'studentName', 'name', 'prn', 'studentPrn',
+        'email', 'studentEmail', 'problemId', 'problemTitle', 'code', 'verdict',
+        'academicScore', 'score', 'marks', 'marksAwarded', 'pointsAwarded', 'timeTakenSeconds',
+        'tabSwitchCount', 'copyPasteAttempts', 'cutAttempts', 'contextMenuAttempts',
+        'fullscreenExits', 'fullScreenExitCount', 'totalKeystrokes', 'largestBurstChars',
+        'incidents', 'submittedAt', 'createdAt', 'updatedAt', 'submissionType', 'status',
+        'difficulty', 'language', 'runtimeMs', 'memoryKb', 'compileOutput', 'tag',
+        'quarantinedAttempt', 'isCheatAutoSubmit', 'isCheatAttempt', 'cheatReason',
+        'problem', 'user', 'sectionId', 'metadata', 'executionTimeMs', 'questionId'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('code' in data) || data.code == null || (data.code is string && data.code.size() <= 65536))
+        && (!('compileOutput' in data) || data.compileOutput == null || (data.compileOutput is string && data.compileOutput.size() <= 5000))
+        && (!('cheatReason' in data) || data.cheatReason == null || (data.cheatReason is string && data.cheatReason.size() <= 500));
+    }
 
-      // CLIENTS CAN NEVER WRITE SUBMISSIONS OR FORGE VERDICTS!
-      // Must be created strictly by backend Judge via Firebase Admin SDK.
-      allow create, update, delete: if false;
+    match /submissions/{submissionId} {
+      // Submissions readable only by faculty/admin or the authenticated student owner
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        )
+      );
+
+      // Submissions creation: faculty/admin or authenticated student recording their submission/incident
+      allow create: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          request.resource.data.get('userId', null) == request.auth.uid
+          || request.resource.data.get('uid', null) == request.auth.uid
+          || request.resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == request.resource.data.get('studentPrn', null)
+          || request.auth.uid == request.resource.data.get('prn', null)
+          || (request.auth.token.prn is string && request.resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && request.resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && request.resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == request.resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && request.resource.data.get('email', null) is string && request.auth.token.email.lower() == request.resource.data.get('email', null).lower())
+        ) && isValidSubmission(request.resource.data)
+      );
+
+      // Submissions update: faculty/admin or authenticated student owner
+      allow update: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        ) && isValidSubmission(request.resource.data)
+      );
+
+      // Submissions deletion: faculty/admin only
+      allow delete: if isFaculty() || isAdmin();
     }
 
     match /practice_progress/{progressId} {
@@ -768,25 +826,61 @@ service cloud.firestore {
     }
 
     match /sections/{sectionId} {
-      // Publicly readable so classroom sections and rosters can be reliably read by authenticated faculty/students
-      // as well as web clients whose session is authenticated via backend JWT (where request.auth is null).
-      allow read: if true;
+      // Academic sections readable by authenticated students and faculty/admins
+      allow read: if isAuthenticated();
 
-      // Faculty (with institutional email) and Admins can create and manage sections;
-      // Web clients authenticated via backend JWT (where request.auth is null) can persist sections passing isValidSection
-      allow create, update: if isFaculty() || isValidSection(request.resource.data);
-      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
-      allow delete: if true;
+      // Faculty and Admins can create and manage sections
+      allow create: if (isFaculty() || isAdmin()) && isValidSection(request.resource.data);
+
+      // Updates: faculty/admin can manage sections; authenticated students enrolling can update studentsCount/updatedAt
+      allow update: if ((isFaculty() || isAdmin()) && isValidSection(request.resource.data))
+        || (isAuthenticated() && isValidSection(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentsCount', 'updatedAt']));
+
+      // Strict authenticated faculty/admin deletion
+      allow delete: if isFaculty() || isAdmin();
 
       // Enrolled students roster subcollection
       match /students/{studentId} {
-        // Publicly readable so student roster memberships can be reliably loaded across all auth mechanisms
-        allow read: if true;
+        // Protect student PII: readable by faculty/admin or the authenticated student themselves
+        allow read: if isFaculty() || isAdmin() || (
+          isAuthenticated() && (
+            studentId == request.auth.uid
+            || resource.data.get('studentId', null) == request.auth.uid
+            || resource.data.get('userId', null) == request.auth.uid
+            || resource.data.get('uid', null) == request.auth.uid
+            || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+            || request.auth.uid == resource.data.get('prn', null)
+            || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+          )
+        );
 
-        // Faculty/Admin and JWT-authenticated web clients can create/update roster memberships passing isValidSectionStudent
-        allow create, update: if isFaculty() || isValidSectionStudent(request.resource.data);
-        // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
-        allow delete: if true;
+        // Faculty/Admin can manage roster; authenticated students can register their own membership
+        allow create: if isFaculty() || isAdmin() || (
+          isAuthenticated() && (
+            studentId == request.auth.uid
+            || request.resource.data.get('studentId', null) == request.auth.uid
+            || request.resource.data.get('userId', null) == request.auth.uid
+            || request.resource.data.get('uid', null) == request.auth.uid
+            || (request.auth.token.prn is string && request.resource.data.get('prn', null) == request.auth.token.prn)
+            || request.auth.uid == request.resource.data.get('prn', null)
+            || (request.auth.token.email is string && request.resource.data.get('email', null) is string && request.auth.token.email.lower() == request.resource.data.get('email', null).lower())
+          ) && isValidSectionStudent(request.resource.data)
+        );
+
+        allow update: if isFaculty() || isAdmin() || (
+          isAuthenticated() && (
+            studentId == request.auth.uid
+            || resource.data.get('studentId', null) == request.auth.uid
+            || resource.data.get('userId', null) == request.auth.uid
+            || resource.data.get('uid', null) == request.auth.uid
+            || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+            || request.auth.uid == resource.data.get('prn', null)
+            || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+          ) && isValidSectionStudent(request.resource.data)
+        );
+
+        // Strict authenticated faculty/admin deletion
+        allow delete: if isFaculty() || isAdmin();
       }
     }
 
@@ -837,14 +931,52 @@ service cloud.firestore {
     }
 
     match /enrolled_students/{docId} {
-      // Global enrolled students roster is publicly readable to support web clients authenticated via backend JWT
-      allow read: if true;
+      // Student PII protection: strictly restricted to Faculty/Admin or the authenticated student themselves
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          docId == request.auth.uid
+          || resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+        )
+      );
 
-      // Faculty and Admins can create and update enrolled student records;
-      // Web clients authenticated via backend JWT (where request.auth is null) can persist records passing isValidEnrolledStudent
-      allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
-      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
-      allow delete: if true;
+      // Faculty/Admin can enroll students; authenticated student can create their own record
+      allow create: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          docId == request.auth.uid
+          || request.resource.data.get('userId', null) == request.auth.uid
+          || request.resource.data.get('uid', null) == request.auth.uid
+          || request.resource.data.get('studentId', null) == request.auth.uid
+          || (request.auth.token.email is string && request.resource.data.get('email', null) is string && request.auth.token.email.lower() == request.resource.data.get('email', null).lower())
+          || request.auth.uid == request.resource.data.get('prn', null)
+          || (request.auth.token.prn is string && request.resource.data.get('prn', null) == request.auth.token.prn)
+        )
+        && isValidEnrolledStudent(request.resource.data)
+        && (!('isBanned' in request.resource.data) || request.resource.data.isBanned == false)
+      );
+
+      // Updates: faculty/admin can update all; authenticated student can update only their own profile
+      // and CANNOT modify admin-controlled fields (isBanned, bannedAt, banReason)
+      allow update: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          docId == request.auth.uid
+          || resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+        )
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'bannedAt', 'banReason'])
+        && isValidEnrolledStudent(request.resource.data)
+      );
+
+      // Strict authenticated faculty/admin deletion
+      allow delete: if isFaculty() || isAdmin();
     }
 
     // -------------------------------------------------------------------------
@@ -901,32 +1033,68 @@ service cloud.firestore {
     }
 
     match /cohort_progress/{prn} {
-      // Global read allowed so that students switching between mobile and laptop can immediately restore their progress
-      allow read: if true;
+      // Progress is readable by Faculty/Admin or the authenticated owner student
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          prn == request.auth.uid
+          || (request.auth.token.prn is string && prn == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('boundEmail', null) is string && request.auth.token.email.lower() == resource.data.get('boundEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+        )
+      );
 
-      // Validation function isValidCohortProgress(data) ensuring:
-      // - prn is string, size <= 30
-      // - completedProblems (if present) is list of strings, size <= 250
-      // - totalSolved (if present) is int
-      // - totalPoints (if present) is int
-      // - currentStreak (if present) is int
-      // - longestStreak (if present) is int
-      // - lastSolvedDate (if present) is string or null
-      // - draftCodes (if present) is map
-      // - moduleProgress (if present) is map
-      // - updatedAt is timestamp or int or string
-      // - isBanned (if present) is bool
-      // - bannedAt (if present) is string (<= 100 chars) or timestamp or null
-      // - banReason (if present) is string (<= 200 chars) or null
-      // Only allowedKeys permitted.
-      allow create, update: if isValidCohortProgress(request.resource.data);
-      allow delete: if isFaculty() || true;
+      // Create allowed for faculty/admin, or authenticated student initializing their own record
+      allow create: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          prn == request.auth.uid
+          || (request.auth.token.prn is string && prn == request.auth.token.prn)
+          || (request.auth.token.email is string && request.resource.data.get('boundEmail', null) is string && request.auth.token.email.lower() == request.resource.data.get('boundEmail', null).lower())
+          || (request.auth.token.email is string && request.resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == request.resource.data.get('studentEmail', null).lower())
+        )
+        && isValidCohortProgress(request.resource.data)
+        && (!('isBanned' in request.resource.data) || request.resource.data.isBanned == false)
+      );
+
+      // Update: faculty/admin can update; authenticated student can only update their own progress
+      // and cannot tamper with admin-managed ban state (isBanned, bannedAt, banReason)
+      allow update: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          prn == request.auth.uid
+          || (request.auth.token.prn is string && prn == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('boundEmail', null) is string && request.auth.token.email.lower() == resource.data.get('boundEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+        )
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBanned', 'bannedAt', 'banReason'])
+        && isValidCohortProgress(request.resource.data)
+      );
+
+      // Strict authenticated faculty/admin deletion
+      allow delete: if isFaculty() || isAdmin();
 
       match /drafts/{draftId} {
-        allow read: if true;
-        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
+        allow read: if isFaculty() || isAdmin() || (
+          isAuthenticated() && (
+            prn == request.auth.uid
+            || (request.auth.token.prn is string && prn == request.auth.token.prn)
+          )
+        );
+
+        allow create, update: if (
+          isFaculty() || isAdmin() || (
+            isAuthenticated() && (
+              prn == request.auth.uid
+              || (request.auth.token.prn is string && prn == request.auth.token.prn)
+            )
+          )
+        ) && request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
           && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
-        allow delete: if isFaculty() || true;
+
+        allow delete: if isFaculty() || isAdmin() || (
+          isAuthenticated() && (
+            prn == request.auth.uid
+            || (request.auth.token.prn is string && prn == request.auth.token.prn)
+          )
+        );
       }
     }
 
@@ -968,15 +1136,17 @@ service cloud.firestore {
     }
 
     match /assessment_tests/{testId} {
-      // Public read access so enrolled students (whether authenticated via Firebase Auth,
-      // backend JWT, or institutional PRN session) can fetch active assessments assigned to their section:
-      allow read: if true;
+      // Only published/active assessments should be readable by authenticated students,
+      // while drafts, upcoming, and question editing must be restricted to faculty/admin
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && resource.data.status in ['ACTIVE', 'PUBLISHED']
+      );
 
-      // Faculty and Admin write access, or web clients operating under JWT session validating payload schema:
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentTest(request.resource.data);
+      // Question creation, updates, and schedule management are strictly restricted to faculty and admins
+      allow create, update: if (isFaculty() || isAdmin()) && isValidAssessmentTest(request.resource.data);
 
-      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication:
-      allow delete: if true;
+      // Strict authenticated faculty/admin deletion check
+      allow delete: if isFaculty() || isAdmin();
     }
 
     // -------------------------------------------------------------------------
@@ -1050,23 +1220,101 @@ service cloud.firestore {
     }
 
     match /assessment_test_submissions/{docId} {
-      // Public read access to support Admin console live onSnapshot listeners, faculty analytics,
-      // and student submissions view where clients operate under backend JWT (where request.auth is null)
-      allow read: if true;
+      // Submissions readable only by faculty/admin or the authenticated student owner
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        )
+      );
 
-      // Faculty and Admins can create and update assessment submissions;
-      // Web clients authenticated via backend JWT (where request.auth is null) can record submissions passing isValidAssessmentSubmission
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
+      // Submissions creation: faculty/admin or authenticated student recording their submission
+      allow create: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          request.resource.data.get('userId', null) == request.auth.uid
+          || request.resource.data.get('uid', null) == request.auth.uid
+          || request.resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == request.resource.data.get('studentPrn', null)
+          || request.auth.uid == request.resource.data.get('prn', null)
+          || (request.auth.token.prn is string && request.resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && request.resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && request.resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == request.resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && request.resource.data.get('email', null) is string && request.auth.token.email.lower() == request.resource.data.get('email', null).lower())
+        ) && isValidAssessmentSubmission(request.resource.data)
+      );
 
-      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication (e.g. roster/student deletion cleanup)
-      allow delete: if true;
+      // Submissions update: faculty/admin or authenticated student owner
+      allow update: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        ) && isValidAssessmentSubmission(request.resource.data)
+      );
+
+      // Strict authenticated faculty/admin deletion
+      allow delete: if isFaculty() || isAdmin();
     }
 
     match /assessment_submissions/{docId} {
       // Alias collection matching assessment_test_submissions semantics
-      allow read: if true;
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
-      allow delete: if true;
+      allow read: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        )
+      );
+
+      allow create: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          request.resource.data.get('userId', null) == request.auth.uid
+          || request.resource.data.get('uid', null) == request.auth.uid
+          || request.resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == request.resource.data.get('studentPrn', null)
+          || request.auth.uid == request.resource.data.get('prn', null)
+          || (request.auth.token.prn is string && request.resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && request.resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && request.resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == request.resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && request.resource.data.get('email', null) is string && request.auth.token.email.lower() == request.resource.data.get('email', null).lower())
+        ) && isValidAssessmentSubmission(request.resource.data)
+      );
+
+      allow update: if isFaculty() || isAdmin() || (
+        isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid
+          || resource.data.get('uid', null) == request.auth.uid
+          || resource.data.get('studentId', null) == request.auth.uid
+          || request.auth.uid == resource.data.get('studentPrn', null)
+          || request.auth.uid == resource.data.get('prn', null)
+          || (request.auth.token.prn is string && resource.data.get('studentPrn', null) == request.auth.token.prn)
+          || (request.auth.token.prn is string && resource.data.get('prn', null) == request.auth.token.prn)
+          || (request.auth.token.email is string && resource.data.get('studentEmail', null) is string && request.auth.token.email.lower() == resource.data.get('studentEmail', null).lower())
+          || (request.auth.token.email is string && resource.data.get('email', null) is string && request.auth.token.email.lower() == resource.data.get('email', null).lower())
+        ) && isValidAssessmentSubmission(request.resource.data)
+      );
+
+      // Strict authenticated faculty/admin deletion
+      allow delete: if isFaculty() || isAdmin();
     }
   }
 }

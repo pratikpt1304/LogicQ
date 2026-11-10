@@ -22,22 +22,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
-    let payload = verifyAccessToken(token);
-    if (!payload && (token.startsWith('logicq_sess_') || token.startsWith('fallback-jwt-'))) {
-      const parts = token.split('_');
-      // Format: logicq_sess_<id_or_prn>_<timestamp>
-      const rawId = parts.slice(2, -1).join('_') || parts[2] || '';
-      const cleanPrn = rawId.replace(/^cohort-/, '').replace(/^std_/, '').toUpperCase();
-      if (cleanPrn) {
-        payload = {
-          userId: rawId.startsWith('cohort-') ? rawId : `cohort-${cleanPrn.toLowerCase()}`,
-          role: 'STUDENT',
-          username: cleanPrn.toLowerCase(),
-          prn: cleanPrn,
-          email: `${cleanPrn.toLowerCase()}@university.edu.in`,
-        };
-      }
-    }
+    const payload = verifyAccessToken(token);
     if (!payload) {
       res.status(401).json({ success: false, message: 'Invalid or expired access token' });
       return;
