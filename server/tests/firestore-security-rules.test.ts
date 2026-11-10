@@ -71,16 +71,17 @@ class RulesEvaluator {
 
   static isOwnerId(ctx: FirestoreRuleContext, id: string): boolean {
     if (!ctx.auth) return false;
-    if (id === ctx.auth.uid) return true;
-    if (typeof ctx.auth.token?.prn === 'string' && id === ctx.auth.token.prn) return true;
-    if (
-      typeof ctx.auth.token?.email === 'string' &&
-      ctx.auth.token?.email_verified === true &&
-      id.toLowerCase() === ctx.auth.token.email.toLowerCase()
-    ) {
-      return true;
-    }
-    return false;
+    if (typeof id !== 'string' || id === '') return false;
+    const uid = ctx.auth.uid;
+    const prn = typeof ctx.auth.token?.prn === 'string' ? ctx.auth.token.prn : '';
+    const email = typeof ctx.auth.token?.email === 'string' ? ctx.auth.token.email : '';
+    const emailVerified = ctx.auth.token?.email_verified === true;
+
+    return (
+      id === uid ||
+      (prn !== '' && id === prn) ||
+      (email !== '' && emailVerified && id.toLowerCase() === email.toLowerCase())
+    );
   }
 
   static isStudentOwner(ctx: FirestoreRuleContext, data: Record<string, any>, identifier: string): boolean {
@@ -112,16 +113,12 @@ class RulesEvaluator {
 
   static evaluateCohortProgressGet(ctx: FirestoreRuleContext, prn: string): boolean {
     if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
-    if (RulesEvaluator.isOwnerId(ctx, prn)) return true;
-    if (ctx.resource?.data && RulesEvaluator.isStudentOwner(ctx, ctx.resource.data, prn)) return true;
-    return false;
+    return RulesEvaluator.isOwnerId(ctx, prn);
   }
 
   static evaluateEnrolledStudentGet(ctx: FirestoreRuleContext, docId: string): boolean {
     if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
-    if (RulesEvaluator.isOwnerId(ctx, docId)) return true;
-    if (ctx.resource?.data && RulesEvaluator.isStudentOwner(ctx, ctx.resource.data, docId)) return true;
-    return false;
+    return RulesEvaluator.isOwnerId(ctx, docId);
   }
 
   static evaluateCohortDraftReadOrDelete(ctx: FirestoreRuleContext, prn: string): boolean {
@@ -152,17 +149,24 @@ class RulesEvaluator {
   }
 
   static evaluateSectionCreate(ctx: FirestoreRuleContext): boolean {
-    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    if (!ctx.auth) return false;
+    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
-    return RulesEvaluator.isValidSection(data);
+    if (!RulesEvaluator.isValidSection(data)) return false;
+    if (!RulesEvaluator.isAdmin(ctx) && data.facultyId !== ctx.auth.uid) return false;
+    return true;
   }
 
   static evaluateSectionUpdate(ctx: FirestoreRuleContext): boolean {
-    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    if (!ctx.auth) return false;
+    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
-    return RulesEvaluator.isValidSection(data);
+    if (!RulesEvaluator.isValidSection(data)) return false;
+    if (!RulesEvaluator.isAdmin(ctx) && ctx.resource?.data?.facultyId !== ctx.auth.uid) return false;
+    if (!RulesEvaluator.isAdmin(ctx) && data.facultyId !== ctx.resource?.data?.facultyId) return false;
+    return true;
   }
 
   static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
@@ -171,7 +175,7 @@ class RulesEvaluator {
 
   static isValidSection(data: Record<string, any>): boolean {
     const allowedKeys = [
-      'id', 'sectionId', 'sectionName', 'name', 'course', 'subject',
+      'id', 'sectionId', 'sectionName', 'name', 'title', 'course', 'subject',
       'institution', 'academicYear', 'semester', 'facultyId', 'facultyEmail', 'facultyName',
       'description', 'joinCode', 'joinToken', 'isActive',
       'startDate', 'endDate', 'createdAt', 'updatedAt', 'studentsCount'
@@ -179,48 +183,52 @@ class RulesEvaluator {
     for (const key of Object.keys(data)) {
       if (!allowedKeys.includes(key)) return false;
     }
-    const name = data.sectionName || data.name;
+    const name = data.sectionName || data.title || data.name;
     if (typeof name !== 'string' || name.length < 1 || name.length > 100) return false;
+    if ('title' in data && data.title !== null && (typeof data.title !== 'string' || data.title.length < 1 || data.title.length > 100)) return false;
     if (typeof data.course !== 'string' || data.course.length < 1 || data.course.length > 100) return false;
     if (typeof data.subject !== 'string' || data.subject.length < 1 || data.subject.length > 100) return false;
+    if ('institution' in data && data.institution !== null && (typeof data.institution !== 'string' || data.institution.length > 100)) return false;
+    if ('academicYear' in data && data.academicYear !== null && (typeof data.academicYear !== 'string' || data.academicYear.length > 50)) return false;
+    if ('semester' in data && data.semester !== null && (typeof data.semester !== 'string' || data.semester.length > 50)) return false;
+    if ('facultyId' in data && (typeof data.facultyId !== 'string' || data.facultyId.length > 128)) return false;
+    if ('facultyEmail' in data && (typeof data.facultyEmail !== 'string' || data.facultyEmail.length > 150)) return false;
+    if ('facultyName' in data && (typeof data.facultyName !== 'string' || data.facultyName.length > 100)) return false;
+    if ('description' in data && data.description !== null && (typeof data.description !== 'string' || data.description.length > 1000)) return false;
+    if ('joinCode' in data && (typeof data.joinCode !== 'string' || data.joinCode.length > 32)) return false;
+    if ('joinToken' in data && (typeof data.joinToken !== 'string' || data.joinToken.length > 128)) return false;
+    if ('isActive' in data && typeof data.isActive !== 'boolean') return false;
+    if ('studentsCount' in data && !Number.isInteger(data.studentsCount)) return false;
     return true;
   }
 
-  static evaluateSectionStudentRead(ctx: FirestoreRuleContext, studentId: string): boolean {
+  static evaluateSectionStudentRead(ctx: FirestoreRuleContext, studentPrn: string): boolean {
     return true;
   }
 
-  static evaluateSectionStudentCreate(ctx: FirestoreRuleContext, studentId: string): boolean {
+  static evaluateSectionStudentCreate(ctx: FirestoreRuleContext, studentPrn: string): boolean {
     if (!ctx.auth) return false;
+    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
-    if (!RulesEvaluator.isValidSectionStudent(data)) return false;
-    if (RulesEvaluator.isFaculty(ctx)) return true;
-
-    const authUid = ctx.auth.uid;
-    const authEmail = ctx.auth.token?.email?.toLowerCase();
-    const isOwner = (
-      authUid === studentId ||
-      data.studentId === authUid ||
-      data.userId === authUid ||
-      data.uid === authUid ||
-      (typeof data.email === 'string' && data.email.toLowerCase() === authEmail)
-    );
-    return isOwner;
+    return RulesEvaluator.isValidSectionStudent(data, studentPrn);
   }
 
-  static evaluateSectionStudentUpdate(ctx: FirestoreRuleContext): boolean {
-    if (!RulesEvaluator.isFaculty(ctx)) return false;
+  static evaluateSectionStudentUpdate(ctx: FirestoreRuleContext, studentPrn: string): boolean {
+    if (!ctx.auth) return false;
+    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
-    return RulesEvaluator.isValidSectionStudent(data);
+    return RulesEvaluator.isValidSectionStudent(data, studentPrn);
   }
 
   static evaluateSectionStudentDelete(ctx: FirestoreRuleContext): boolean {
     return true;
   }
 
-  static isValidSectionStudent(data: Record<string, any>): boolean {
+  static isValidSectionStudent(data: Record<string, any>, studentPrn: string): boolean {
+    if (typeof studentPrn !== 'string' || !/^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/.test(studentPrn)) return false;
+    if (data.prn !== studentPrn) return false;
     const allowedKeys = [
       'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
       'displayName', 'email', 'mobile', 'status', 'joinedVia',
@@ -229,6 +237,16 @@ class RulesEvaluator {
     for (const key of Object.keys(data)) {
       if (!allowedKeys.includes(key)) return false;
     }
+    if ('studentId' in data && (typeof data.studentId !== 'string' || data.studentId.length > 128)) return false;
+    if ('userId' in data && (typeof data.userId !== 'string' || data.userId.length > 128)) return false;
+    if ('uid' in data && (typeof data.uid !== 'string' || data.uid.length > 128)) return false;
+    if ('name' in data && (typeof data.name !== 'string' || data.name.length > 100)) return false;
+    if ('fullName' in data && (typeof data.fullName !== 'string' || data.fullName.length > 100)) return false;
+    if ('displayName' in data && data.displayName !== null && (typeof data.displayName !== 'string' || data.displayName.length > 100)) return false;
+    if ('email' in data && (typeof data.email !== 'string' || data.email.length > 150)) return false;
+    if ('mobile' in data && data.mobile !== null && (typeof data.mobile !== 'string' || data.mobile.length > 25)) return false;
+    if ('status' in data && (typeof data.status !== 'string' || data.status.length > 50)) return false;
+    if ('joinedVia' in data && (typeof data.joinedVia !== 'string' || data.joinedVia.length > 50)) return false;
     return true;
   }
 
@@ -3326,10 +3344,10 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // Helper definition
     expect(firestoreRules).toContain('function isOwnerId(id)');
-    expect(firestoreRules).toContain('request.auth.token.email_verified == true');
+    expect(firestoreRules).toContain("request.auth.token.get('email_verified', false) == true");
 
     // cohort_progress/{prn} rules
-    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(prn) || (resource != null && isStudentOwner(resource.data, prn));');
+    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(prn);');
     expect(firestoreRules).toContain("draftId.matches('^[a-zA-Z0-9_-]{1,80}$')");
     expect(firestoreRules).toContain("request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])");
     expect(firestoreRules).toContain("request.resource.data.customInput.size() <= 4096");
@@ -3340,7 +3358,174 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain('match /proctoring/{docId}');
 
     // enrolled_students/{docId} rules
-    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(docId) || (resource != null && isStudentOwner(resource.data, docId));');
+    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(docId);');
+
+    // sections faculty ownership binding
+    expect(firestoreRules).toContain('isAdmin() || request.resource.data.facultyId == request.auth.uid');
+    expect(firestoreRules).toContain('isAdmin() || resource.data.facultyId == request.auth.uid');
+    expect(firestoreRules).toContain('isAdmin() || request.resource.data.facultyId == resource.data.facultyId');
+
+    // sections studentPrn roster
+    expect(firestoreRules).toContain('match /students/{studentPrn}');
+    expect(firestoreRules).toContain('isValidSectionStudent(request.resource.data, studentPrn)');
+  });
+
+  it('SECTION HARDENING & FACULTY OWNERSHIP: Enforces facultyId binding on create/update and title validation', () => {
+    const facultyDrSmith: AuthContext = {
+      uid: 'faculty_dr_smith',
+      token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' },
+    };
+    const facultyDrJones: AuthContext = {
+      uid: 'faculty_dr_jones',
+      token: { email: 'jones@sanjivani.edu.in', role: 'FACULTY' },
+    };
+    const adminCtx: FirestoreRuleContext = { auth: adminCharlie, request: {} };
+
+    const validSection = {
+      id: 'sec_cs_101',
+      title: 'Advanced Algorithms',
+      course: 'B.Tech CSE',
+      subject: 'Algorithms',
+      facultyId: 'faculty_dr_smith',
+      institution: 'Sanjivani COE',
+      academicYear: '2026-2027',
+      semester: 'Semester 4',
+      description: 'Comprehensive data structures and algorithms course.',
+    };
+
+    // 1. Valid section with title & bounded fields passes
+    expect(RulesEvaluator.isValidSection(validSection)).toBe(true);
+
+    // 2. Field bounds check: oversized description (> 1000) -> MUST FAIL
+    expect(RulesEvaluator.isValidSection({ ...validSection, description: 'D'.repeat(1001) })).toBe(false);
+
+    // 3. Field bounds check: oversized academicYear (> 50) -> MUST FAIL
+    expect(RulesEvaluator.isValidSection({ ...validSection, academicYear: 'Y'.repeat(51) })).toBe(false);
+
+    // 4. Field bounds check: oversized semester (> 50) -> MUST FAIL
+    expect(RulesEvaluator.isValidSection({ ...validSection, semester: 'S'.repeat(51) })).toBe(false);
+
+    // 5. Field bounds check: oversized institution (> 100) -> MUST FAIL
+    expect(RulesEvaluator.isValidSection({ ...validSection, institution: 'I'.repeat(101) })).toBe(false);
+
+    // 6. Section create: Faculty creating with their own UID -> MUST PASS
+    expect(RulesEvaluator.evaluateSectionCreate({
+      auth: facultyDrSmith,
+      request: { resource: { data: validSection } },
+    })).toBe(true);
+
+    // 7. Section create: Faculty spoofing another faculty's ID -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionCreate({
+      auth: facultyDrJones,
+      request: { resource: { data: validSection } }, // validSection has facultyId: 'faculty_dr_smith'
+    })).toBe(false);
+
+    // 8. Section create: Admin creating with any facultyId -> MUST PASS
+    expect(RulesEvaluator.evaluateSectionCreate({
+      ...adminCtx,
+      request: { resource: { data: validSection } },
+    })).toBe(true);
+
+    // 9. Section update: Owner faculty updating their section without changing facultyId -> MUST PASS
+    expect(RulesEvaluator.evaluateSectionUpdate({
+      auth: facultyDrSmith,
+      resource: { data: validSection },
+      request: { resource: { data: { ...validSection, description: 'Updated syllabus.' } } },
+    })).toBe(true);
+
+    // 10. Section update: Non-owner faculty attempting to update -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionUpdate({
+      auth: facultyDrJones,
+      resource: { data: validSection },
+      request: { resource: { data: { ...validSection, description: 'Hijacked syllabus.' } } },
+    })).toBe(false);
+
+    // 11. Section update: Owner faculty attempting to reassign facultyId -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionUpdate({
+      auth: facultyDrSmith,
+      resource: { data: validSection },
+      request: { resource: { data: { ...validSection, facultyId: 'faculty_dr_jones' } } },
+    })).toBe(false);
+
+    // 12. Section update: Admin updating any section & reassigning facultyId -> MUST PASS
+    expect(RulesEvaluator.evaluateSectionUpdate({
+      ...adminCtx,
+      resource: { data: validSection },
+      request: { resource: { data: { ...validSection, facultyId: 'faculty_dr_jones' } } },
+    })).toBe(true);
+  });
+
+  it('SECTION STUDENT ROSTER & PRN FORMAT VALIDATION: Enforces PRN regex and path matching on students subcollection', () => {
+    const facultyDrSmith: AuthContext = {
+      uid: 'faculty_dr_smith',
+      token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' },
+    };
+    const validStudentPrn = '2026AIMF0001';
+    const validStudentData = {
+      id: 'st_1',
+      prn: validStudentPrn,
+      name: 'Alice Sharma',
+      email: 'alice@sanjivani.edu.in',
+      status: 'ACTIVE',
+    };
+
+    // 1. Valid section student with matching PRN -> MUST PASS
+    expect(RulesEvaluator.isValidSectionStudent(validStudentData, validStudentPrn)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentCreate({
+      auth: facultyDrSmith,
+      request: { resource: { data: validStudentData } },
+    }, validStudentPrn)).toBe(true);
+
+    // 2. Mismatched PRN between path and body -> MUST FAIL
+    expect(RulesEvaluator.isValidSectionStudent(validStudentData, '2026AIMF0002')).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentCreate({
+      auth: facultyDrSmith,
+      request: { resource: { data: validStudentData } },
+    }, '2026AIMF0002')).toBe(false);
+
+    // 3. Invalid PRN format (lowercase letters) -> MUST FAIL
+    expect(RulesEvaluator.isValidSectionStudent({ ...validStudentData, prn: '2026aimf0001' }, '2026aimf0001')).toBe(false);
+
+    // 4. Invalid PRN format (missing gender code M/F) -> MUST FAIL
+    expect(RulesEvaluator.isValidSectionStudent({ ...validStudentData, prn: '2026AIML0001' }, '2026AIML0001')).toBe(false);
+
+    // 5. Invalid PRN format (wrong length) -> MUST FAIL
+    expect(RulesEvaluator.isValidSectionStudent({ ...validStudentData, prn: '2026AIM001' }, '2026AIM001')).toBe(false);
+
+    // 6. Student attempting to write directly to section roster -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionStudentCreate({
+      auth: studentAlice,
+      request: { resource: { data: validStudentData } },
+    }, validStudentPrn)).toBe(false);
+  });
+
+  it('PATH-BASED ISOWNERID: Empty string immunity and token fallback protection', () => {
+    const emptyClaimStudent: AuthContext = {
+      uid: 'student_valid_uid',
+      token: {
+        // missing prn and email
+      },
+    };
+    const emptyStringStudent: AuthContext = {
+      uid: '',
+      token: {
+        prn: '',
+        email: '',
+        email_verified: false,
+      },
+    };
+
+    // 1. Empty string ID must NEVER match, even if auth context has empty string -> MUST FAIL
+    expect(RulesEvaluator.isOwnerId({ auth: emptyStringStudent }, '')).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: emptyClaimStudent }, '')).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: null }, '')).toBe(false);
+
+    // 2. Non-string ID must NEVER match
+    expect(RulesEvaluator.isOwnerId({ auth: emptyClaimStudent }, null as any)).toBe(false);
+    expect(RulesEvaluator.isOwnerId({ auth: emptyClaimStudent }, 123 as any)).toBe(false);
+
+    // 3. Valid UID matches even when claims are missing
+    expect(RulesEvaluator.isOwnerId({ auth: emptyClaimStudent }, 'student_valid_uid')).toBe(true);
   });
 });
 

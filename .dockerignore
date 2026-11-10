@@ -1,4 +1,7 @@
 node_modules
+dist
+server/dist
+judge-service/dist
 client
 .git
 .github

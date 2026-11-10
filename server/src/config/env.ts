@@ -16,7 +16,9 @@ export const ENV = {
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
   // Judge
-  JUDGE_TYPE: (process.env.JUDGE_TYPE || 'local_gcc') as 'local_gcc' | 'judge0' | 'docker',
+  JUDGE_TYPE: (process.env.JUDGE_TYPE || 'local_gcc') as 'local_gcc' | 'judge0' | 'docker' | 'remote',
+  JUDGE_SERVICE_URL: process.env.JUDGE_SERVICE_URL || 'http://localhost:5050',
+  JUDGE_SERVICE_SECRET: process.env.JUDGE_SERVICE_SECRET || '',
   GCC_PATH: process.env.GCC_PATH || '',
   JUDGE0_URL: process.env.JUDGE0_URL || 'https://judge0-ce.p.rapidapi.com',
   JUDGE0_KEY: process.env.JUDGE0_KEY || '',

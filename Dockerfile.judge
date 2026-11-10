@@ -1,0 +1,35 @@
+FROM node:20-bookworm-slim
+
+# Install GCC, make, and build-essential for C11 compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create unprivileged runner user and dedicated scratch directory
+RUN useradd -m -u 10001 -s /bin/bash runner && \
+    mkdir -p /judge-tmp && \
+    chown -R runner:runner /judge-tmp && \
+    chmod 711 /judge-tmp
+
+WORKDIR /app
+
+# Copy dependency definitions and install
+COPY judge-service/package*.json ./
+RUN npm install
+
+# Copy source and build TypeScript
+COPY judge-service/ ./
+RUN npm run build
+
+# Switch to unprivileged runner user
+USER runner
+
+EXPOSE 5050
+
+ENV PORT=5050
+ENV NODE_ENV=production
+ENV JUDGE_TMP_ROOT=/judge-tmp
+
+CMD ["node", "dist/index.js"]

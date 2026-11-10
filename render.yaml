@@ -1,21 +1,64 @@
 services:
+  # ---------------------------------------------------------------------------
+  # 1. ISOLATED JUDGE MICROSERVICE (Private Service on Render Private Network)
+  # ---------------------------------------------------------------------------
+  - type: pserv
+    name: logicq-judge
+    runtime: docker
+    dockerfilePath: Dockerfile.judge
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5050
+      - key: JUDGE_TMP_ROOT
+        value: /judge-tmp
+      - key: JUDGE_SERVICE_SECRET
+        generateValue: true
+
+  # ---------------------------------------------------------------------------
+  # 2. CORE LOGICQ WEB API SERVICE (Public API, No GCC installed)
+  # ---------------------------------------------------------------------------
   - type: web
     name: logicq-api
     runtime: docker
-    dockerfilePath: server/Dockerfile
+    dockerfilePath: Dockerfile.api
     dockerContext: .
-    plan: free
+    plan: starter
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: CLIENT_URL
         value: https://logicq-clanguage.web.app
-      - key: DATABASE_URL
-        value: file:./prisma/prod.db
       - key: JUDGE_TYPE
-        value: local_gcc
+        value: remote
+      - key: JUDGE_SERVICE_URL
+        fromService:
+          type: pserv
+          name: logicq-judge
+          property: host
+      - key: JUDGE_SERVICE_SECRET
+        fromService:
+          type: pserv
+          name: logicq-judge
+          envVarKey: JUDGE_SERVICE_SECRET
+      - key: DATABASE_URL
+        fromDatabase:
+          name: logicq-postgres
+          property: connectionString
       - key: JWT_ACCESS_SECRET
-        value: logicq_prod_access_secret_persistent_key_2026_fixed
+        generateValue: true
       - key: JWT_REFRESH_SECRET
-        value: logicq_prod_refresh_secret_persistent_key_2026_fixed
+        generateValue: true
+
+# -----------------------------------------------------------------------------
+# 3. PRODUCTION POSTGRESQL DATABASE
+# -----------------------------------------------------------------------------
+databases:
+  - name: logicq-postgres
+    plan: free
+    databaseName: logicq
+    user: logicq_user

@@ -1,0 +1,34 @@
+FROM node:20-bookworm-slim
+
+# Note: No GCC or build-essential is installed in the API container.
+# Untrusted code compilation and execution is delegated strictly to the isolated judge microservice.
+
+WORKDIR /app
+
+# Copy package definitions and Prisma schema
+COPY server/package*.json ./
+COPY server/prisma/ ./prisma/
+
+# Install server dependencies & generate Prisma Client
+RUN npm install
+RUN npx prisma generate
+
+# Copy server application source code
+COPY server/ .
+
+# Build TypeScript to JavaScript
+RUN npm run build
+
+# Create unprivileged application runtime user
+RUN useradd -m -u 10002 -s /bin/bash nodeapi && \
+    chown -R nodeapi:nodeapi /app
+
+USER nodeapi
+
+EXPOSE 5000
+
+ENV PORT=5000
+ENV NODE_ENV=production
+ENV JUDGE_TYPE=remote
+
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
