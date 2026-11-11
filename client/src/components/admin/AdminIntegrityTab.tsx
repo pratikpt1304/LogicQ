@@ -352,10 +352,10 @@ export const AdminIntegrityTab: React.FC = () => {
         } catch {}
 
         // 1. Fetch directly from enrolled_students (authoritative roster of 116+ students)
-        const [enrolledSnap, firestoreUsers, assessmentSubmissions, cohortSnap] = await Promise.all([
+        const [enrolledSnap, firestoreUsers, practiceSubmissions, cohortSnap] = await Promise.all([
           getDocs(collection(db, 'enrolled_students')).catch(() => null),
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-          FirestoreDataService.getAssessmentSubmissions().catch(() => []),
+          FirestoreDataService.getAllFirestoreSubmissions().catch(() => []),
           getDocs(collection(db, 'cohort_progress')).catch(() => null),
         ]);
 
@@ -449,8 +449,9 @@ export const AdminIntegrityTab: React.FC = () => {
                           cohortMap.get(String(s.id).toUpperCase().trim()) || {};
             const mod = cData?.moduleProgress || {};
 
-            // Find all submissions matching this student
-            const studentSubs = assessmentSubmissions.filter((sub: any) => {
+            // Find all practice submissions matching this student (strictly excluding timed assessment tests)
+            const studentSubs = practiceSubmissions.filter((sub: any) => {
+              if (sub.testId || sub.assignmentId || sub.submissionType === 'ASSESSMENT' || sub.type === 'LAB_INTERNAL') return false;
               const subPrn = (sub.studentPrn || sub.prn || '').toUpperCase().trim();
               const subUid = (sub.userId || '').trim();
               const subEmail = (sub.studentEmail || sub.email || '').toLowerCase().trim();
@@ -463,22 +464,21 @@ export const AdminIntegrityTab: React.FC = () => {
             studentSubs.sort((a: any, b: any) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
             const latestSub = studentSubs[0] || null;
 
-            // Compute aggregated proctoring metrics across live stream & submissions
+            // Compute aggregated proctoring metrics strictly across practice stream & practice submissions
+            const isTestModule = (mod.currentModule || '').toLowerCase().includes('assessment') ||
+                                 (mod.currentModule || '').toLowerCase().includes('test') ||
+                                 (mod.currentModule || '').toLowerCase().includes('exam');
+
             const tabSwitches = Math.max(
-              Number(mod.tabSwitches) || 0,
-              Number(s.tabSwitchCount) || 0,
-              Number(s.tabSwitches) || 0,
+              isTestModule ? 0 : (Number(mod.tabSwitches) || 0),
               ...studentSubs.map((x: any) => Number(x.tabSwitchCount) || 0)
             );
             const pasteBursts = Math.max(
-              Number(mod.pasteBursts) || 0,
-              Number(s.pasteBursts) || 0,
-              Number(s.copyPasteAttempts) || 0,
+              isTestModule ? 0 : (Number(mod.pasteBursts) || 0),
               ...studentSubs.map((x: any) => Number(x.copyPasteAttempts) || 0)
             );
             const fullscreenExits = Math.max(
-              Number(mod.fullscreenExits) || 0,
-              Number(s.fullscreenExits) || 0,
+              isTestModule ? 0 : (Number(mod.fullscreenExits) || 0),
               ...studentSubs.map((x: any) => Number(x.fullscreenExits) || 0)
             );
             const totalKeystrokes = Math.max(
@@ -690,7 +690,6 @@ export const AdminIntegrityTab: React.FC = () => {
 
     // Live real-time Firestore synchronization for 0ms student forensics stream
     const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live cohort notice:', err));
-    const unsubSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live assessment submissions notice:', err));
     const unsubGenSubmissions = onSnapshot(collection(db, 'submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live submissions notice:', err));
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live enrolled notice:', err));
     const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live sections notice:', err));
@@ -705,7 +704,6 @@ export const AdminIntegrityTab: React.FC = () => {
     return () => {
       isMounted = false;
       unsubCohort();
-      unsubSubmissions();
       unsubGenSubmissions();
       unsubEnrolled();
       unsubSections();

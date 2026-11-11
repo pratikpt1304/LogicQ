@@ -529,17 +529,8 @@ export const ExamWorkspacePage: React.FC = () => {
         addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter exited: Student minimized or exited full-screen mode.', 'WARNING');
 
         const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
-        FirestoreDataService.recordProctoringIncident(targetUser, {
-          type: 'FULLSCREEN_EXIT',
-          reason: 'Student exited proctored full-screen mode.',
-          problemSlug: problemId || assignmentId,
-          problemTitle: problemData?.title || 'Continuous Practical Assessment',
-          moduleTitle: assignmentData?.title || 'Lab Internal Assessment',
-          category: 'LAB_INTERNAL',
-          isCheatAttempt: false,
-        }).catch(() => {});
 
-        // Immediately persist breach record to assessment_test_submissions so it reflects in test audit modal
+        // Immediately persist breach record to assessment_test_submissions so it reflects exclusively in test audit modal
         FirestoreDataService.recordAssessmentSubmission({
           testId: assignmentData?.id || assignmentId || 'UNIT',
           assignmentId: assignmentId || 'UNIT',

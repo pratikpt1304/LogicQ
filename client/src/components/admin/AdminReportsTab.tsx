@@ -226,23 +226,24 @@ export const AdminReportsTab: React.FC = () => {
           totalSolved * 20
         );
 
+        const practiceSubs = matchedSubs.filter((s: any) => !s.testId && !s.assignmentId && s.submissionType !== 'ASSESSMENT');
+        const isTestModule = (mod.currentModule || '').toLowerCase().includes('assessment') ||
+                             (mod.currentModule || '').toLowerCase().includes('test') ||
+                             (mod.currentModule || '').toLowerCase().includes('exam');
+
         const tabSwitches = Math.max(
-          Number(mod.tabSwitches) || 0,
-          Number(enrData.tabSwitchCount) || 0,
-          Number(enrData.tabSwitches) || 0,
-          ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
+          isTestModule ? 0 : (Number(mod.tabSwitches) || 0),
+          ...practiceSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
         );
 
         const pasteBursts = Math.max(
-          Number(mod.pasteBursts) || 0,
-          Number(enrData.pasteBursts) || 0,
-          Number(enrData.copyPasteAttempts) || 0,
-          ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
+          isTestModule ? 0 : (Number(mod.pasteBursts) || 0),
+          ...practiceSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
         );
 
         const totalKeystrokes = Math.max(
           Number(mod.totalKeystrokes) || 0,
-          ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
+          ...practiceSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
         );
 
         const computedIntegrity = enrData.integrityScore !== undefined

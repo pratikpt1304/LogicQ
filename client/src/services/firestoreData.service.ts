@@ -4837,6 +4837,63 @@ export class FirestoreDataService {
       const prn = (data.prn || FirestoreDataService.resolvePrn(userId || auth.currentUser?.uid || undefined) || '').toUpperCase().trim();
       if (!prn) return;
 
+      // 1. ISOLATED TEST / EXAM TELEMETRY
+      // Test breaches, tab switches, and proctoring belong EXCLUSIVELY to that test's audit view
+      // and must NEVER contaminate cohort_progress (practice curriculum) or enrolled_students
+      if (data.testId) {
+        try {
+          const liveSubRef = doc(db, 'assessment_test_submissions', `active_${data.testId}_${prn}`);
+          const existingSnap = await getDoc(liveSubRef).catch(() => null);
+          const existing = existingSnap && existingSnap.exists() ? existingSnap.data() : {};
+          let subIncidents = Array.isArray(existing.incidents) ? [...existing.incidents] : [];
+          if (data.incident) {
+            subIncidents.unshift({
+              id: `inc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              timestamp: data.incident.timestamp || new Date().toISOString(),
+              type: data.incident.type,
+              reason: data.incident.details,
+              severity: data.incident.severity,
+              problemTitle: data.problemTitle,
+            });
+            subIncidents = subIncidents.slice(0, 50);
+          }
+
+          const hasBreach = data.fullScreenExitCount > 0 || data.copyPasteAttempts > 0 || data.tabSwitchCount > 0;
+          await setDoc(
+            liveSubRef,
+            {
+              id: `active_${data.testId}_${prn}`,
+              testId: data.testId,
+              assignmentId: data.testId,
+              testTitle: data.testTitle || 'Continuous Assessment',
+              userId: userId || auth.currentUser?.uid || 'anonymous',
+              studentName: data.studentName || existing.studentName || prn,
+              studentPrn: prn,
+              studentEmail: data.studentEmail || existing.studentEmail || '',
+              problemId: data.problemId || 'q1',
+              problemTitle: data.problemTitle || 'Assessment Question',
+              tabSwitchCount: Math.max(Number(data.tabSwitchCount) || 0, Number(existing.tabSwitchCount) || 0),
+              copyPasteAttempts: Math.max(Number(data.copyPasteAttempts) || 0, Number(existing.copyPasteAttempts) || 0),
+              fullscreenExits: Math.max(Number(data.fullScreenExitCount) || 0, Number(existing.fullscreenExits) || 0),
+              totalKeystrokes: Math.max(Number(data.totalKeystrokes) || 0, Number(existing.totalKeystrokes) || 0),
+              verdict: data.fullScreenExitCount > 0 ? 'FLAGGED_CHEATING' : (hasBreach ? 'NEEDS_REVIEW' : (existing.verdict || 'IN_PROGRESS')),
+              status: data.fullScreenExitCount > 0 ? 'CRITICAL_BREACH' : (hasBreach ? 'NEEDS_REVIEW' : (existing.status || 'IN_PROGRESS')),
+              incidents: subIncidents,
+              isInProgress: true,
+              lastActiveTime: new Date().toISOString(),
+              submittedAt: existing.submittedAt || new Date().toISOString(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          RealtimeSyncService.emit('SUBMISSIONS');
+        } catch (err) {
+          console.warn('recordStudentLiveTelemetry test session notice:', err);
+        }
+        return;
+      }
+
+      // 2. PRACTICE ARENA TELEMETRY
       const cohortRef = doc(db, 'cohort_progress', prn);
       const cohortSnap = await getDoc(cohortRef).catch(() => null);
       const existingCohort = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
@@ -4861,8 +4918,8 @@ export class FirestoreDataService {
 
       const updatedModule = {
         ...prevModule,
-        currentModule: data.testTitle || prevModule.currentModule || 'Continuous Assessment',
-        currentProblem: data.problemTitle || prevModule.currentProblem || 'Assessment Question',
+        currentModule: prevModule.currentModule || 'Practice Arena',
+        currentProblem: data.problemTitle || prevModule.currentProblem || 'Practice Question',
         tabSwitches: Math.max(Number(data.tabSwitchCount) || 0, Number(prevModule.tabSwitches) || 0),
         pasteBursts: Math.max(Number(data.copyPasteAttempts) || 0, Number(prevModule.pasteBursts) || 0),
         fullscreenExits: Math.max(Number(data.fullScreenExitCount) || 0, Number(prevModule.fullscreenExits) || 0),
@@ -5629,77 +5686,17 @@ export class FirestoreDataService {
         localStorage.setItem('logicq_assessment_submissions', JSON.stringify(local.slice(0, 100)));
       } catch {}
 
-      // 4. Update cohort_progress and forensic telemetry subcollection for live admin oversight
+      // 4. Update live candidate document in assessment_test_submissions to mark as completed
       const prn = cleanSub.studentPrn || FirestoreDataService.resolvePrn(cleanSub.userId);
-      if (prn) {
+      if (prn && cleanSub.testId) {
         try {
-          const cohortRef = doc(db, 'cohort_progress', prn);
-          const autoLockCount = cleanSub.fullscreenExits > 0 ? 1 : 0;
-          const status = autoLockCount > 0 || cleanSub.copyPasteAttempts > 3
-            ? 'CRITICAL_BREACH'
-            : (cleanSub.tabSwitchCount > 0 || cleanSub.copyPasteAttempts > 0)
-            ? 'NEEDS_REVIEW'
-            : 'CLEAN';
-
-          const integrityScore = FirestoreDataService.computeIntegrityScore({
-            tabSwitchCount: cleanSub.tabSwitchCount,
-            copyPasteAttempts: cleanSub.copyPasteAttempts,
-            fullscreenExits: cleanSub.fullscreenExits,
-            autoLockCount,
-          });
-
-          await setDoc(
-            cohortRef,
-            {
-              prn,
-              studentName: cleanSub.studentName,
-              studentEmail: cleanSub.studentEmail,
-              moduleProgress: {
-                currentModule: cleanSub.testTitle || 'Continuous Assessment',
-                currentProblem: cleanSub.problemTitle || 'Assessment Question',
-                tabSwitches: cleanSub.tabSwitchCount,
-                pasteBursts: cleanSub.copyPasteAttempts,
-                fullscreenExits: cleanSub.fullscreenExits,
-                totalKeystrokes: cleanSub.totalKeystrokes,
-                integrityScore,
-                status,
-                lastActiveTime: cleanSub.submittedAt,
-                submittedAt: cleanSub.submittedAt,
-                testStatus: 'SUBMITTED',
-                academicScore: cleanSub.academicScore,
-                verdict: cleanSub.verdict,
-                activeSession: false,
-              },
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-
-          const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
-          await setDoc(
-            telemetryDraftRef,
-            {
-              code: JSON.stringify({
-                tabSwitchCount: cleanSub.tabSwitchCount,
-                copyPasteAttempts: cleanSub.copyPasteAttempts,
-                fullscreenExits: cleanSub.fullscreenExits,
-                totalKeystrokes: cleanSub.totalKeystrokes,
-                integrityScore,
-                incidents: cleanSub.incidents,
-                testTitle: cleanSub.testTitle,
-                problemTitle: cleanSub.problemTitle,
-                code: cleanSub.code,
-                submittedAt: cleanSub.submittedAt,
-                updatedAt: cleanSub.submittedAt,
-              }),
-              problemSlug: 'proctoring_telemetry',
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
-        } catch (cohortErr) {
-          console.warn('recordAssessmentSubmission cohort sync notice:', cohortErr);
-        }
+          const liveSubRef = doc(db, 'assessment_test_submissions', `active_${cleanSub.testId}_${prn}`);
+          await setDoc(liveSubRef, {
+            ...cleanSub,
+            isInProgress: false,
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
+        } catch {}
       }
 
       RealtimeSyncService.emit('SUBMISSIONS');
@@ -5755,7 +5752,7 @@ export class FirestoreDataService {
           const genSnap = await getDocs(collection(db, 'submissions'));
           genSnap.forEach((d) => {
             const data = d.data();
-            if (data && (data.submissionType === 'ASSESSMENT' || isMatchingTest(data))) {
+            if (data && isMatchingTest(data)) {
               list.push({ id: d.id, ...data });
             }
           });

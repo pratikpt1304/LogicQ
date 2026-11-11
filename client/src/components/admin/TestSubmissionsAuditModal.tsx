@@ -117,9 +117,27 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
         });
       } catch {}
 
-      setSubmissions(authentic);
+      // De-duplicate submissions by PRN: prioritize submitted records over in-progress
+      const prnMap = new Map<string, any>();
+      authentic.forEach((s) => {
+        const prn = (s.studentPrn || s.prn || s.id || '').toUpperCase().trim();
+        if (!prn) return;
+        if (!prnMap.has(prn)) {
+          prnMap.set(prn, s);
+        } else {
+          const existing = prnMap.get(prn);
+          if (existing.isInProgress && !s.isInProgress) {
+            prnMap.set(prn, s);
+          } else if (new Date(s.submittedAt || 0).getTime() >= new Date(existing.submittedAt || 0).getTime()) {
+            prnMap.set(prn, s);
+          }
+        }
+      });
+
+      const uniqueList = Array.from(prnMap.values());
+      setSubmissions(uniqueList);
       if (initialSelectedStudentId) {
-        const match = authentic.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
+        const match = uniqueList.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
         if (match) setSelectedStudentSub(match);
       }
     } catch (err) {
@@ -143,8 +161,18 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
       (incoming) => {
         if (Array.isArray(incoming)) {
           setSubmissions((prev) => {
-            const inProgressOnly = prev.filter((p) => p.isInProgress && !incoming.some((inc) => (inc.studentPrn || inc.prn) === (p.studentPrn || p.prn)));
-            return [...incoming, ...inProgressOnly];
+            const prnMap = new Map<string, any>();
+            incoming.forEach((inc) => {
+              const prn = (inc.studentPrn || inc.prn || inc.id || '').toUpperCase().trim();
+              if (prn) prnMap.set(prn, inc);
+            });
+            prev.forEach((p) => {
+              const prn = (p.studentPrn || p.prn || p.id || '').toUpperCase().trim();
+              if (prn && !prnMap.has(prn)) {
+                prnMap.set(prn, p);
+              }
+            });
+            return Array.from(prnMap.values());
           });
           if (initialSelectedStudentId) {
             const match = incoming.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);

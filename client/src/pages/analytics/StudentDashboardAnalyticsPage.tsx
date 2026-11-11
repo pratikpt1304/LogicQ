@@ -241,26 +241,55 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     };
   }, [modulesProgress]);
 
-  // Proctoring telemetry calculations
-  const totalTabSwitches = fsTelemetry?.tabSwitchCount || 0;
-  const totalClipboardAttempts = fsTelemetry?.copyPasteAttempts || 0;
-  const autoLockCount = fsTelemetry?.autoLockCount || 0;
+  // Proctoring telemetry calculations - strictly isolated to Practice Arena
+  const practiceIncidents = useMemo(() => {
+    return (fsTelemetry?.incidents || []).filter((inc: any) => {
+      if (inc.category === 'LAB_INTERNAL' || inc.category === 'ASSESSMENT') return false;
+      if (inc.testId || inc.assignmentId) return false;
+      const title = String(inc.moduleTitle || inc.problemTitle || inc.problemSlug || '').toLowerCase();
+      if (
+        title.includes('assessment') ||
+        title.includes('lab internal') ||
+        title.includes('test') ||
+        title.includes('exam') ||
+        title.includes('asub_') ||
+        title.startsWith('unit_')
+      ) return false;
+      return true;
+    });
+  }, [fsTelemetry?.incidents]);
+
+  const totalTabSwitches = useMemo(() => {
+    return practiceIncidents.filter((i: any) => i.type === 'TAB_SWITCH' || i.type === 'EXCEEDED_TAB_SWITCHES').length;
+  }, [practiceIncidents]);
+
+  const totalClipboardAttempts = useMemo(() => {
+    return practiceIncidents.filter((i: any) => i.type === 'COPY_PASTE' || i.type === 'EXCEEDED_COPY_PASTE').length;
+  }, [practiceIncidents]);
+
+  const autoLockCount = useMemo(() => {
+    return practiceIncidents.filter((i: any) => i.type === 'EXCEEDED_TAB_SWITCHES' || i.type === 'EXCEEDED_COPY_PASTE').length;
+  }, [practiceIncidents]);
+
   const totalFullscreenExits = useMemo(() => {
-    const directCount = fsTelemetry?.fullscreenExits || 0;
-    const fromIncidents = (fsTelemetry?.incidents || []).filter((i: any) => i.type === 'FULLSCREEN_EXIT').length;
-    return Math.max(directCount, fromIncidents);
-  }, [fsTelemetry]);
-  const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
+    return practiceIncidents.filter((i: any) => i.type === 'FULLSCREEN_EXIT').length;
+  }, [practiceIncidents]);
+
+  const finalIntegrityScore = useMemo(() => {
+    return Math.max(0, Math.min(100, 100 - (totalTabSwitches * 5) - (totalClipboardAttempts * 10)));
+  }, [totalTabSwitches, totalClipboardAttempts]);
+
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
-  // Dynamic Typing Speed & Keystroke Cadence (CPM / WPM)
+  // Dynamic Typing Speed & Keystroke Cadence (CPM / WPM) - Strictly from practice submissions
   const typingMetrics = useMemo(() => {
-    const teleCpm = Number((fsTelemetry as any)?.typingVelocityCPM || (fsTelemetry as any)?.cpm || 0);
-    const teleKeys = Number((fsTelemetry as any)?.totalKeystrokes || 0);
+    const practiceSubs = userSubmissions.filter(
+      (s: any) => !s.testId && !s.assignmentId && s.submissionType !== 'ASSESSMENT' && s.track !== 'assessment'
+    );
 
-    let totalKeys = teleKeys;
+    let totalKeys = 0;
     let totalActiveSec = 0;
-    userSubmissions.forEach((s: any) => {
+    practiceSubs.forEach((s: any) => {
       const k = Number(s.totalKeystrokes) || 0;
       const sec = Number(s.timeTakenSeconds || s.durationSeconds) || 0;
       if (k > 0) totalKeys += k;
@@ -272,17 +301,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       localCpm = Number(localStorage.getItem('logicq_typing_cpm') || 0);
     } catch {}
 
-    let cpm = teleCpm > 0
-      ? teleCpm
-      : localCpm > 0
-      ? localCpm
-      : (totalKeys > 0 && totalActiveSec > 0)
-      ? Math.round((totalKeys / totalActiveSec) * 60)
-      : totalKeys > 0
-      ? Math.min(260, Math.max(80, Math.round(totalKeys * 0.7)))
-      : 0;
+    const cpm =
+      totalKeys > 0 && totalActiveSec > 0
+        ? Math.min(450, Math.round((totalKeys / totalActiveSec) * 60))
+        : localCpm > 0
+        ? Math.min(450, localCpm)
+        : 0;
 
-    cpm = Math.min(450, cpm);
     const wpm = Math.round(cpm / 5);
     const intervalMs = cpm > 0 ? Math.round(60000 / cpm) : 0;
 
@@ -293,7 +318,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       hasData: cpm > 0,
       totalKeys,
     };
-  }, [fsTelemetry, userSubmissions]);
+  }, [userSubmissions]);
 
   // Process question-by-question proctoring audit log with exact timestamps, track, and module classification
   const questionIncidentsList = useMemo(() => {
@@ -417,7 +442,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       }
     } catch {}
 
-    rawIncidents.forEach((inc: any) => {
+    practiceIncidents.forEach((inc: any) => {
       const slug = (inc.problemSlug || inc.problemTitle || 'general-practice').toLowerCase().trim();
       const title = inc.problemTitle || inc.problemSlug || 'Practice Question';
       const meta = resolveMeta(slug, title);
@@ -466,7 +491,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
     );
-  }, [fsTelemetry?.incidents]);
+  }, [practiceIncidents]);
 
   const practiceIncidentsCount = useMemo(() => {
     return questionIncidentsList.filter((i) => i.track === 'PRACTICE').length;
@@ -884,12 +909,12 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
                   <span className="text-slate-500 dark:text-slate-400 block mb-1">Typing Speed (Rate)</span>
                   <div className="text-lg font-bold font-mono text-amber-600 dark:text-amber-400">
-                    {typingMetrics.hasData ? `${typingMetrics.cpm} CPM` : '0 CPM'}
+                    {typingMetrics.hasData ? `${typingMetrics.cpm} CPM` : '—'}
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
                     {typingMetrics.hasData
                       ? `${typingMetrics.wpm} Words/Min (~${typingMetrics.intervalMs}ms interval)`
-                      : 'No keystroke session recorded yet'}
+                      : 'No practice keystroke rate logged'}
                   </span>
                 </div>
               </div>

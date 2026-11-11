@@ -215,7 +215,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
 
   const partBRows = [
     ['Proctored Behavioral Standing', `${opts.integrityScore} / 100 Verified Rating (${isClean ? 'Clean Session' : 'Infractions Under Faculty Review'})`],
-    ['Typing Rate & Keystroke Velocity', `${opts.typingVelocityCPM || 215} CPM (${Math.round((opts.typingVelocityCPM || 215) / 5)} Words/Min) · ~280ms Interval`],
+    ['Typing Rate & Keystroke Velocity', opts.typingVelocityCPM && opts.typingVelocityCPM > 0 ? `${opts.typingVelocityCPM} CPM (${Math.round(opts.typingVelocityCPM / 5)} Words/Min) · ~${Math.round(60000 / opts.typingVelocityCPM)}ms Interval` : '— (No active keystroke rate logged)'],
     ['Tab Switching Frequency', `${opts.tabSwitches} Events Recorded (Window blur / focus loss telemetry)`],
     ['Fullscreen Enforcement & Exits', `${opts.fullscreenExits} Exits Logged (ESC key / OS taskbar transitions)`],
     ['Clipboard Protection System', `${opts.clipboardBlocked} Paste Attempts Blocked (Monaco clipboard sandbox)`],
