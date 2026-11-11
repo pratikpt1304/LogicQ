@@ -1656,6 +1656,8 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     return {
       success: true,
       data: {
+        submission: newSub,
+        submissionId: newSub.id,
         verdict: result.verdict,
         runtimeMs: result.runtimeMs,
         compileOutput: result.compileOutput,

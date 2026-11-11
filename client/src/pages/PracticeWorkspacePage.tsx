@@ -1533,6 +1533,26 @@ export const PracticeWorkspacePage: React.FC = () => {
           compileOutput: immediateSub.compileOutput,
           testCaseResults: immediateSub.testCaseResults,
         });
+
+        // Always sync submission to Firestore so Admin, Faculty, and Reports reflect it immediately
+        const effectiveUid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'anonymous';
+        const isLab = location.pathname.startsWith('/lab-internal');
+        FirestoreDataService.recordDailySubmission(effectiveUid, {
+          problemId: problem?.id || problemSlug || 'practice-problem',
+          problemTitle: problem?.title || problemSlug || 'Practice Problem',
+          problemSlug: problemSlug || problem?.id || 'practice-problem',
+          difficulty: (problem as any)?.difficulty || 'MEDIUM',
+          code,
+          verdict: immediateSub.verdict,
+          timeTakenSeconds: practiceTimerRef.current?.getActiveSeconds() || 60,
+          submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
+          prn: user?.prn || '',
+          studentPrn: user?.prn || '',
+          email: user?.email || '',
+          studentEmail: user?.email || '',
+          studentName: user?.fullName || user?.displayName || '',
+        }).catch(() => {});
+
         if (immediateSub.verdict === 'ACCEPTED') {
           triggerAcceptedCelebration(nextProblem);
         } else {
