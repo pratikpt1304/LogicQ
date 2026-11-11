@@ -1114,15 +1114,15 @@ service cloud.firestore {
       // Web clients authenticated via backend JWT (where request.auth is null) can record submissions passing isValidAssessmentSubmission
       allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
 
-      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication (e.g. roster/student deletion cleanup)
-      allow delete: if true;
+      // Deletion strictly restricted to faculty and admins
+      allow delete: if isAdmin() || isFaculty();
     }
 
     match /assessment_submissions/{docId} {
       // Alias collection matching assessment_test_submissions semantics
       allow read: if true;
       allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
-      allow delete: if true;
+      allow delete: if isAdmin() || isFaculty();
     }
   }
 }
