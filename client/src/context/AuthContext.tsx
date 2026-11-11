@@ -1048,6 +1048,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user || user.role !== 'STUDENT' || !user.prn) return;
 
+    // Ensure active device is registered in Firestore for live tracking
+    DeviceSessionService.registerDeviceSession(user.prn).catch(() => {});
+
     const unsubscribeConflict = DeviceSessionService.subscribeToSessionConflict(
       user.prn,
       (reason) => {

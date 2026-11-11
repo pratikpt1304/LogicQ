@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, doc, onSnapshot, getDocs, updateDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -151,31 +151,60 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   useEffect(() => {
     const unsubs: (() => void)[] = [];
 
-    // Keys to listen for in cohort_progress
+    // Keys to listen for in cohort_progress & enrolled_students
     const candidateKeys = new Set<string>();
     if (prn && prn !== 'N/A') {
       candidateKeys.add(prn);
       candidateKeys.add(prn.replace(/0/g, 'O'));
       candidateKeys.add(prn.replace(/O/g, '0'));
+      if (prn.includes('PMIM')) candidateKeys.add(prn.replace('PMIM', 'PMIF'));
+      if (prn.includes('PMIF')) candidateKeys.add(prn.replace('PMIF', 'PMIM'));
     }
     if (studentUid) {
       candidateKeys.add(studentUid);
       candidateKeys.add(studentUid.toUpperCase());
     }
 
-    // A. Listen to candidate cohort_progress docs
+    // A. Listen to candidate cohort_progress and enrolled_students docs
     candidateKeys.forEach((key) => {
       try {
         const u = onSnapshot(
           doc(db, 'cohort_progress', key),
           (snap) => {
             if (snap.exists()) {
-              setLiveCohort(snap.data());
+              const data = snap.data();
+              setLiveCohort((prev: any) => ({
+                ...(prev || {}),
+                ...data,
+                moduleProgress: {
+                  ...(prev?.moduleProgress || {}),
+                  ...(data?.moduleProgress || {}),
+                }
+              }));
             }
           },
           () => {}
         );
         unsubs.push(u);
+
+        const uEnrolled = onSnapshot(
+          doc(db, 'enrolled_students', key),
+          (snap) => {
+            if (snap.exists()) {
+              const eData = snap.data();
+              setLiveCohort((prev: any) => ({
+                ...(prev || {}),
+                ...eData,
+                moduleProgress: {
+                  ...(prev?.moduleProgress || {}),
+                  ...(eData?.moduleProgress || {}),
+                }
+              }));
+            }
+          },
+          () => {}
+        );
+        unsubs.push(uEnrolled);
 
         // Also listen to live proctoring telemetry draft
         const uDraft = onSnapshot(
@@ -484,9 +513,30 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       .map((s) => ({ ...s, sourceType: 'PRACTICE' })),
   ];
 
-  const boundDevices: string[] = Array.isArray(liveCohort?.moduleProgress?.registeredDevices)
-    ? liveCohort.moduleProgress.registeredDevices
-    : [];
+  const boundDevices: string[] = useMemo(() => {
+    const list = new Set<string>();
+    if (Array.isArray(liveCohort?.moduleProgress?.registeredDevices)) {
+      liveCohort.moduleProgress.registeredDevices.forEach((d: string) => d && list.add(d));
+    }
+    if (Array.isArray(liveCohort?.registeredDevices)) {
+      liveCohort.registeredDevices.forEach((d: string) => d && list.add(d));
+    }
+    if (Array.isArray(student?.registeredDevices)) {
+      student.registeredDevices.forEach((d: string) => d && list.add(d));
+    }
+    if (Array.isArray(telemetryDraft?.registeredDevices)) {
+      telemetryDraft.registeredDevices.forEach((d: string) => d && list.add(d));
+    }
+    if (prn && prn !== 'N/A') {
+      try {
+        const localDevs = JSON.parse(localStorage.getItem(`logicq_registered_devices_${prn}`) || '[]');
+        if (Array.isArray(localDevs)) {
+          localDevs.forEach((d: string) => d && list.add(d));
+        }
+      } catch {}
+    }
+    return Array.from(list);
+  }, [liveCohort, student, telemetryDraft, prn]);
   const [isResettingDevices, setIsResettingDevices] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 

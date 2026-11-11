@@ -110,6 +110,8 @@ export class DeviceSessionService {
         const cData = cohortSnap.data();
         if (Array.isArray(cData?.moduleProgress?.registeredDevices)) {
           registeredDevices = cData.moduleProgress.registeredDevices.filter(Boolean);
+        } else if (Array.isArray(cData?.registeredDevices)) {
+          registeredDevices = cData.registeredDevices.filter(Boolean);
         }
       }
     } catch (err) {
@@ -126,8 +128,7 @@ export class DeviceSessionService {
     } catch {}
 
     // 3. Enforce maximum 2 devices limit per student account
-    const isDeviceKnown = registeredDevices.includes(deviceId);
-    if (!isDeviceKnown) {
+    if (!registeredDevices.includes(deviceId)) {
       if (registeredDevices.length >= 2) {
         return {
           success: false,
@@ -135,28 +136,39 @@ export class DeviceSessionService {
         };
       }
       registeredDevices.push(deviceId);
-      try {
-        localStorage.setItem(deviceStorageKey, JSON.stringify(registeredDevices));
-      } catch {}
+    }
 
-      // Authoritatively persist new bound device to Firestore cohort_progress
-      try {
-        const existingMod = cohortSnap?.data()?.moduleProgress || {};
-        await setDoc(
-          doc(db, 'cohort_progress', cleanPrn),
-          {
-            prn: cleanPrn,
-            moduleProgress: {
-              ...existingMod,
-              registeredDevices,
-            },
-            updatedAt: Date.now(),
-          },
-          { merge: true }
-        ).catch(() => {});
-      } catch (err) {
-        console.warn('registerDeviceSession: Firestore save error:', err);
-      }
+    try {
+      localStorage.setItem(deviceStorageKey, JSON.stringify(registeredDevices));
+    } catch {}
+
+    // Authoritatively persist bound devices to Firestore cohort_progress (always sync)
+    try {
+      const existingMod = cohortSnap?.data()?.moduleProgress || {};
+      const nowIso = new Date().toISOString();
+      const payload = {
+        prn: cleanPrn,
+        registeredDevices,
+        moduleProgress: {
+          ...existingMod,
+          registeredDevices,
+        },
+        updatedAt: nowIso,
+      };
+
+      const targetPrns = Array.from(new Set([
+        cleanPrn,
+        cleanPrn.replace('PMIM', 'PMIF'),
+        cleanPrn.replace('PMIF', 'PMIM'),
+      ])).filter(Boolean);
+
+      await Promise.all(
+        targetPrns.map((p) =>
+          setDoc(doc(db, 'cohort_progress', p), { ...payload, prn: p }, { merge: true }).catch(() => {})
+        )
+      );
+    } catch (err) {
+      console.warn('registerDeviceSession: Firestore save error:', err);
     }
 
     // 4. Update Firestore user drafts if signed in with Firebase Auth
