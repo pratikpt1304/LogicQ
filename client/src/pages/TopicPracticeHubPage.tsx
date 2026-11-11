@@ -69,6 +69,8 @@ import { getPracticeModuleUnlockInfo } from '../utils/progression.js';
 
 const STORAGE_KEY = 'logicq_solved_practice_topics';
 
+let isTrackOpenEndpointAvailable = true;
+
 export function getSolvedPracticeTopicIds(userId?: string): string[] {
   try {
     const results = new Set<string>();
@@ -802,14 +804,20 @@ export const TopicPracticeHubPage: React.FC = () => {
         setCurrentTopicAttempt(num);
       })
       .catch(() => {});
-    api.post('/practice/topics/track-open', {
-      topicId: topic.id,
-      moduleIndex: topic.moduleIndex,
-      moduleSlug: topic.moduleSlug,
-      topicTitle: topic.topicTitle,
-      difficulty: topic.problem.difficulty,
-      code: initialCode,
-    }).catch(() => {});
+    if (isTrackOpenEndpointAvailable) {
+      api.post('/practice/topics/track-open', {
+        topicId: topic.id,
+        moduleIndex: topic.moduleIndex,
+        moduleSlug: topic.moduleSlug,
+        topicTitle: topic.topicTitle,
+        difficulty: topic.problem.difficulty,
+        code: initialCode,
+      }).catch((err) => {
+        if (err?.status === 404 || err?.status === 502 || err?.status === 503) {
+          isTrackOpenEndpointAvailable = false;
+        }
+      });
+    }
     codeRef.current = initialCode;
     setCode(initialCode);
     setCustomInput(localDraft?.customInput || '');

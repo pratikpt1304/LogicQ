@@ -709,7 +709,14 @@ service cloud.firestore {
         'prn', 'completedProblems', 'totalSolved', 'totalPoints',
         'currentStreak', 'longestStreak', 'lastSolvedDate',
         'draftCodes', 'moduleProgress', 'updatedAt',
-        'isBanned', 'bannedAt', 'banReason'
+        'isBanned', 'bannedAt', 'banReason',
+        'studentName', 'studentEmail', 'boundEmail', 'isEmailBound',
+        'isEmailBoundV2', 'emailVerified', 'department', 'division',
+        'year', 'college', 'sectionName', 'sectionId',
+        'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
+        'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
+        'deviceSession', 'activeSession',
+        'topicAttempts', 'lastAttemptedTopic', 'typingVelocityCPM', 'cpm'
       ];
       return data.keys().hasOnly(allowedKeys)
         && data.prn is string && data.prn.size() <= 30
@@ -724,7 +731,11 @@ service cloud.firestore {
         && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100))
         && (!('isBanned' in data) || data.isBanned is bool)
         && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
-        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200));
+        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200))
+        && (!('topicAttempts' in data) || data.topicAttempts is map)
+        && (!('lastAttemptedTopic' in data) || data.lastAttemptedTopic == null || (data.lastAttemptedTopic is string && data.lastAttemptedTopic.size() <= 128))
+        && (!('typingVelocityCPM' in data) || data.typingVelocityCPM == null || data.typingVelocityCPM is int || data.typingVelocityCPM is float)
+        && (!('cpm' in data) || data.cpm == null || data.cpm is int || data.cpm is float);
     }
 
     match /cohort_progress/{prn} {
@@ -734,8 +745,16 @@ service cloud.firestore {
 
       match /drafts/{draftId} {
         allow read: if true;
-        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
-          && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
+        allow create, update: if (
+          // Code draft format (code, customInput, updatedAt, problemSlug, deviceLabel)
+          (request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
+            && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536)))
+          // Attempt & telemetry tracking drafts
+          || draftId == 'topic_attempts'
+          || draftId == 'proctoring_telemetry'
+          || ('lastAttemptedTopic' in request.resource.data)
+          || ('topicAttempts' in request.resource.data)
+        );
         allow delete: if isFaculty() || true;
       }
     }

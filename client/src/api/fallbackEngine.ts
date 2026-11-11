@@ -3163,6 +3163,50 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   }
 
   // ==========================================
+  // TOPIC PRACTICE CLOUD & LOCAL SYNCHRONIZATION
+  // ==========================================
+  if (path === '/practice/topics/track-open' && method === 'POST') {
+    return { success: true, message: 'Tracked successfully' };
+  }
+
+  if (path === '/practice/topics/telemetry' && method === 'POST') {
+    return { success: true, message: 'Telemetry recorded successfully' };
+  }
+
+  if (path === '/practice/topics/solve' && method === 'POST') {
+    const { topicId } = body || {};
+    if (topicId) {
+      try {
+        const raw = localStorage.getItem('logicq_solved_practice_topics');
+        const list = raw ? JSON.parse(raw) : [];
+        if (!list.includes(topicId)) {
+          list.push(topicId);
+          localStorage.setItem('logicq_solved_practice_topics', JSON.stringify(list));
+        }
+      } catch {}
+    }
+    return { success: true, message: 'Topic solved recorded' };
+  }
+
+  if (path === '/practice/topics/my' && method === 'GET') {
+    const rawSolved = localStorage.getItem('logicq_solved_practice_topics');
+    const solvedIds: string[] = rawSolved ? JSON.parse(rawSolved) : [];
+    return {
+      success: true,
+      data: solvedIds.map((id) => ({
+        topicId: id,
+        status: 'SOLVED',
+        timeTakenSeconds: 60,
+        solvedAt: new Date().toISOString(),
+      })),
+    };
+  }
+
+  if (path === '/exam/telemetry' && method === 'POST') {
+    return { success: true, message: 'Exam telemetry heartbeat recorded' };
+  }
+
+  // ==========================================
   // INTEGRATED CAPSTONE MINI-PROJECT (Sections 35 - 39)
   // ==========================================
   const CANONICAL_MINI_PROJECT = {

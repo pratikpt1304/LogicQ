@@ -235,7 +235,8 @@ class RulesEvaluator {
       'year', 'college', 'sectionName', 'sectionId',
       'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
       'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
-      'deviceSession', 'activeSession'
+      'deviceSession', 'activeSession',
+      'topicAttempts', 'lastAttemptedTopic', 'typingVelocityCPM', 'cpm'
     ];
     for (const key of Object.keys(data)) {
       if (!allowedKeys.includes(key)) return false;
@@ -272,6 +273,10 @@ class RulesEvaluator {
     if ('registeredDevices' in data && (!Array.isArray(data.registeredDevices) || data.registeredDevices.length > 10)) return false;
     if ('deviceSession' in data && !((typeof data.deviceSession === 'object' && data.deviceSession !== null && !Array.isArray(data.deviceSession)) || (typeof data.deviceSession === 'string' && data.deviceSession.length <= 100))) return false;
     if ('activeSession' in data && typeof data.activeSession !== 'boolean') return false;
+    if ('topicAttempts' in data && (typeof data.topicAttempts !== 'object' || data.topicAttempts === null || Array.isArray(data.topicAttempts))) return false;
+    if ('lastAttemptedTopic' in data && data.lastAttemptedTopic !== null && (typeof data.lastAttemptedTopic !== 'string' || data.lastAttemptedTopic.length > 128)) return false;
+    if ('typingVelocityCPM' in data && data.typingVelocityCPM !== null && typeof data.typingVelocityCPM !== 'number') return false;
+    if ('cpm' in data && data.cpm !== null && typeof data.cpm !== 'number') return false;
     return true;
   }
 
@@ -2959,6 +2964,29 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.isValidCohortProgress({
       ...validCohortData,
       registeredDevices: Array.from({ length: 11 }, (_, i) => `dev_${i}`),
+    })).toBe(false);
+
+    // Topic attempts & telemetry fields -> MUST PASS
+    expect(RulesEvaluator.isValidCohortProgress({
+      ...validCohortData,
+      topicAttempts: { 'topic_pointers': 3, 'topic_arrays': 1 },
+      lastAttemptedTopic: 'topic_pointers',
+      typingVelocityCPM: 145.5,
+      cpm: 145,
+    })).toBe(true);
+
+    // Null lastAttemptedTopic, typingVelocityCPM, cpm -> MUST PASS
+    expect(RulesEvaluator.isValidCohortProgress({
+      ...validCohortData,
+      lastAttemptedTopic: null,
+      typingVelocityCPM: null,
+      cpm: null,
+    })).toBe(true);
+
+    // Oversized lastAttemptedTopic (> 128) -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({
+      ...validCohortData,
+      lastAttemptedTopic: 'A'.repeat(129),
     })).toBe(false);
 
     // Disallowed key -> MUST FAIL

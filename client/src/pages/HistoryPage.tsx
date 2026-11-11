@@ -31,6 +31,8 @@ import { DraftSyncService } from '../services/draftSync.service.js';
 
 type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
 
+let isTopicsMyEndpointAvailable = true;
+
 export const HistoryPage: React.FC = () => {
   const { user } = useAuth();
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
@@ -122,36 +124,40 @@ export const HistoryPage: React.FC = () => {
       }
 
       // Fetch student's Topic Practice submissions from backend
-      try {
-        const topicRes = await api.get('/practice/topics/my');
-        const topicSubs = topicRes?.data?.data || topicRes?.data || [];
-        if (Array.isArray(topicSubs)) {
-          for (const ts of topicSubs) {
-            const topicKey = `topic_${ts.topicId}`;
-            if (!combinedMap.has(topicKey) && !combinedMap.has(ts.topicId)) {
-              combinedMap.set(topicKey, {
-                id: topicKey,
-                problemId: ts.topicId,
-                code: ts.code || '',
-                language: 'c',
-                verdict: ts.status === 'SOLVED' ? 'ACCEPTED' : 'WRONG_ANSWER',
-                pointsAwarded: ts.status === 'SOLVED' ? 20 : 0,
-                submissionType: 'PRACTICE',
-                timeTakenSeconds: ts.timeTakenSeconds || 0,
-                timeToSolveSeconds: ts.timeTakenSeconds || 0,
-                createdAt: ts.solvedAt || ts.updatedAt || ts.firstOpenedAt || new Date().toISOString(),
-                problem: {
-                  id: ts.topicId,
-                  title: ts.topicTitle || 'Topic Practice',
-                  slug: ts.topicId,
-                  difficulty: ts.difficulty || 'EASY',
-                },
-              });
+      if (isTopicsMyEndpointAvailable) {
+        try {
+          const topicRes = await api.get('/practice/topics/my');
+          const topicSubs = topicRes?.data?.data || topicRes?.data || [];
+          if (Array.isArray(topicSubs)) {
+            for (const ts of topicSubs) {
+              const topicKey = `topic_${ts.topicId}`;
+              if (!combinedMap.has(topicKey) && !combinedMap.has(ts.topicId)) {
+                combinedMap.set(topicKey, {
+                  id: topicKey,
+                  problemId: ts.topicId,
+                  code: ts.code || '',
+                  language: 'c',
+                  verdict: ts.status === 'SOLVED' ? 'ACCEPTED' : 'WRONG_ANSWER',
+                  pointsAwarded: ts.status === 'SOLVED' ? 20 : 0,
+                  submissionType: 'PRACTICE',
+                  timeTakenSeconds: ts.timeTakenSeconds || 0,
+                  timeToSolveSeconds: ts.timeTakenSeconds || 0,
+                  createdAt: ts.solvedAt || ts.updatedAt || ts.firstOpenedAt || new Date().toISOString(),
+                  problem: {
+                    id: ts.topicId,
+                    title: ts.topicTitle || 'Topic Practice',
+                    slug: ts.topicId,
+                    difficulty: ts.difficulty || 'EASY',
+                  },
+                });
+              }
             }
           }
+        } catch (err: any) {
+          if (err?.status === 404 || err?.status === 502 || err?.status === 503) {
+            isTopicsMyEndpointAvailable = false;
+          }
         }
-      } catch {
-        // Non-blocking
       }
 
       // Client-side Solved Topics sync & backfill

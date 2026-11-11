@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { api } from '../../api/client.js';
+import { handleFallbackRequest } from '../../api/fallbackEngine.js';
 import { CodeEditor } from '../../components/editor/CodeEditor.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
@@ -204,10 +205,20 @@ export const ExamWorkspacePage: React.FC = () => {
   const { data: startData, isLoading, error, refetch } = useQuery({
     queryKey: ['start-exam-question', assignmentId, problemId],
     queryFn: async () => {
-      return await api.post('/exam/start-question', {
-        assignmentId,
-        problemId,
-      });
+      try {
+        return await api.post('/exam/start-question', {
+          assignmentId,
+          problemId,
+        });
+      } catch (postErr: any) {
+        if (postErr?.message?.includes('QUESTION_LOCKED')) {
+          throw postErr;
+        }
+        return await handleFallbackRequest('/exam/start-question', {
+          method: 'POST',
+          body: JSON.stringify({ assignmentId, problemId }),
+        } as any);
+      }
     },
     enabled: Boolean(assignmentId && problemId),
     retry: false,
@@ -396,24 +407,28 @@ export const ExamWorkspacePage: React.FC = () => {
   // 3. Silent Non-blocking Telemetry Heartbeat (Phase 3 Deliverable)
   const sendTelemetryPing = useCallback((overrideMetrics?: Record<string, any>) => {
     if (!attemptId || isLocked) return;
-    api.post('/exam/telemetry', {
-      attemptId,
-      clientMetrics: {
-        copyPasteAttempts,
-        cutAttempts,
-        contextMenuAttempts,
-        tabSwitchCount,
-        focusLossCount,
-        totalFocusLossDurationMs: totalFocusLossMsRef.current,
-        fullScreenExitCount,
-        totalKeystrokes,
-        largestBurstChars,
-        activeInteractionTimeSec: activeSec,
-        ...overrideMetrics,
-      },
-    }).catch(() => {
-      // Asynchronous non-blocking: silently ignore network errors so student is never interrupted
-    });
+
+    // If attemptId is generated from client fallback engine, do not ping Postgres backend (it only exists locally/in Firestore)
+    if (!String(attemptId).startsWith('att_') && !String(attemptId).startsWith('fallback-')) {
+      api.post('/exam/telemetry', {
+        attemptId,
+        clientMetrics: {
+          copyPasteAttempts,
+          cutAttempts,
+          contextMenuAttempts,
+          tabSwitchCount,
+          focusLossCount,
+          totalFocusLossDurationMs: totalFocusLossMsRef.current,
+          fullScreenExitCount,
+          totalKeystrokes,
+          largestBurstChars,
+          activeInteractionTimeSec: activeSec,
+          ...overrideMetrics,
+        },
+      }).catch(() => {
+        // Asynchronous non-blocking: silently ignore network errors so student is never interrupted
+      });
+    }
 
     // Cloud Firestore Live Telemetry Stream for Admin Integrity Tab
     const targetId = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';

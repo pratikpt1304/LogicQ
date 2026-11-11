@@ -198,19 +198,24 @@ rules_version = '2';
 //   - lastSolvedDate: string | null (optional, <= 100 chars)
 //   - draftCodes: map (optional)
 //   - moduleProgress: map (optional)
+//   - topicAttempts: map (optional)
+//   - lastAttemptedTopic: string | null (optional, <= 128 chars)
+//   - typingVelocityCPM: int | float | null (optional)
+//   - cpm: int | float | null (optional)
 //   - updatedAt: timestamp | int | string (optional)
 //   - isBanned: bool (optional)
 //   - bannedAt: string | timestamp (optional, <= 100 chars)
 //   - banReason: string | null (optional, <= 200 chars)
 //
 // Subcollection: cohort_progress/{prn}/drafts/{draftId}
-// Document ID: Draft ID (e.g. problemSlug)
+// Document ID: Draft ID (e.g. problemSlug, 'topic_attempts', 'proctoring_telemetry')
 // Fields:
-//   - code: string (required, <= 65536 chars)
+//   - code: string (optional, <= 65536 chars)
 //   - customInput: any (optional)
 //   - updatedAt: any (optional)
 //   - problemSlug: any (optional)
 //   - deviceLabel: any (optional)
+//   - topic attempts / telemetry tracking: dynamic map
 //
 // Collection: assessment_tests/{testId} (Timed Assessment & Lab Tests)
 // Document ID: Unique assessment identifier (e.g., test_{uuid} or slug)
@@ -261,6 +266,8 @@ rules_version = '2';
 //   - cheatReason: string (optional, <= 500 chars)
 //   - problem / user / metadata: map (optional)
 //   - sectionId: string (optional, <= 100 chars)
+//   - sectionName: string (optional, <= 150 chars)
+//   - typingVelocityCPM / cpm: int | float | null (optional)
 //
 // ===============================================================
 
@@ -516,7 +523,8 @@ service cloud.firestore {
         'submissionType', 'status', 'difficulty', 'language', 'runtimeMs', 'memoryKb',
         'compileOutput', 'tag', 'quarantinedAttempt', 'isCheatAutoSubmit', 'isCheatAttempt',
         'cheatReason', 'problem', 'user', 'sectionId', 'metadata', 'executionTimeMs',
-        'integrityScore', 'testIntegrityScore', 'lastHeartbeat', 'startedAt'
+        'integrityScore', 'testIntegrityScore', 'lastHeartbeat', 'startedAt',
+        'sectionName', 'typingVelocityCPM', 'cpm'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('assignmentId' in data) || data.assignmentId == null || (data.assignmentId is string && data.assignmentId.size() <= 128))
@@ -589,7 +597,10 @@ service cloud.firestore {
         && (!('integrityScore' in data) || data.integrityScore == null || data.integrityScore is int || data.integrityScore is float)
         && (!('testIntegrityScore' in data) || data.testIntegrityScore == null || data.testIntegrityScore is int || data.testIntegrityScore is float)
         && (!('lastHeartbeat' in data) || data.lastHeartbeat == null || data.lastHeartbeat is timestamp || data.lastHeartbeat is int || (data.lastHeartbeat is string && data.lastHeartbeat.size() <= 100))
-        && (!('startedAt' in data) || data.startedAt == null || data.startedAt is timestamp || data.startedAt is int || (data.startedAt is string && data.startedAt.size() <= 100));
+        && (!('startedAt' in data) || data.startedAt == null || data.startedAt is timestamp || data.startedAt is int || (data.startedAt is string && data.startedAt.size() <= 100))
+        && (!('sectionName' in data) || data.sectionName == null || (data.sectionName is string && data.sectionName.size() <= 150))
+        && (!('typingVelocityCPM' in data) || data.typingVelocityCPM == null || data.typingVelocityCPM is int || data.typingVelocityCPM is float)
+        && (!('cpm' in data) || data.cpm == null || data.cpm is int || data.cpm is float);
     }
 
     function isValidSubmission(data) {
@@ -960,7 +971,8 @@ service cloud.firestore {
         'year', 'college', 'sectionName', 'sectionId',
         'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
         'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
-        'deviceSession', 'activeSession'
+        'deviceSession', 'activeSession',
+        'topicAttempts', 'lastAttemptedTopic', 'typingVelocityCPM', 'cpm'
       ];
       return data.keys().hasOnly(allowedKeys)
         && data.prn is string && data.prn.size() <= 30
@@ -996,7 +1008,11 @@ service cloud.firestore {
         && (!('miniProjectUnlocked' in data) || data.miniProjectUnlocked is bool)
         && (!('registeredDevices' in data) || (data.registeredDevices is list && data.registeredDevices.size() <= 10))
         && (!('deviceSession' in data) || data.deviceSession is map || (data.deviceSession is string && data.deviceSession.size() <= 100))
-        && (!('activeSession' in data) || data.activeSession is bool);
+        && (!('activeSession' in data) || data.activeSession is bool)
+        && (!('topicAttempts' in data) || data.topicAttempts is map)
+        && (!('lastAttemptedTopic' in data) || data.lastAttemptedTopic == null || (data.lastAttemptedTopic is string && data.lastAttemptedTopic.size() <= 128))
+        && (!('typingVelocityCPM' in data) || data.typingVelocityCPM == null || data.typingVelocityCPM is int || data.typingVelocityCPM is float)
+        && (!('cpm' in data) || data.cpm == null || data.cpm is int || data.cpm is float);
     }
 
     match /cohort_progress/{prn} {
@@ -1023,8 +1039,16 @@ service cloud.firestore {
 
       match /drafts/{draftId} {
         allow read: if true;
-        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
-          && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
+        allow create, update: if (
+          // Code draft format (code, customInput, updatedAt, problemSlug, deviceLabel)
+          (request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
+            && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536)))
+          // Attempt & telemetry tracking drafts (e.g. where draftId == 'topic_attempts', proctoring_telemetry, or tracking lastAttemptedTopic / topicAttempts)
+          || draftId == 'topic_attempts'
+          || draftId == 'proctoring_telemetry'
+          || ('lastAttemptedTopic' in request.resource.data)
+          || ('topicAttempts' in request.resource.data)
+        );
         allow delete: if isFaculty() || true;
       }
     }
