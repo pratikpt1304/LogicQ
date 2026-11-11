@@ -62,6 +62,16 @@ const resolvePracticeModule = (sub: any): string => {
   return 'Module 1: C Fundamentals';
 };
 
+export const formatTimeDuration = (seconds?: number | string | null): string => {
+  const s = Math.round(Number(seconds) || 0);
+  if (s <= 0) return '< 1m';
+  const mins = Math.floor(s / 60);
+  const remSecs = s % 60;
+  if (mins === 0) return `${remSecs}s`;
+  if (remSecs === 0) return `${mins}m`;
+  return `${mins}m ${remSecs}s`;
+};
+
 interface StudentDeepDiveModalProps {
   student: any;
   onClose: () => void;
@@ -405,6 +415,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             problemTitle: mergedTitle,
             code: mergedCode,
             submittedCode: mergedCode,
+            timeTakenSeconds: Math.max(Number(prev.timeTakenSeconds || 0), Number(sub.timeTakenSeconds || 0), Number(prev.timeToSolveSeconds || 0), Number(sub.timeToSolveSeconds || 0)),
+            timeToSolveSeconds: Math.max(Number(prev.timeToSolveSeconds || 0), Number(sub.timeToSolveSeconds || 0), Number(prev.timeTakenSeconds || 0), Number(sub.timeTakenSeconds || 0)),
+            activeSeconds: Math.max(Number(prev.activeSeconds || 0), Number(sub.activeSeconds || 0), Number(prev.timeTakenSeconds || 0), Number(sub.timeTakenSeconds || 0)),
             points: Math.max(Number(prev.points || 0), Number(sub.points || 0), Number(prev.academicScore || 0), Number(sub.academicScore || 0)),
             academicScore: Math.max(Number(prev.academicScore || 0), Number(sub.academicScore || 0), Number(prev.points || 0), Number(sub.points || 0)),
             score: Math.max(Number(prev.score || 0), Number(sub.score || 0)),
@@ -472,6 +485,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           if (canonicalTitle && (!existingEntry.problemTitle || /^(m\d+-|topic-)/i.test(existingEntry.problemTitle))) {
             existingEntry.problemTitle = canonicalTitle;
           }
+          if (!existingEntry.timeTakenSeconds && (draftObj.timeTakenSeconds || draftObj.timeToSolveSeconds)) {
+            existingEntry.timeTakenSeconds = Number(draftObj.timeTakenSeconds || draftObj.timeToSolveSeconds);
+            existingEntry.timeToSolveSeconds = Number(draftObj.timeTakenSeconds || draftObj.timeToSolveSeconds);
+          }
           return;
         }
 
@@ -516,6 +533,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             submissionType: 'PRACTICE',
             difficulty: matchedTopic?.problem?.difficulty || 'EASY',
             attemptNumber: Math.max(1, attempts),
+            timeTakenSeconds: Number(draftObj.timeTakenSeconds || draftObj.timeToSolveSeconds || draftObj.activeSeconds || 0),
+            timeToSolveSeconds: Number(draftObj.timeToSolveSeconds || draftObj.timeTakenSeconds || 0),
             timestampMs: draftTimeMs,
             submittedAt: submittedDate,
             createdAt: submittedDate,
@@ -1120,6 +1139,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                                 Attempt #{sub.attemptNumber || 1}
                               </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>{formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)}</span>
+                              </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                 Lab Internal
                               </span>
@@ -1129,11 +1152,16 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
                               <span>
                                 {sub.submittedAt
                                   ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
                                   : 'Live Session'}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3 inline" />
+                                Solved in {formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)}
                               </span>
                               <span>•</span>
                               <span className="text-indigo-500 dark:text-indigo-400 font-semibold">Attempt #{sub.attemptNumber || 1}</span>
@@ -1331,6 +1359,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                                 Attempt #{sub.attemptNumber || 1}
                               </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>{formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)}</span>
+                              </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                                 {resolvePracticeModule(sub)}
                               </span>
@@ -1343,6 +1375,11 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                 {sub.submittedAt
                                   ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
                                   : 'Submitted'}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3 inline" />
+                                Solved in {formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)}
                               </span>
                               <span>•</span>
                               <span className="font-semibold text-purple-500 dark:text-purple-400">{resolvePracticeModule(sub)}</span>
@@ -1363,9 +1400,38 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
                       {isExpanded && (
                         <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
+                          {/* Solve Metrics & Telemetry Bar */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Solve Duration</span>
+                              <span className="font-bold text-sm text-amber-400 block mt-1 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                {formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)}
+                              </span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Marks / Points</span>
+                              <span className="font-bold text-sm text-emerald-400 block mt-1">
+                                {sub.points || sub.academicScore || 20} / 20 pts
+                              </span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Proctoring Telemetry</span>
+                              <span className={`font-bold text-sm block mt-1 ${(sub.tabSwitchCount || 0) > 0 || (sub.copyPasteAttempts || 0) > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
+                                {sub.tabSwitchCount || 0} tabs · {sub.copyPasteAttempts || sub.pasteBursts || 0} pastes
+                              </span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Typing Speed</span>
+                              <span className="font-bold text-sm text-amber-400 block mt-1">
+                                {sub.cpm || sub.typingVelocityCPM || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : 0)} CPM
+                              </span>
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
-                              GCC 14 · C Source · practice_solution.c · Submitted on Attempt #{sub.attemptNumber || 1}
+                              GCC 14 · C Source · practice_solution.c · Solved in {formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)} (Attempt #{sub.attemptNumber || 1})
                             </span>
                             <button
                               type="button"

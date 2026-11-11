@@ -1096,6 +1096,9 @@ export class FirestoreDataService {
           await setDoc(doc(db, 'cohort_progress', effectivePrn, 'drafts', `practice_topic_${data.problemId}`), {
             code: data.code,
             problemSlug: data.problemId,
+            timeTakenSeconds: data.timeTakenSeconds || 0,
+            timeToSolveSeconds: data.timeTakenSeconds || 0,
+            attemptNumber: data.attemptNumber || 1,
             updatedAt: Date.now(),
           }, { merge: true });
         } catch (dErr) {
