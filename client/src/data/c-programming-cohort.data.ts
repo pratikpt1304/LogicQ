@@ -2139,5 +2139,30 @@ C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
 export function findCohortStudent(identifier: string): EnrolledCohortStudent | null {
   if (!identifier) return null;
   const clean = String(identifier).trim();
-  return COHORT_STUDENT_BY_PRN.get(clean.toUpperCase()) || COHORT_STUDENT_BY_EMAIL.get(clean.toLowerCase()) || null;
+  const upper = clean.toUpperCase();
+  const lower = clean.toLowerCase();
+
+  let student = COHORT_STUDENT_BY_PRN.get(upper) || COHORT_STUDENT_BY_EMAIL.get(lower);
+  if (student) return student;
+
+  // Branch alias tolerance: Students often confuse PMIM vs PMIF (e.g., 2126PMIM1057 vs 2126PMIF1057)
+  if (upper.includes('PMIM')) {
+    const aliased = upper.replace('PMIM', 'PMIF');
+    student = COHORT_STUDENT_BY_PRN.get(aliased);
+    if (student) return student;
+  } else if (upper.includes('PMIF')) {
+    const aliased = upper.replace('PMIF', 'PMIM');
+    student = COHORT_STUDENT_BY_PRN.get(aliased);
+    if (student) return student;
+  }
+
+  // Suffix matching for 4-digit roll number tolerance
+  const match = upper.match(/(\d{4})$/);
+  if (match) {
+    const suffix = match[1];
+    const candidate = C_PROGRAMMING_COHORT_STUDENTS.find(s => s.prn.toUpperCase().endsWith(suffix));
+    if (candidate) return candidate;
+  }
+
+  return null;
 }

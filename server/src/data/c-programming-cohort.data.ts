@@ -204,5 +204,24 @@ export function findCohortStudent(identifier: string): EnrolledCohortStudent | n
   if (byPrn) return byPrn;
   const byEmail = COHORT_STUDENT_BY_EMAIL.get(clean.toLowerCase());
   if (byEmail) return byEmail;
+
+  const upper = clean.toUpperCase();
+  // Branch alias tolerance: Students often confuse PMIM vs PMIF (e.g., 2126PMIM1057 vs 2126PMIF1057)
+  if (upper.includes('PMIM')) {
+    const aliased = COHORT_STUDENT_BY_PRN.get(upper.replace('PMIM', 'PMIF'));
+    if (aliased) return aliased;
+  } else if (upper.includes('PMIF')) {
+    const aliased = COHORT_STUDENT_BY_PRN.get(upper.replace('PMIF', 'PMIM'));
+    if (aliased) return aliased;
+  }
+
+  // Suffix matching for 4-digit roll number tolerance
+  const match = upper.match(/(\d{4})$/);
+  if (match) {
+    const suffix = match[1];
+    const candidate = C_PROGRAMMING_COHORT_STUDENTS.find(s => s.prn.toUpperCase().endsWith(suffix));
+    if (candidate) return candidate;
+  }
+
   return null;
 }

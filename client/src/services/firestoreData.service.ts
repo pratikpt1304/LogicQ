@@ -3110,31 +3110,47 @@ export class FirestoreDataService {
     const cleanPrn = String(prn || '').toUpperCase().trim();
     if (!cleanPrn) return false;
 
+    const prnVariants = Array.from(new Set([
+      cleanPrn,
+      cleanPrn.replace('PMIM', 'PMIF'),
+      cleanPrn.replace('PMIF', 'PMIM'),
+    ])).filter(Boolean);
+
     try {
-      // 1. Delete custom password credentials from Firestore cohort_progress drafts
-      await deleteDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security')).catch(() => {});
+      // 1. Delete custom password credentials from Firestore cohort_progress drafts for all PRN variants
+      await Promise.all(
+        prnVariants.map((p) =>
+          deleteDoc(doc(db, 'cohort_progress', p, 'drafts', '__account_security')).catch(() => {})
+        )
+      );
 
       // 2. Clear bound hardware devices in Firestore
-      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
-      const existingMod = cohortDoc?.data()?.moduleProgress || {};
-      await setDoc(
-        doc(db, 'cohort_progress', cleanPrn),
-        {
-          prn: cleanPrn,
-          moduleProgress: {
-            ...existingMod,
-            registeredDevices: [],
-          },
-          updatedAt: Date.now(),
-        },
-        { merge: true }
-      ).catch(() => {});
+      await Promise.all(
+        prnVariants.map(async (p) => {
+          const cohortDoc = await getDoc(doc(db, 'cohort_progress', p)).catch(() => null);
+          const existingMod = cohortDoc?.data()?.moduleProgress || {};
+          await setDoc(
+            doc(db, 'cohort_progress', p),
+            {
+              prn: p,
+              moduleProgress: {
+                ...existingMod,
+                registeredDevices: [],
+              },
+              updatedAt: Date.now(),
+            },
+            { merge: true }
+          ).catch(() => {});
+        })
+      );
 
       // 3. Clear local storage password and device bindings
       try {
-        localStorage.removeItem(`logicq_custom_password_${cleanPrn}`);
-        localStorage.removeItem(`logicq_custom_password_${cleanPrn.toLowerCase()}`);
-        localStorage.removeItem(`logicq_registered_devices_${cleanPrn}`);
+        prnVariants.forEach((p) => {
+          localStorage.removeItem(`logicq_custom_password_${p}`);
+          localStorage.removeItem(`logicq_custom_password_${p.toLowerCase()}`);
+          localStorage.removeItem(`logicq_registered_devices_${p}`);
+        });
         if (userId) {
           localStorage.removeItem(`logicq_custom_password_${userId}`);
           localStorage.removeItem(`logicq_registered_devices_${userId}`);

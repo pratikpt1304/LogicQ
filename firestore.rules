@@ -249,10 +249,11 @@ rules_version = '2';
 //   - code: string (optional, <= 65536 chars)
 //   - verdict: string (optional, <= 50 chars)
 //   - academicScore / score / marks / pointsAwarded: int | float (optional)
+//   - integrityScore / testIntegrityScore: int | float (optional)
 //   - timeTakenSeconds / tabSwitchCount / copyPasteAttempts / cutAttempts / contextMenuAttempts: int (optional)
 //   - fullscreenExits / fullScreenExitCount / totalKeystrokes / largestBurstChars: int (optional)
 //   - incidents: list (optional, <= 200 items)
-//   - submittedAt / createdAt / updatedAt: timestamp | int | string (optional)
+//   - submittedAt / createdAt / updatedAt / lastHeartbeat / startedAt: timestamp | int | string (optional)
 //   - submissionType / status / difficulty / language / tag: string (optional, <= 50 chars)
 //   - runtimeMs / memoryKb / executionTimeMs: int | float (optional)
 //   - compileOutput: string (optional, <= 5000 chars)
@@ -514,7 +515,8 @@ service cloud.firestore {
         'largestBurstChars', 'incidents', 'submittedAt', 'createdAt', 'updatedAt',
         'submissionType', 'status', 'difficulty', 'language', 'runtimeMs', 'memoryKb',
         'compileOutput', 'tag', 'quarantinedAttempt', 'isCheatAutoSubmit', 'isCheatAttempt',
-        'cheatReason', 'problem', 'user', 'sectionId', 'metadata', 'executionTimeMs'
+        'cheatReason', 'problem', 'user', 'sectionId', 'metadata', 'executionTimeMs',
+        'integrityScore', 'testIntegrityScore', 'lastHeartbeat', 'startedAt'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('assignmentId' in data) || data.assignmentId == null || (data.assignmentId is string && data.assignmentId.size() <= 128))
@@ -583,7 +585,11 @@ service cloud.firestore {
         && (!('user' in data) || data.user == null || data.user is map)
         && (!('sectionId' in data) || data.sectionId == null || (data.sectionId is string && data.sectionId.size() <= 100))
         && (!('metadata' in data) || data.metadata == null || data.metadata is map)
-        && (!('executionTimeMs' in data) || data.executionTimeMs == null || data.executionTimeMs is int || data.executionTimeMs is float);
+        && (!('executionTimeMs' in data) || data.executionTimeMs == null || data.executionTimeMs is int || data.executionTimeMs is float)
+        && (!('integrityScore' in data) || data.integrityScore == null || data.integrityScore is int || data.integrityScore is float)
+        && (!('testIntegrityScore' in data) || data.testIntegrityScore == null || data.testIntegrityScore is int || data.testIntegrityScore is float)
+        && (!('lastHeartbeat' in data) || data.lastHeartbeat == null || data.lastHeartbeat is timestamp || data.lastHeartbeat is int || (data.lastHeartbeat is string && data.lastHeartbeat.size() <= 100))
+        && (!('startedAt' in data) || data.startedAt == null || data.startedAt is timestamp || data.startedAt is int || (data.startedAt is string && data.startedAt.size() <= 100));
     }
 
     function isValidSubmission(data) {

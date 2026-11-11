@@ -94,6 +94,12 @@ export class DeviceSessionService {
     let cohortSnap: any = null;
     try {
       cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
+      if (!cohortSnap?.exists() && cleanPrn.includes('PMIM')) {
+        cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn.replace('PMIM', 'PMIF'))).catch(() => null);
+      }
+      if (!cohortSnap?.exists() && cleanPrn.includes('PMIF')) {
+        cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn.replace('PMIF', 'PMIM'))).catch(() => null);
+      }
       if (!cohortSnap?.exists()) {
         cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn.replace(/0/g, 'O'))).catch(() => null);
       }
