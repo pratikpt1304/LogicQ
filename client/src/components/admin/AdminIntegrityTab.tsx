@@ -491,9 +491,9 @@ export const AdminIntegrityTab: React.FC = () => {
             const isSessionActive = Boolean(mod.activeSession) || studentSubs.length > 0 || hasCompletedProblems || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0 || fullscreenExits > 0;
 
             const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' =
-              (pasteBursts > 2 || tabSwitches > 3 || mod.status === 'CRITICAL_BREACH')
+              (pasteBursts > 2 || tabSwitches > 3)
                 ? 'CRITICAL_BREACH'
-                : (tabSwitches > 0 || pasteBursts > 0 || (mod.status === 'NEEDS_REVIEW' && (tabSwitches > 0 || pasteBursts > 0)))
+                : (tabSwitches > 0 || pasteBursts > 0)
                 ? 'NEEDS_REVIEW'
                 : 'CLEAN';
 
@@ -771,11 +771,11 @@ export const AdminIntegrityTab: React.FC = () => {
       result = result.filter((s) => s.currentModule.includes(selectedModuleFilter) || s.currentModule === selectedModuleFilter);
     }
 
-    // Status filter
+    // Status filter - strictly based on authentic cheating violations (fullscreen exits are informational only)
     if (selectedStatusFilter === 'FLAGGED') {
-      result = result.filter((s) => (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80 || s.status === 'CRITICAL_BREACH'));
+      result = result.filter((s) => (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80));
     } else if (selectedStatusFilter === 'CLEAN') {
-      result = result.filter((s) => s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80 && s.status !== 'CRITICAL_BREACH');
+      result = result.filter((s) => s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80);
     } else if (selectedStatusFilter === 'VIVA_DONE') {
       result = result.filter((s) => s.aiVivaStatus === 'VERIFIED');
     }
@@ -783,8 +783,8 @@ export const AdminIntegrityTab: React.FC = () => {
     // Sorting
     result.sort((a, b) => {
       if (sortBy === 'SUSPICIOUS') {
-        const aIncidents = a.tabSwitches + a.pasteBursts + (a.status !== 'CLEAN' ? 5 : 0);
-        const bIncidents = b.tabSwitches + b.pasteBursts + (b.status !== 'CLEAN' ? 5 : 0);
+        const aIncidents = a.tabSwitches + a.pasteBursts;
+        const bIncidents = b.tabSwitches + b.pasteBursts;
         return bIncidents - aIncidents;
       }
       if (sortBy === 'PRN') {
@@ -815,7 +815,7 @@ export const AdminIntegrityTab: React.FC = () => {
       const prn = String(s.prn || '').trim();
       const nm = String(s.name || '').trim().toLowerCase();
       if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
-      return (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80 || s.status === 'CRITICAL_BREACH');
+      return (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80);
     }).length;
   }, [studentsForensics]);
 
@@ -824,7 +824,7 @@ export const AdminIntegrityTab: React.FC = () => {
       const prn = String(s.prn || '').trim();
       const nm = String(s.name || '').trim().toLowerCase();
       if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
-      return s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80 && s.status !== 'CRITICAL_BREACH';
+      return s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80;
     }).length;
   }, [studentsForensics]);
 

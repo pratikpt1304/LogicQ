@@ -1084,11 +1084,22 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               type="button"
               onClick={() => generateIndividualStudentPdf({
                 ...student,
+                name: studentName,
+                fullName: studentName,
+                prn,
+                email,
+                section: sectionName,
                 problemsSolved,
                 academicScore,
                 integrityScore,
                 tabSwitchCount,
                 clipboardAttempts,
+                fullscreenExits,
+                cpm,
+                wpm,
+                testSubmissions,
+                practiceSubmissions,
+                submissions: allSubmissions,
               })}
               className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
               title="Download Student Transcript PDF"
