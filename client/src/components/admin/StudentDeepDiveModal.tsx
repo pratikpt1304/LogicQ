@@ -280,28 +280,144 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     let rawGeneral: any[] = [];
     const rawPracticeDrafts: Record<string, any> = {};
 
+    const safeTimestampMs = (val: any): number => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      if (val instanceof Date) return val.getTime();
+      if (typeof val?.toDate === 'function') {
+        try {
+          const d = val.toDate();
+          if (d instanceof Date && !isNaN(d.getTime())) return d.getTime();
+        } catch {}
+      }
+      if (typeof val?.seconds === 'number') {
+        return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+      }
+      if (typeof val === 'string') {
+        const t = new Date(val).getTime();
+        if (!isNaN(t)) return t;
+      }
+      return 0;
+    };
+
+    const resolveCanonicalProblem = (sub: any) => {
+      const rawId = String(
+        sub?.problemId ||
+        sub?.problemSlug ||
+        sub?.problem?.id ||
+        sub?.problem?.slug ||
+        ''
+      ).trim();
+
+      const rawTitle = String(
+        sub?.problemTitle ||
+        sub?.problem?.title ||
+        sub?.title ||
+        ''
+      ).trim();
+
+      const cleanSlug = rawId
+        .toLowerCase()
+        .replace(/^practice_topic_/, '')
+        .replace(/^topic_/, '');
+
+      const matched = TOPIC_PRACTICE_DATA.find((t) => {
+        const tId = t.id.toLowerCase();
+        const tTitle = (t.topicTitle || '').toLowerCase();
+        const pTitle = (t.problem?.title || '').toLowerCase();
+        const lowSlug = cleanSlug.toLowerCase();
+        const lowTitle = rawTitle.toLowerCase();
+
+        return (
+          (lowSlug && (tId === lowSlug || lowSlug.includes(tId) || tId.includes(lowSlug))) ||
+          (lowTitle && (tTitle === lowTitle || pTitle === lowTitle || lowTitle.includes(pTitle) || pTitle.includes(lowTitle)))
+        );
+      });
+
+      const canonicalId = matched ? matched.id : (cleanSlug || rawId || 'practice_prob');
+      const canonicalTitle =
+        matched?.topicTitle ||
+        matched?.problem?.title ||
+        (rawTitle && !/^(m\d+-|topic-|practice-)/i.test(rawTitle) ? rawTitle : null) ||
+        (canonicalId.replace(/[-_]/g, ' ').toUpperCase());
+
+      return { canonicalId, canonicalTitle, matchedTopic: matched };
+    };
+
     const updateCategorizedSubmissions = () => {
       // 1. Group and deduplicate dual-writes across assessment_test_submissions and submissions
       const uniqueSubmissionsMap = new Map<string, any>();
 
-      [...rawAssess, ...rawGeneral].forEach((sub) => {
-        const probId = String(sub.problemId || sub.problemSlug || sub.problemTitle || 'prob').trim().toLowerCase();
-        const timeBucket = Math.floor(new Date(sub.submittedAt || sub.createdAt || 0).getTime() / 60000);
-        const codePrefix = (sub.code || sub.submittedCode || '').trim().slice(0, 80);
-        
-        // Canonical dedupe key: same problem + same minute bucket + same code = duplicate dual-write
-        const dedupeKey = `${probId}_${timeBucket}_${codePrefix}`;
+      // Normalize all raw submissions first
+      const normalizedSubs = [...rawAssess, ...rawGeneral].map((sub) => {
+        const { canonicalId, canonicalTitle, matchedTopic } = resolveCanonicalProblem(sub);
+        const timeMs = safeTimestampMs(sub.submittedAt || sub.createdAt || sub.updatedAt);
+        const codeText = String(sub.code || sub.submittedCode || '').trim();
 
-        if (!uniqueSubmissionsMap.has(dedupeKey)) {
-          uniqueSubmissionsMap.set(dedupeKey, sub);
-        } else {
-          const prev = uniqueSubmissionsMap.get(dedupeKey);
-          uniqueSubmissionsMap.set(dedupeKey, {
+        return {
+          ...sub,
+          problemId: canonicalId,
+          problemSlug: canonicalId,
+          problemTitle: canonicalTitle,
+          code: codeText || sub.code || '',
+          submittedCode: codeText || sub.submittedCode || '',
+          timestampMs: timeMs,
+          submittedAt: timeMs > 0 ? new Date(timeMs).toISOString() : (sub.submittedAt || new Date().toISOString()),
+          matchedTopic,
+        };
+      });
+
+      // Sort chronologically ascending to merge dual-writes & determine attempts
+      normalizedSubs.sort((a, b) => a.timestampMs - b.timestampMs);
+
+      normalizedSubs.forEach((sub) => {
+        const pId = sub.problemId;
+        const codePrefix = sub.code.slice(0, 60);
+
+        // Check if there is already an existing submission in uniqueSubmissionsMap for this problem
+        // that is either within 3 minutes (dual write / quick retry) OR has the same attempt number
+        let matchedKey: string | null = null;
+        for (const [key, existing] of uniqueSubmissionsMap.entries()) {
+          if (existing.problemId === pId) {
+            const timeDiff = Math.abs(existing.timestampMs - sub.timestampMs);
+            const isSameAttempt = Boolean(existing.attemptNumber && sub.attemptNumber && existing.attemptNumber === sub.attemptNumber);
+            const isDualWrite = timeDiff <= 180000; // within 3 minutes
+            const isSameCode = Boolean(codePrefix && existing.code.startsWith(codePrefix));
+
+            if (isSameAttempt || isDualWrite || (timeDiff <= 600000 && isSameCode)) {
+              matchedKey = key;
+              break;
+            }
+          }
+        }
+
+        if (matchedKey) {
+          const prev = uniqueSubmissionsMap.get(matchedKey);
+          // Prefer whichever has more complete data / code
+          const mergedCode = (sub.code && sub.code.length > (prev.code?.length || 0)) ? sub.code : (prev.code || sub.code);
+          const mergedTitle = (prev.problemTitle && !/^(m\d+-|topic-)/i.test(prev.problemTitle))
+            ? prev.problemTitle
+            : (sub.problemTitle || prev.problemTitle);
+
+          uniqueSubmissionsMap.set(matchedKey, {
             ...prev,
             ...sub,
+            problemTitle: mergedTitle,
+            code: mergedCode,
+            submittedCode: mergedCode,
+            points: Math.max(Number(prev.points || 0), Number(sub.points || 0), Number(prev.academicScore || 0), Number(sub.academicScore || 0)),
+            academicScore: Math.max(Number(prev.academicScore || 0), Number(sub.academicScore || 0), Number(prev.points || 0), Number(sub.points || 0)),
+            score: Math.max(Number(prev.score || 0), Number(sub.score || 0)),
             tabSwitchCount: Math.max(prev.tabSwitchCount || 0, sub.tabSwitchCount || 0),
             copyPasteAttempts: Math.max(prev.copyPasteAttempts || 0, sub.copyPasteAttempts || 0),
+            fullscreenExits: Math.max(prev.fullscreenExits || 0, sub.fullscreenExits || 0),
+            timestampMs: Math.max(prev.timestampMs || 0, sub.timestampMs || 0),
+            submittedAt: (prev.timestampMs > sub.timestampMs ? prev.submittedAt : sub.submittedAt),
+            verdict: (prev.verdict === 'ACCEPTED' || sub.verdict === 'ACCEPTED') ? 'ACCEPTED' : (sub.verdict || prev.verdict),
           });
+        } else {
+          const newKey = `sub_${pId}_${sub.timestampMs}_${Math.random().toString(36).slice(2, 6)}`;
+          uniqueSubmissionsMap.set(newKey, sub);
         }
       });
 
@@ -317,7 +433,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       ]));
 
       allKnownPracticeProblemIds.forEach((rawId) => {
-        const probId = String(rawId || '').trim().toLowerCase();
+        const probId = String(rawId || '').trim();
         if (
           !probId ||
           probId === 'topic_attempts' ||
@@ -330,84 +446,87 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           return;
         }
 
-        const matchedTopic = TOPIC_PRACTICE_DATA.find((t) =>
-          t.id.toLowerCase() === probId ||
-          (probId && t.id.toLowerCase().includes(probId)) ||
-          (probId && probId.includes(t.id.toLowerCase()))
+        const { canonicalId, canonicalTitle, matchedTopic } = resolveCanonicalProblem({ problemId: probId });
+
+        // Check if uniqueSubmissionsMap ALREADY has a submission for canonicalId
+        const existingEntry = Array.from(uniqueSubmissionsMap.values()).find(
+          (s) => s.problemId === canonicalId || s.problemSlug === canonicalId
         );
 
-        // Check if already in uniqueSubmissionsMap
-        const alreadyPresent = Array.from(uniqueSubmissionsMap.values()).some((s) => {
-          const sId = String(s.problemId || s.problemSlug || s.problemTitle || '').trim().toLowerCase();
-          return (
-            sId === probId ||
-            (matchedTopic && sId === matchedTopic.id.toLowerCase()) ||
-            (probId.length > 4 && sId.includes(probId)) ||
-            (sId.length > 4 && probId.includes(sId))
-          );
+        const draftObj =
+          rawPracticeDrafts[probId] ||
+          rawPracticeDrafts[canonicalId] ||
+          rawPracticeDrafts[`practice_topic_${probId}`] ||
+          rawPracticeDrafts[`practice_topic_${canonicalId}`] ||
+          rawPracticeDrafts[`topic_${probId}`] ||
+          {};
+
+        const draftCode = String(draftObj.code || '').trim();
+
+        if (existingEntry) {
+          // If existing submission has empty/dummy code, and draft vault has real student C code, enrich it!
+          if (draftCode && (!existingEntry.code || existingEntry.code.length < 25)) {
+            existingEntry.code = draftCode;
+            existingEntry.submittedCode = draftCode;
+          }
+          if (canonicalTitle && (!existingEntry.problemTitle || /^(m\d+-|topic-)/i.test(existingEntry.problemTitle))) {
+            existingEntry.problemTitle = canonicalTitle;
+          }
+          return;
+        }
+
+        // Only synthesize if actually marked completed or draft code exists
+        const isActuallyCompleted = completedList.some((c) => {
+          const { canonicalId: cId } = resolveCanonicalProblem({ problemId: String(c) });
+          return cId === canonicalId;
         });
 
-        if (!alreadyPresent) {
-          const draftObj =
-            rawPracticeDrafts[probId] ||
-            rawPracticeDrafts[`practice_topic_${probId}`] ||
-            rawPracticeDrafts[`topic_${probId}`] ||
-            (matchedTopic ? rawPracticeDrafts[matchedTopic.id.toLowerCase()] : null) ||
-            (matchedTopic ? rawPracticeDrafts[`practice_topic_${matchedTopic.id.toLowerCase()}`] : null) ||
-            {};
+        if (isActuallyCompleted || draftCode.length > 0) {
+          const topicAttemptsMap = {
+            ...(currentCohort?.topicAttempts || {}),
+            ...topicAttemptsDraft,
+          } as Record<string, number>;
 
-          const draftCode = draftObj.code || '';
-          const isActuallyCompleted =
-            completedList.some((c) => String(c).toLowerCase() === probId || (matchedTopic && String(c).toLowerCase() === matchedTopic.id.toLowerCase()));
+          const attempts = Number(
+            topicAttemptsMap[canonicalId] ||
+            topicAttemptsMap[probId] ||
+            (matchedTopic && topicAttemptsMap[matchedTopic.id]) ||
+            draftObj.attemptNumber ||
+            1
+          );
 
-          if (isActuallyCompleted || (draftCode && draftCode.trim().length > 0)) {
-            const topicAttemptsMap = {
-              ...(currentCohort?.topicAttempts || {}),
-              ...topicAttemptsDraft,
-            } as Record<string, number>;
+          const draftTimeMs = safeTimestampMs(draftObj.updatedAt) || safeTimestampMs(currentCohort?.lastSolvedDate) || Date.now();
+          const submittedDate = new Date(draftTimeMs).toISOString();
 
-            const attempts = Number(
-              topicAttemptsMap[probId] ||
-              (matchedTopic && topicAttemptsMap[matchedTopic.id]) ||
-              draftObj.attemptNumber ||
-              1
-            );
+          const synthesizedPracticeSub = {
+            id: `practice_cohort_${canonicalId}`,
+            problemId: canonicalId,
+            problemSlug: canonicalId,
+            problemTitle: canonicalTitle,
+            code: draftCode || '// Solved and verified in practice arena',
+            submittedCode: draftCode || '// Solved and verified in practice arena',
+            language: 'c',
+            verdict: 'ACCEPTED',
+            status: 'PASSED',
+            academicScore: 20,
+            score: 20,
+            points: 20,
+            pointsAwarded: 20,
+            maxMarks: 20,
+            submissionType: 'PRACTICE',
+            difficulty: matchedTopic?.problem?.difficulty || 'EASY',
+            attemptNumber: Math.max(1, attempts),
+            timestampMs: draftTimeMs,
+            submittedAt: submittedDate,
+            createdAt: submittedDate,
+            tabSwitchCount: 0,
+            copyPasteAttempts: 0,
+            fullscreenExits: 0,
+            cpm: currentCohort?.typingVelocityCPM || currentCohort?.cpm || 0,
+            testTitle: 'Continuous Practical Lab',
+          };
 
-            const submittedDate = draftObj.updatedAt
-              ? (typeof draftObj.updatedAt === 'number'
-                  ? new Date(draftObj.updatedAt).toISOString()
-                  : new Date(draftObj.updatedAt.seconds ? draftObj.updatedAt.seconds * 1000 : draftObj.updatedAt).toISOString())
-              : (currentCohort?.lastSolvedDate || new Date().toISOString());
-
-            const synthesizedPracticeSub = {
-              id: `practice_cohort_${probId}`,
-              problemId: matchedTopic?.id || probId,
-              problemSlug: matchedTopic?.id || probId,
-              problemTitle: matchedTopic?.topicTitle || matchedTopic?.problem?.title || (probId.replace(/[-_]/g, ' ').toUpperCase()),
-              code: draftCode || '// Solved and verified in practice arena',
-              submittedCode: draftCode || '// Solved and verified in practice arena',
-              language: 'c',
-              verdict: 'ACCEPTED',
-              status: 'PASSED',
-              academicScore: 20,
-              score: 20,
-              points: 20,
-              pointsAwarded: 20,
-              maxMarks: 20,
-              submissionType: 'PRACTICE',
-              difficulty: matchedTopic?.problem?.difficulty || 'EASY',
-              attemptNumber: Math.max(1, attempts),
-              submittedAt: submittedDate,
-              createdAt: submittedDate,
-              tabSwitchCount: 0,
-              copyPasteAttempts: 0,
-              fullscreenExits: 0,
-              cpm: currentCohort?.typingVelocityCPM || currentCohort?.cpm || 0,
-              testTitle: 'Continuous Practical Lab',
-            };
-
-            uniqueSubmissionsMap.set(`synth_${probId}`, synthesizedPracticeSub);
-          }
+          uniqueSubmissionsMap.set(`synth_${canonicalId}`, synthesizedPracticeSub);
         }
       });
 
@@ -415,9 +534,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
       // Sort chronologically ascending (oldest first) to accurately determine attempt order
       all.sort(
-        (a, b) =>
-          new Date(a.submittedAt || a.createdAt || 0).getTime() -
-          new Date(b.submittedAt || b.createdAt || 0).getTime()
+        (a, b) => (a.timestampMs || safeTimestampMs(a.submittedAt || a.createdAt)) - (b.timestampMs || safeTimestampMs(b.submittedAt || b.createdAt))
       );
 
       // Track running attempt counter per problem
@@ -454,9 +571,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
       // Sort newest first for UI display
       enrichedAll.sort(
-        (a, b) =>
-          new Date(b.submittedAt || b.createdAt || 0).getTime() -
-          new Date(a.submittedAt || a.createdAt || 0).getTime()
+        (a, b) => (b.timestampMs || safeTimestampMs(b.submittedAt || b.createdAt)) - (a.timestampMs || safeTimestampMs(a.submittedAt || a.createdAt))
       );
 
       const tests: any[] = [];
