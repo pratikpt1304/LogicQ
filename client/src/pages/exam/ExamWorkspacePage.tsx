@@ -539,6 +539,39 @@ export const ExamWorkspacePage: React.FC = () => {
           isCheatAttempt: false,
         }).catch(() => {});
 
+        // Immediately persist breach record to assessment_test_submissions so it reflects in test audit modal
+        FirestoreDataService.recordAssessmentSubmission({
+          testId: assignmentData?.id || assignmentId || 'UNIT',
+          assignmentId: assignmentId || 'UNIT',
+          testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+          userId: targetUser,
+          studentName: user?.fullName || user?.displayName || 'Student',
+          studentPrn: user?.prn || '',
+          studentEmail: user?.email || '',
+          problemId: problemId || 'exam-q1',
+          problemTitle: problemData?.title || assignmentData?.title || 'Continuous Practical Assessment',
+          code: code || '// Code auto-saved upon proctoring breach exit',
+          verdict: 'FLAGGED_CHEATING',
+          status: 'CRITICAL_BREACH',
+          academicScore: 0,
+          score: 0,
+          marksAwarded: 0,
+          maxMarks: 20,
+          tabSwitchCount,
+          copyPasteAttempts,
+          fullscreenExits: 1,
+          totalKeystrokes,
+          incidents: [
+            {
+              type: 'FULLSCREEN_EXIT',
+              details: 'Fullscreen perimeter exited: Student minimized or exited full-screen mode.',
+              severity: 'CRITICAL',
+              timestamp: new Date().toLocaleTimeString(),
+            }
+          ],
+          isCheatAttempt: true,
+        }).catch(() => {});
+
         toast.info('Fullscreen Exited: Returned to tests dashboard. Your code is auto-saved.');
 
         isExitingRef.current = true;

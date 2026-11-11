@@ -5713,14 +5713,37 @@ export class FirestoreDataService {
   /**
    * Fetches all submissions matching a specific assessment test
    */
-  public static async getAssessmentSubmissions(testId?: string): Promise<any[]> {
+  public static async getAssessmentSubmissions(testId?: string, testTitle?: string): Promise<any[]> {
     try {
+      const isMatchingTest = (data: any) => {
+        if (!testId && !testTitle) return true;
+        const cleanId = String(testId || '').trim().toLowerCase();
+        const cleanTitle = String(testTitle || '').trim().toLowerCase();
+
+        const dTestId = String(data.testId || '').trim().toLowerCase();
+        const dAssignId = String(data.assignmentId || '').trim().toLowerCase();
+        const dTitle = String(data.testTitle || '').trim().toLowerCase();
+
+        if (cleanId) {
+          if (dTestId === cleanId || dAssignId === cleanId) return true;
+          if (dTestId.replace('assign-', '') === cleanId.replace('assign-', '')) return true;
+          if (dAssignId.replace('assign-', '') === cleanId.replace('assign-', '')) return true;
+          if (dTestId.includes(cleanId) || cleanId.includes(dTestId)) return true;
+        }
+
+        if (cleanTitle && dTitle) {
+          if (dTitle === cleanTitle || dTitle.includes(cleanTitle) || cleanTitle.includes(dTitle)) return true;
+        }
+
+        return false;
+      };
+
       const list: any[] = [];
       try {
         const snap = await getDocs(collection(db, 'assessment_test_submissions'));
         snap.forEach((d) => {
           const data = d.data();
-          if (!testId || data.testId === testId || data.assignmentId === testId) {
+          if (isMatchingTest(data)) {
             list.push({ id: d.id, ...data });
           }
         });
@@ -5732,7 +5755,7 @@ export class FirestoreDataService {
           const genSnap = await getDocs(collection(db, 'submissions'));
           genSnap.forEach((d) => {
             const data = d.data();
-            if (data && (data.submissionType === 'ASSESSMENT' || (testId && (data.testId === testId || data.assignmentId === testId)))) {
+            if (data && (data.submissionType === 'ASSESSMENT' || isMatchingTest(data))) {
               list.push({ id: d.id, ...data });
             }
           });
@@ -5744,7 +5767,7 @@ export class FirestoreDataService {
         const local = JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
         if (Array.isArray(local)) {
           local.forEach((item: any) => {
-            if ((!testId || item.testId === testId || item.assignmentId === testId) && !list.some((x) => x.id === item.id)) {
+            if (isMatchingTest(item) && !list.some((x) => x.id === item.id)) {
               list.push(item);
             }
           });
@@ -5765,8 +5788,31 @@ export class FirestoreDataService {
   /**
    * Live real-time listener for assessment test submissions
    */
-  public static listenToAssessmentSubmissions(testId: string, callback: (subs: any[]) => void): () => void {
+  public static listenToAssessmentSubmissions(testId: string, callback: (subs: any[]) => void, testTitle?: string): () => void {
     try {
+      const isMatchingTest = (data: any) => {
+        if (!testId && !testTitle) return true;
+        const cleanId = String(testId || '').trim().toLowerCase();
+        const cleanTitle = String(testTitle || '').trim().toLowerCase();
+
+        const dTestId = String(data.testId || '').trim().toLowerCase();
+        const dAssignId = String(data.assignmentId || '').trim().toLowerCase();
+        const dTitle = String(data.testTitle || '').trim().toLowerCase();
+
+        if (cleanId) {
+          if (dTestId === cleanId || dAssignId === cleanId) return true;
+          if (dTestId.replace('assign-', '') === cleanId.replace('assign-', '')) return true;
+          if (dAssignId.replace('assign-', '') === cleanId.replace('assign-', '')) return true;
+          if (dTestId.includes(cleanId) || cleanId.includes(dTestId)) return true;
+        }
+
+        if (cleanTitle && dTitle) {
+          if (dTitle === cleanTitle || dTitle.includes(cleanTitle) || cleanTitle.includes(dTitle)) return true;
+        }
+
+        return false;
+      };
+
       const q = collection(db, 'assessment_test_submissions');
       return onSnapshot(
         q,
@@ -5774,7 +5820,7 @@ export class FirestoreDataService {
           const list: any[] = [];
           snap.forEach((d) => {
             const data = d.data();
-            if (!testId || data.testId === testId || data.assignmentId === testId) {
+            if (isMatchingTest(data)) {
               list.push({ id: d.id, ...data });
             }
           });

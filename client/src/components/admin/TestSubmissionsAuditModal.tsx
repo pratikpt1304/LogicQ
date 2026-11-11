@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { AdminTestDefinition } from './AdminTestOrchestratorTab.js';
 
@@ -55,8 +57,66 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
     if (!test) return;
     setIsLoading(true);
     try {
-      const liveSubs = await FirestoreDataService.getAssessmentSubmissions(test.id);
-      const authentic = Array.isArray(liveSubs) ? liveSubs : [];
+      const liveSubs = await FirestoreDataService.getAssessmentSubmissions(test.id, test.title);
+      const authentic = Array.isArray(liveSubs) ? [...liveSubs] : [];
+
+      // Also incorporate in-progress candidates active on this test from cohort_progress
+      try {
+        const cohortSnap = await getDocs(collection(db, 'cohort_progress'));
+        cohortSnap.forEach((d) => {
+          const cData = d.data();
+          const prn = d.id.toUpperCase().trim();
+          if (FirestoreDataService.isPurgedStudent({ prn, ...cData })) return;
+
+          const mod = cData.moduleProgress || {};
+          const cMod = String(mod.currentModule || '').trim().toLowerCase();
+          const lastTopic = String(cData.lastAttemptedTopic || '').trim().toLowerCase();
+          const tId = String(test.id || '').trim().toLowerCase();
+          const tTitle = String(test.title || '').trim().toLowerCase();
+
+          const isMatchingTest =
+            (tTitle && (cMod === tTitle || cMod.includes(tTitle))) ||
+            (tId && (lastTopic.includes(tId) || cMod.includes(tId)));
+
+          const alreadySubmitted = authentic.some((s) => {
+            const sPrn = (s.studentPrn || s.prn || '').toUpperCase().trim();
+            return sPrn === prn;
+          });
+
+          if (isMatchingTest && !alreadySubmitted) {
+            const tabSwitches = Number(mod.tabSwitches) || 0;
+            const pasteBursts = Number(mod.pasteBursts) || 0;
+            const fullscreenExits = Number(mod.fullscreenExits) || 0;
+            const hasBreach = tabSwitches > 0 || pasteBursts > 0 || fullscreenExits > 0;
+
+            authentic.push({
+              id: `live_${prn}_${test.id}`,
+              testId: test.id,
+              assignmentId: test.id,
+              testTitle: test.title,
+              studentName: cData.studentName || prn,
+              studentPrn: prn,
+              studentEmail: cData.studentEmail || cData.boundEmail || '',
+              problemId: mod.currentProblem || test.id,
+              problemTitle: mod.currentProblem || test.title,
+              code: '// In-progress test session: student actively writing in proctored window',
+              verdict: hasBreach ? 'NEEDS_REVIEW' : 'IN_PROGRESS',
+              status: hasBreach ? 'CRITICAL_BREACH' : 'IN_PROGRESS',
+              academicScore: 0,
+              maxMarks: 20,
+              timeTakenSeconds: 0,
+              tabSwitchCount: tabSwitches,
+              fullscreenExits: fullscreenExits,
+              copyPasteAttempts: pasteBursts,
+              totalKeystrokes: Number(mod.totalKeystrokes) || 0,
+              submittedAt: cData.updatedAt || new Date().toISOString(),
+              incidents: mod.incidents || [],
+              isInProgress: true,
+            });
+          }
+        });
+      } catch {}
+
       setSubmissions(authentic);
       if (initialSelectedStudentId) {
         const match = authentic.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
@@ -78,15 +138,22 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
     loadSubmissions();
 
     // Live subscription for incoming submissions
-    const unsub = FirestoreDataService.listenToAssessmentSubmissions(test.id, (incoming) => {
-      if (Array.isArray(incoming)) {
-        setSubmissions(incoming);
-        if (initialSelectedStudentId) {
-          const match = incoming.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
-          if (match) setSelectedStudentSub(match);
+    const unsub = FirestoreDataService.listenToAssessmentSubmissions(
+      test.id,
+      (incoming) => {
+        if (Array.isArray(incoming)) {
+          setSubmissions((prev) => {
+            const inProgressOnly = prev.filter((p) => p.isInProgress && !incoming.some((inc) => (inc.studentPrn || inc.prn) === (p.studentPrn || p.prn)));
+            return [...incoming, ...inProgressOnly];
+          });
+          if (initialSelectedStudentId) {
+            const match = incoming.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
+            if (match) setSelectedStudentSub(match);
+          }
         }
-      }
-    });
+      },
+      test.title
+    );
 
     return () => unsub();
   }, [isOpen, test, initialSelectedStudentId]);
