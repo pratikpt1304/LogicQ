@@ -446,7 +446,7 @@ export const ExamWorkspacePage: React.FC = () => {
       totalKeystrokes,
       largestBurstChars,
       activeSec,
-      status: (overrideMetrics?.fullScreenExitCount ?? fullScreenExitCount) > 0 ? 'CRITICAL_BREACH' : ((overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 0 || (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 0 ? 'NEEDS_REVIEW' : 'CLEAN'),
+      status: (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 3 || (overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 3 ? 'CRITICAL_BREACH' : ((overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 0 || (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 0 ? 'NEEDS_REVIEW' : 'CLEAN'),
     }).catch(() => {});
   }, [
     attemptId,
@@ -542,12 +542,8 @@ export const ExamWorkspacePage: React.FC = () => {
           problemId: problemId || 'exam-q1',
           problemTitle: problemData?.title || assignmentData?.title || 'Continuous Practical Assessment',
           code: code || '// Code auto-saved upon proctoring breach exit',
-          verdict: 'FLAGGED_CHEATING',
-          status: 'CRITICAL_BREACH',
-          academicScore: 0,
-          score: 0,
-          marksAwarded: 0,
-          maxMarks: 20,
+          verdict: 'IN_PROGRESS',
+          status: 'CLEAN',
           tabSwitchCount,
           copyPasteAttempts,
           fullscreenExits: 1,
@@ -555,12 +551,12 @@ export const ExamWorkspacePage: React.FC = () => {
           incidents: [
             {
               type: 'FULLSCREEN_EXIT',
-              details: 'Fullscreen perimeter exited: Student minimized or exited full-screen mode.',
-              severity: 'CRITICAL',
+              details: 'Fullscreen exited: Student minimized or exited full-screen mode. Code auto-saved.',
+              severity: 'INFO',
               timestamp: new Date().toLocaleTimeString(),
             }
           ],
-          isCheatAttempt: true,
+          isCheatAttempt: false,
         }).catch(() => {});
 
         toast.info('Fullscreen Exited: Returned to tests dashboard. Your code is auto-saved.');

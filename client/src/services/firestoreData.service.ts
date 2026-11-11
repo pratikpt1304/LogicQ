@@ -4870,7 +4870,7 @@ export class FirestoreDataService {
             subIncidents = subIncidents.slice(0, 50);
           }
 
-          const hasBreach = data.fullScreenExitCount > 0 || data.copyPasteAttempts > 0 || data.tabSwitchCount > 0;
+          const hasBreach = data.copyPasteAttempts > 0 || data.tabSwitchCount > 0;
           await setDoc(
             liveSubRef,
             {
@@ -4888,8 +4888,8 @@ export class FirestoreDataService {
               copyPasteAttempts: Math.max(Number(data.copyPasteAttempts) || 0, Number(existing.copyPasteAttempts) || 0),
               fullscreenExits: Math.max(Number(data.fullScreenExitCount) || 0, Number(existing.fullscreenExits) || 0),
               totalKeystrokes: Math.max(Number(data.totalKeystrokes) || 0, Number(existing.totalKeystrokes) || 0),
-              verdict: data.fullScreenExitCount > 0 ? 'FLAGGED_CHEATING' : (hasBreach ? 'NEEDS_REVIEW' : (existing.verdict || 'IN_PROGRESS')),
-              status: data.fullScreenExitCount > 0 ? 'CRITICAL_BREACH' : (hasBreach ? 'NEEDS_REVIEW' : (existing.status || 'IN_PROGRESS')),
+              verdict: (data.copyPasteAttempts > 3 || data.tabSwitchCount > 3) ? 'FLAGGED_CHEATING' : (hasBreach ? 'NEEDS_REVIEW' : (existing.verdict || 'IN_PROGRESS')),
+              status: (data.copyPasteAttempts > 3 || data.tabSwitchCount > 3) ? 'CRITICAL_BREACH' : (hasBreach ? 'NEEDS_REVIEW' : (existing.status || 'IN_PROGRESS')),
               incidents: subIncidents,
               isInProgress: true,
               lastActiveTime: new Date().toISOString(),
@@ -4912,14 +4912,14 @@ export class FirestoreDataService {
       const prevModule = existingCohort.moduleProgress || {};
 
       const computedStatus = data.status || (
-        data.fullScreenExitCount > 0 || data.copyPasteAttempts > 3
+        data.copyPasteAttempts > 3 || data.tabSwitchCount > 3
           ? 'CRITICAL_BREACH'
           : (data.tabSwitchCount > 0 || data.copyPasteAttempts > 0)
           ? 'NEEDS_REVIEW'
           : 'CLEAN'
       );
 
-      const autoLockCount = data.fullScreenExitCount > 0 ? 1 : (prevModule.autoLockCount || 0);
+      const autoLockCount = prevModule.autoLockCount || 0;
 
       const integrityScore = FirestoreDataService.computeIntegrityScore({
         tabSwitchCount: data.tabSwitchCount,

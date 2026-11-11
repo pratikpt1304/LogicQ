@@ -493,11 +493,11 @@ export const AdminIntegrityTab: React.FC = () => {
             const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' =
               (pasteBursts > 2 || tabSwitches > 3 || mod.status === 'CRITICAL_BREACH')
                 ? 'CRITICAL_BREACH'
-                : (fullscreenExits > 0 || tabSwitches > 0 || pasteBursts > 0 || mod.status === 'NEEDS_REVIEW')
+                : (tabSwitches > 0 || pasteBursts > 0 || (mod.status === 'NEEDS_REVIEW' && (tabSwitches > 0 || pasteBursts > 0)))
                 ? 'NEEDS_REVIEW'
                 : 'CLEAN';
 
-            // Fullscreen exits are tracked in logs but do NOT deduct integrity score
+            // Fullscreen exits are tracked in audit telemetry logs but do NOT deduct integrity score or flag cheating
             const integrityScore = Math.max(0, Math.min(100, 100 - (tabSwitches * 5) - (pasteBursts * 10)));
 
             const lastSolvedId = hasCompletedProblems ? cData.completedProblems[cData.completedProblems.length - 1] : null;
@@ -603,14 +603,14 @@ export const AdminIntegrityTab: React.FC = () => {
               timelineEvents.push({
                 id: `flag-fs-${prnClean}`,
                 timestamp: lastActiveTime || 'Logged',
-                timeElapsed: 'Breach',
+                timeElapsed: 'Telemetry',
                 category: studentCategory,
                 moduleName: currentModule,
                 problemTitle: currentProblem,
                 type: 'FULLSCREEN_EXIT',
-                severity: 'WARNING',
-                title: `Proctored Fullscreen Exited (${fullscreenExits} Exits)`,
-                details: `Candidate exited proctored full-screen boundary (${fullscreenExits} times). Session returned to preserve focus.`,
+                severity: 'INFO',
+                title: `Fullscreen Exits: ${fullscreenExits} Logged`,
+                details: `Audit Log: Candidate exited proctored full-screen boundary (${fullscreenExits} times). Logged in session telemetry for faculty reference.`,
               });
             }
 
@@ -773,9 +773,9 @@ export const AdminIntegrityTab: React.FC = () => {
 
     // Status filter
     if (selectedStatusFilter === 'FLAGGED') {
-      result = result.filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0);
+      result = result.filter((s) => (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80 || s.status === 'CRITICAL_BREACH'));
     } else if (selectedStatusFilter === 'CLEAN') {
-      result = result.filter((s) => s.status === 'CLEAN');
+      result = result.filter((s) => s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80 && s.status !== 'CRITICAL_BREACH');
     } else if (selectedStatusFilter === 'VIVA_DONE') {
       result = result.filter((s) => s.aiVivaStatus === 'VERIFIED');
     }
@@ -815,7 +815,7 @@ export const AdminIntegrityTab: React.FC = () => {
       const prn = String(s.prn || '').trim();
       const nm = String(s.name || '').trim().toLowerCase();
       if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
-      return s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0;
+      return (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80 || s.status === 'CRITICAL_BREACH');
     }).length;
   }, [studentsForensics]);
 
@@ -824,7 +824,7 @@ export const AdminIntegrityTab: React.FC = () => {
       const prn = String(s.prn || '').trim();
       const nm = String(s.name || '').trim().toLowerCase();
       if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
-      return s.status === 'CLEAN' && s.tabSwitches === 0 && s.pasteBursts === 0;
+      return s.tabSwitches === 0 && s.pasteBursts === 0 && s.integrityScore >= 80 && s.status !== 'CRITICAL_BREACH';
     }).length;
   }, [studentsForensics]);
 
@@ -1262,7 +1262,7 @@ export const AdminIntegrityTab: React.FC = () => {
                   const prn = String(s.prn || '').trim();
                   const nm = String(s.name || '').trim().toLowerCase();
                   if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
-                  return s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0;
+                  return (s.tabSwitches > 0 || s.pasteBursts > 0 || s.integrityScore < 80 || s.status === 'CRITICAL_BREACH');
                 })
                 .map((s) => (
                   <div
