@@ -1023,7 +1023,7 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
     fullName: 'Parth Potdukhe',
     department: 'Integrated Mtech',
     year: 'FY',
-    college: 'Sanjivani University',
+    college: 'Sanjivani College of Engineering',
     sectionId: 'sec-mw6l4r2s',
     sectionName: 'Integrated Mtech',
     joinCode: 'LQ-INTE34',
@@ -1031,6 +1031,24 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
     role: 'STUDENT',
     profileComplete: true,
     password: '2126PMIM1097',
+    totalPoints: 0,
+    totalSolved: 0,
+    currentStreak: 0,
+  },
+  {
+    index: 56,
+    prn: '1226PMIM1097',
+    fullName: 'Parth Potdukhe',
+    department: 'Integrated Mtech',
+    year: 'FY',
+    college: 'Sanjivani College of Engineering',
+    sectionId: 'sec-mw6l4r2s',
+    sectionName: 'Integrated Mtech',
+    joinCode: 'LQ-INTE34',
+    email: '1226pmim1097@sanjivani.edu.in',
+    role: 'STUDENT',
+    profileComplete: true,
+    password: '1226PMIM1097',
     totalPoints: 0,
     totalSolved: 0,
     currentStreak: 0,
@@ -2153,6 +2171,17 @@ export function findCohortStudent(identifier: string): EnrolledCohortStudent | n
   } else if (upper.includes('PMIF')) {
     const aliased = upper.replace('PMIF', 'PMIM');
     student = COHORT_STUDENT_BY_PRN.get(aliased);
+    if (student) return student;
+  }
+
+  // Prefix typo tolerance (1226 vs 2126)
+  if (upper.startsWith('1226')) {
+    const swapped = upper.replace(/^1226/, '2126');
+    student = COHORT_STUDENT_BY_PRN.get(swapped);
+    if (student) return student;
+  } else if (upper.startsWith('2126')) {
+    const swapped = upper.replace(/^2126/, '1226');
+    student = COHORT_STUDENT_BY_PRN.get(swapped);
     if (student) return student;
   }
 
