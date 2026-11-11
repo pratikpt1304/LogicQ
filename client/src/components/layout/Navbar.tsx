@@ -560,20 +560,77 @@ export const Navbar: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full flex items-center min-h-[44px] text-left px-3 py-2 rounded-lg text-sm text-[var(--color-error)] hover:bg-[var(--bg-surface)]"
+                  className="w-full flex items-center min-h-[44px] text-left px-3 py-2 rounded-lg text-sm text-[var(--color-error)] hover:bg-[var(--bg-surface)] cursor-pointer"
                 >
                   Sign Out
                 </button>
               </>
             ) : (
-              <div className="pt-2">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950 transition-colors shadow-xs"
+              <div className="space-y-1.5 pt-1">
+                <nav aria-label="Guest Mobile Navigation" className="space-y-1 mb-2">
+                  <Link
+                    to="/practice"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                  >
+                    <Code2 className="w-4 h-4 text-cyan-500" />
+                    <span>Practice Arena</span>
+                  </Link>
+                  <Link
+                    to="/compiler"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                  >
+                    <FileCode2 className="w-4 h-4 text-purple-500" />
+                    <span>GCC C11 Sandbox</span>
+                  </Link>
+                  <Link
+                    to="/instant-join"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                  >
+                    <KeyRound className="w-4 h-4 text-emerald-500" />
+                    <span>Instant Test Join</span>
+                  </Link>
+                  <Link
+                    to="/verify-report"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-blue-500" />
+                    <span>Verify Student Report</span>
+                  </Link>
+                </nav>
+
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)] text-left cursor-pointer"
                 >
-                  Sign In
-                </Link>
+                  <div className="flex items-center gap-2.5">
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-indigo-500" />
+                    )}
+                    <span className="font-medium">
+                      Appearance ({theme === 'dark' ? 'Dark' : 'Light'})
+                    </span>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] font-mono">
+                    {theme === 'dark' ? 'Light' : 'Dark'}
+                  </span>
+                </button>
+
+                <div className="pt-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950 transition-colors shadow-xs cursor-pointer"
+                  >
+                    Sign In with Institutional PRN
+                  </Link>
+                </div>
               </div>
             )}
             {!isStandalone && (
