@@ -646,6 +646,16 @@ export const AdminIntegrityTab: React.FC = () => {
               });
             }
 
+            const directCpm = Number(
+              cData?.typingVelocityCPM ||
+              cData?.cpm ||
+              mod?.typingVelocityCPM ||
+              mod?.cpm ||
+              studentSubs.find((x: any) => Number(x.typingVelocityCPM || x.cpm) > 0)?.typingVelocityCPM ||
+              studentSubs.find((x: any) => Number(x.typingVelocityCPM || x.cpm) > 0)?.cpm ||
+              0
+            );
+
             return {
               id: s.id || `stu-${s.prn}`,
               name: s.name,
@@ -663,8 +673,8 @@ export const AdminIntegrityTab: React.FC = () => {
               tabSwitches,
               pasteBursts,
               fullscreenExits,
-              avgWpm: totalKeystrokes > 0 ? Math.min(95, Math.max(18, Math.round(totalKeystrokes / 10))) : 0,
-              cpm: totalKeystrokes > 0 ? (Number(mod.typingVelocityCPM) || Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7)))) : 0,
+              avgWpm: directCpm > 0 ? Math.round(directCpm / 5) : (totalKeystrokes > 0 ? Math.min(95, Math.max(18, Math.round(totalKeystrokes / 10))) : 0),
+              cpm: directCpm > 0 ? directCpm : (totalKeystrokes > 0 ? Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7))) : 0),
               aiVivaStatus: mod.aiVivaStatus || (timelineEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED'),
               timeline: timelineEvents,
             };

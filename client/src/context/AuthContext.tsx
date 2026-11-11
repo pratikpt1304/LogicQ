@@ -1095,7 +1095,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
-      const reg = await DeviceSessionService.registerDeviceSession(prnToCheck);
+      const reg = await DeviceSessionService.registerDeviceSession(prnToCheck, true);
       if (!reg.success) {
         throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
       }

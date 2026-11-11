@@ -57,6 +57,15 @@ export class DeviceSessionService {
   }
 
   /**
+   * Retrieves or creates a stable session identifier for tabs on this device.
+   */
+  public static getOrCreateSessionId(): string {
+    const existing = this.getLocalSessionId();
+    if (existing) return existing;
+    return this.createSessionId();
+  }
+
+  /**
    * Retrieves the current local session identifier.
    */
   public static getLocalSessionId(): string | null {
@@ -68,9 +77,10 @@ export class DeviceSessionService {
    * Enforces device registration and single-instance session creation.
    * - Max 2 registered devices allowed per student PRN.
    * - Authoritatively stored in Firestore cohort_progress/{prn}/moduleProgress/registeredDevices.
-   * - Generates a new sessionId and invalidates any previous session.
+   * - Allows multiple tabs on the SAME physical device.
+   * - Generates a new sessionId on explicit login and invalidates sessions on OTHER devices.
    */
-  public static async registerDeviceSession(prn: string): Promise<{
+  public static async registerDeviceSession(prn: string, forceNewSession: boolean = false): Promise<{
     success: boolean;
     sessionId?: string;
     deviceId?: string;
@@ -83,11 +93,11 @@ export class DeviceSessionService {
 
     // Admins and faculty are exempt from device limits
     if (cleanPrn === 'LOGICQARENA' || cleanPrn.includes('ADMIN') || auth.currentUser?.email === 'logicqarena@gmail.com') {
-      return { success: true, sessionId: this.createSessionId(), deviceId: this.getDeviceId() };
+      return { success: true, sessionId: forceNewSession ? this.createSessionId() : this.getOrCreateSessionId(), deviceId: this.getDeviceId() };
     }
 
     const deviceId = this.getDeviceId();
-    const sessionId = this.createSessionId();
+    const sessionId = forceNewSession ? this.createSessionId() : this.getOrCreateSessionId();
 
     // 1. Authoritative Firestore check in cohort_progress/{cleanPrn}
     let registeredDevices: string[] = [];
@@ -192,13 +202,14 @@ export class DeviceSessionService {
       } catch {}
     }
 
-    // 5. Broadcast to any other open tabs/windows to immediately terminate older sessions
-    if (this.broadcastChannel) {
+    // 5. Broadcast to any other open tabs/windows to terminate older sessions across separate devices/incognito
+    if (this.broadcastChannel && forceNewSession) {
       try {
         this.broadcastChannel.postMessage({
           type: 'LOGICQ_SESSION_INVALIDATED',
           prn: cleanPrn,
           newSessionId: sessionId,
+          deviceId,
           timestamp: Date.now(),
         });
       } catch {}
@@ -239,24 +250,44 @@ export class DeviceSessionService {
   }
 
   /**
-   * Returns how many devices are currently bound to this PRN (0, 1, or 2).
+   * Fetches the bound hardware device IDs for a student PRN across aliases and storage.
    */
-  public static async getRegisteredDevicesCount(prn: string): Promise<number> {
+  public static async getRegisteredDevices(prn: string): Promise<string[]> {
     const cleanPrn = (prn || '').trim().toUpperCase();
-    if (!cleanPrn) return 0;
+    if (!cleanPrn) return [];
     try {
-      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
-      if (cohortDoc && cohortDoc.exists()) {
-        const devs = cohortDoc.data()?.moduleProgress?.registeredDevices;
-        if (Array.isArray(devs)) return devs.length;
+      const targetPrns = Array.from(new Set([
+        cleanPrn,
+        cleanPrn.replace('PMIM', 'PMIF'),
+        cleanPrn.replace('PMIF', 'PMIM'),
+        cleanPrn.replace(/0/g, 'O'),
+        cleanPrn.replace(/O/g, '0'),
+      ]));
+
+      for (const p of targetPrns) {
+        const cohortDoc = await getDoc(doc(db, 'cohort_progress', p)).catch(() => null);
+        if (cohortDoc && cohortDoc.exists()) {
+          const data = cohortDoc.data();
+          const devs = data?.registeredDevices || data?.moduleProgress?.registeredDevices;
+          if (Array.isArray(devs) && devs.length > 0) return devs.filter(Boolean);
+        }
       }
+
       const raw = localStorage.getItem(`logicq_registered_devices_${cleanPrn}`);
       if (raw) {
         const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) return arr.length;
+        if (Array.isArray(arr) && arr.length > 0) return arr.filter(Boolean);
       }
     } catch {}
-    return 0;
+    return [];
+  }
+
+  /**
+   * Returns how many devices are currently bound to this PRN (0, 1, or 2).
+   */
+  public static async getRegisteredDevicesCount(prn: string): Promise<number> {
+    const devs = await this.getRegisteredDevices(prn);
+    return devs.length;
   }
 
   /**
@@ -280,7 +311,12 @@ export class DeviceSessionService {
         data.prn === cleanPrn &&
         data.newSessionId !== localSessionId
       ) {
-        onTerminate('Parallel Login Detected: Another tab or browser logged into this account. Only 1 active instance is allowed.');
+        // Multi-tab tolerance on the same authorized computer:
+        // If the broadcast was dispatched from the SAME device ID, do NOT terminate.
+        if (data.deviceId && data.deviceId === this.getDeviceId()) {
+          return;
+        }
+        onTerminate('Parallel Login Detected: Another browser profile or device logged into this account. Only 1 active device session is permitted.');
       }
     };
 
@@ -300,8 +336,15 @@ export class DeviceSessionService {
             if (!snap.exists()) return;
             const data = snap.data();
             const remoteSessionId = data?.currentSessionId;
-            if (remoteSessionId && remoteSessionId !== localSessionId) {
-              onTerminate('Parallel Login Detected: Another device logged into this account. Parallel logins are prohibited.');
+            const remoteDeviceId = data?.activeDeviceId;
+            // Only terminate if the active device ID is DIFFERENT from this physical device
+            if (
+              remoteDeviceId &&
+              remoteDeviceId !== this.getDeviceId() &&
+              remoteSessionId &&
+              remoteSessionId !== localSessionId
+            ) {
+              onTerminate('Parallel Login Detected: Another device logged into this account. Parallel logins across devices are prohibited.');
             }
           },
           (err) => {

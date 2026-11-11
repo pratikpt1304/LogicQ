@@ -513,8 +513,20 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       .map((s) => ({ ...s, sourceType: 'PRACTICE' })),
   ];
 
+  const [directBoundDevices, setDirectBoundDevices] = useState<string[]>([]);
+  useEffect(() => {
+    const targetPrn = prn !== 'N/A' ? prn : (student?.prn || student?.id);
+    if (!targetPrn) return;
+    DeviceSessionService.getRegisteredDevices(targetPrn).then((devs) => {
+      if (Array.isArray(devs) && devs.length > 0) {
+        setDirectBoundDevices(devs);
+      }
+    }).catch(() => {});
+  }, [prn, student?.prn, student?.id]);
+
   const boundDevices: string[] = useMemo(() => {
     const list = new Set<string>();
+    directBoundDevices.forEach((d) => d && list.add(d));
     if (Array.isArray(liveCohort?.moduleProgress?.registeredDevices)) {
       liveCohort.moduleProgress.registeredDevices.forEach((d: string) => d && list.add(d));
     }
@@ -536,7 +548,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       } catch {}
     }
     return Array.from(list);
-  }, [liveCohort, student, telemetryDraft, prn]);
+  }, [directBoundDevices, liveCohort, student, telemetryDraft, prn]);
   const [isResettingDevices, setIsResettingDevices] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 

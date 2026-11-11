@@ -28,119 +28,148 @@ export interface LogicQApiError extends Error {
 
 let activeRefreshPromise: Promise<string | null> | null = null;
 
+async function performTokenRefreshInternal(): Promise<string | null> {
+  try {
+    const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+    if (storedRefreshToken && storedRefreshToken.startsWith('fallback-jwt-')) {
+      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+      return null;
+    }
+
+    // 1. Try backend refresh endpoint
+    if (storedRefreshToken) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ refreshToken: storedRefreshToken }),
+        });
+
+        if (refreshRes.ok && isJsonResponse(refreshRes)) {
+          const refreshData = await refreshRes.json().catch(() => null);
+          const token = refreshData?.data?.accessToken;
+          if (typeof token === 'string' && token.length > 0) {
+            localStorage.setItem(TOKEN_STORAGE_KEY, token);
+            const rToken = refreshData?.data?.refreshToken;
+            if (typeof rToken === 'string' && rToken.length > 0) {
+              localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+            }
+            return token;
+          }
+        } else if (refreshRes.status === 401 || refreshRes.status === 403) {
+          // Expired/invalid refresh token: wipe immediately to eliminate recursive 401 spam
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        }
+      } catch {
+        // Continue to Firebase Auth fallback
+      }
+    }
+
+    // 2. Silent Firebase Auth token re-exchange
+    if (auth.currentUser) {
+      try {
+        const idToken = await auth.currentUser.getIdToken(true);
+        const googleRes = await fetch(`${API_BASE}/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            email: auth.currentUser.email,
+            avatarUrl: auth.currentUser.photoURL,
+            googleId: auth.currentUser.uid,
+          }),
+        });
+        if (googleRes.ok && isJsonResponse(googleRes)) {
+          const googleData = await googleRes.json().catch(() => null);
+          const token = googleData?.data?.accessToken;
+          if (typeof token === 'string' && token.length > 0) {
+            localStorage.setItem(TOKEN_STORAGE_KEY, token);
+            const rToken = googleData?.data?.refreshToken;
+            if (typeof rToken === 'string' && rToken.length > 0) {
+              localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+            }
+            return token;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Silent Institutional PRN Student Token Auto-Recovery
+    try {
+      const rawUser = localStorage.getItem('logicq_active_user') || localStorage.getItem('logicq_auth_user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        const prn = (parsed?.prn || parsed?.username || '').toUpperCase().trim();
+        if (prn) {
+          const customPw = localStorage.getItem(`logicq_custom_password_${prn}`);
+          const tryPasswords = [customPw, prn, 'StudentPassword123!', 'password123'].filter(Boolean) as string[];
+
+          for (const pwd of tryPasswords) {
+            try {
+              const reLoginRes = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: prn, password: pwd }),
+              });
+              if (reLoginRes.ok && isJsonResponse(reLoginRes)) {
+                const loginData = await reLoginRes.json().catch(() => null);
+                const token = loginData?.data?.accessToken;
+                if (typeof token === 'string' && token.length > 0) {
+                  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+                  if (loginData?.data?.refreshToken) {
+                    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, loginData.data.refreshToken);
+                  }
+                  return token;
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+
+    // If both backend refresh and Firebase re-exchange fail, wipe dead tokens
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function refreshAuthSession(): Promise<string | null> {
   if (activeRefreshPromise) {
     return activeRefreshPromise;
   }
 
   activeRefreshPromise = (async () => {
-    try {
-      const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-      if (storedRefreshToken && storedRefreshToken.startsWith('fallback-jwt-')) {
-        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-        return null;
-      }
+    const initialAccessToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null;
 
-      // 1. Try backend refresh endpoint
-      if (storedRefreshToken) {
-        try {
-          const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ refreshToken: storedRefreshToken }),
-          });
-
-          if (refreshRes.ok && isJsonResponse(refreshRes)) {
-            const refreshData = await refreshRes.json().catch(() => null);
-            const token = refreshData?.data?.accessToken;
-            if (typeof token === 'string' && token.length > 0) {
-              localStorage.setItem(TOKEN_STORAGE_KEY, token);
-              const rToken = refreshData?.data?.refreshToken;
-              if (typeof rToken === 'string' && rToken.length > 0) {
-                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
-              }
-              return token;
-            }
-          } else if (refreshRes.status === 401 || refreshRes.status === 403) {
-            // Expired/invalid refresh token: wipe immediately to eliminate recursive 401 spam
-            localStorage.removeItem(TOKEN_STORAGE_KEY);
-            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-          }
-        } catch {
-          // Continue to Firebase Auth fallback
-        }
-      }
-
-      // 2. Silent Firebase Auth token re-exchange
-      if (auth.currentUser) {
-        try {
-          const idToken = await auth.currentUser.getIdToken(true);
-          const googleRes = await fetch(`${API_BASE}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              idToken,
-              email: auth.currentUser.email,
-              avatarUrl: auth.currentUser.photoURL,
-              googleId: auth.currentUser.uid,
-            }),
-          });
-          if (googleRes.ok && isJsonResponse(googleRes)) {
-            const googleData = await googleRes.json().catch(() => null);
-            const token = googleData?.data?.accessToken;
-            if (typeof token === 'string' && token.length > 0) {
-              localStorage.setItem(TOKEN_STORAGE_KEY, token);
-              const rToken = googleData?.data?.refreshToken;
-              if (typeof rToken === 'string' && rToken.length > 0) {
-                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
-              }
-              return token;
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // 3. Silent Institutional PRN Student Token Auto-Recovery
+    // Cross-tab mutex via Web Locks API to prevent token refresh race conditions
+    if (typeof navigator !== 'undefined' && 'locks' in navigator && navigator.locks?.request) {
       try {
-        const rawUser = localStorage.getItem('logicq_active_user') || localStorage.getItem('logicq_auth_user');
-        if (rawUser) {
-          const parsed = JSON.parse(rawUser);
-          const prn = (parsed?.prn || parsed?.username || '').toUpperCase().trim();
-          if (prn) {
-            const customPw = localStorage.getItem(`logicq_custom_password_${prn}`);
-            const tryPasswords = [customPw, prn, 'StudentPassword123!', 'password123'].filter(Boolean) as string[];
-
-            for (const pwd of tryPasswords) {
-              try {
-                const reLoginRes = await fetch(`${API_BASE}/auth/login`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ identifier: prn, password: pwd }),
-                });
-                if (reLoginRes.ok && isJsonResponse(reLoginRes)) {
-                  const loginData = await reLoginRes.json().catch(() => null);
-                  const token = loginData?.data?.accessToken;
-                  if (typeof token === 'string' && token.length > 0) {
-                    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-                    if (loginData?.data?.refreshToken) {
-                      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, loginData.data.refreshToken);
-                    }
-                    return token;
-                  }
-                }
-              } catch {}
-            }
+        return await navigator.locks.request('logicq_token_refresh', async () => {
+          // Re-check: another tab might have refreshed the token while we waited for the lock
+          const latestAccessToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+          if (latestAccessToken && latestAccessToken !== initialAccessToken && !latestAccessToken.startsWith('fallback-jwt-')) {
+            return latestAccessToken;
           }
-        }
-      } catch {}
+          return await performTokenRefreshInternal();
+        });
+      } catch {
+        // Fallback to direct refresh if lock request times out or is unsupported
+        return await performTokenRefreshInternal();
+      } finally {
+        activeRefreshPromise = null;
+      }
+    }
 
-      // If both backend refresh and Firebase re-exchange fail, wipe dead tokens
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-      return null;
+    try {
+      return await performTokenRefreshInternal();
     } finally {
       activeRefreshPromise = null;
     }

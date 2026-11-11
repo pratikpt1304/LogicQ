@@ -205,6 +205,9 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idempotencyKeyRef = useRef<string>(`prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+  const codeRef = useRef<string>(code);
+  codeRef.current = code;
+  const lastSubmitTimestampRef = useRef<number>(0);
 
   // Proctored Anti-Cheat & Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
@@ -1148,6 +1151,42 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   }, [problem, user?.id]);
 
+  // Cross-Tab Draft Synchronization (detects edits made to this problem in another tab)
+  useEffect(() => {
+    if (!problem?.slug) return;
+    const storageKey = `logicq_practice_draft_${problem.slug}`;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === storageKey && e.newValue) {
+        try {
+          const remoteCode = cleanDraftCode(e.newValue);
+          if (remoteCode && remoteCode !== codeRef.current) {
+            const isUntouched =
+              !codeRef.current.trim() ||
+              codeRef.current.trim() === cleanDraftCode(problem.starterCode || '').trim();
+
+            if (isUntouched) {
+              setCode(remoteCode);
+              toast.info('Draft synced from another active tab.', { id: `draft-sync-${problem.slug}` });
+            } else {
+              toast.info('Code updated in another tab.', {
+                id: `draft-conflict-${problem.slug}`,
+                action: {
+                  label: 'Load External Code',
+                  onClick: () => setCode(remoteCode),
+                },
+                duration: 6000,
+              });
+            }
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [problem?.slug, problem?.starterCode]);
+
   const handleCodeChange = (nextCode: string) => {
     setCode(nextCode);
 
@@ -1482,6 +1521,12 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Submit Solution Mutation (Practice submission)
   const submitMutation = useMutation({
     mutationFn: async () => {
+      const now = Date.now();
+      if (now - lastSubmitTimestampRef.current < 2500) {
+        throw new Error('A submission is already being evaluated. Please wait.');
+      }
+      lastSubmitTimestampRef.current = now;
+
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         const err: any = new Error(
           'Offline Mode: Active internet connection is required to evaluate test cases on the backend GCC engine. Your code draft has been saved locally.'
