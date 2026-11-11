@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, doc, onSnapshot, getDocs, updateDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, getDocs, updateDoc, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { DeviceSessionService } from '../../services/deviceSession.service.js';
@@ -104,9 +104,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   const handleSaveManualMarks = async (sub: any, awarded: number) => {
     try {
       setIsSavingMarks(true);
-      const maxMarks = Number(sub.maxMarks || 10);
+      const maxMarks = Number(sub.maxMarks || sub.points || 1.0);
       const awardedScore = Math.max(0, Math.min(Number(awarded) || 0, maxMarks));
       const targetPrn = student?.prn || sub.studentPrn || sub.prn;
+      const subId = sub.id || sub.problemId || sub.problemSlug;
 
       // 1. Update in assessment_test_submissions if exists
       if (sub.id) {
@@ -115,6 +116,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           academicScore: awardedScore,
           marksAwarded: awardedScore,
           score: awardedScore,
+          points: awardedScore,
           manualGradingRequired: false,
           updatedAt: serverTimestamp(),
         }).catch(() => {});
@@ -132,6 +134,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 academicScore: awardedScore,
                 marksAwarded: awardedScore,
                 score: awardedScore,
+                points: awardedScore,
                 manualGradingRequired: false,
                 updatedAt: serverTimestamp(),
               }).catch(() => {});
@@ -140,10 +143,18 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         }
       }
 
-      // 3. Emit real-time sync across system
+      // 3. Immediately reflect in local state and sub object
+      setEditingMarksMap((prev) => ({ ...prev, [subId]: awardedScore }));
+      sub.academicScore = awardedScore;
+      sub.marksAwarded = awardedScore;
+      sub.score = awardedScore;
+      sub.points = awardedScore;
+
+      // 4. Emit real-time sync across system
       RealtimeSyncService.emit('SUBMISSIONS');
       RealtimeSyncService.emit('DASHBOARD');
       RealtimeSyncService.emit('TESTS');
+      RealtimeSyncService.emit('ALL');
       toast.success(`Marks updated to ${awardedScore} / ${maxMarks}! Synced to student gradebook in real-time.`);
     } catch (err: any) {
       toast.error('Failed to update marks: ' + (err?.message || 'Unknown error'));
@@ -914,6 +925,98 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     }
   };
 
+  const [isUnlocking, setIsUnlocking] = useState<boolean>(false);
+
+  const handleUnlockStudentProctoring = async () => {
+    const targetPrn = prn !== 'N/A' ? prn : (student.prn || student.id);
+    if (!targetPrn) {
+      toast.error('Student PRN not found.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Clear all proctoring locks & cheating penalties for ${studentName} (${targetPrn})?\n\n` +
+      `This will:\n` +
+      `• Reset Auto-Lock count to 0\n` +
+      `• Clear quarantine and breach flags back to CLEAN\n` +
+      `• Unlock any frozen test questions so the student can resume normally.`
+    );
+    if (!confirmed) return;
+
+    setIsUnlocking(true);
+    try {
+      // 1. Reset cohort_progress doc
+      const cohortRef = doc(db, 'cohort_progress', targetPrn);
+      const resetPayload = {
+        autoLockCount: 0,
+        quarantinedSlugs: [],
+        status: 'CLEAN',
+        isDisqualified: false,
+        fullScreenExitCount: 0,
+        tabSwitchCount: 0,
+        'moduleProgress.autoLockCount': 0,
+        'moduleProgress.status': 'CLEAN',
+        'moduleProgress.quarantinedSlugs': [],
+        updatedAt: serverTimestamp(),
+      };
+
+      await updateDoc(cohortRef, resetPayload).catch(async () => {
+        await setDoc(cohortRef, resetPayload, { merge: true });
+      });
+
+      // 2. Reset student_live_telemetry doc if exists
+      const telemRef = doc(db, 'student_live_telemetry', targetPrn);
+      await updateDoc(telemRef, {
+        status: 'CLEAN',
+        incident: null,
+        tabSwitchCount: 0,
+        fullScreenExitCount: 0,
+        autoLockCount: 0,
+        updatedAt: serverTimestamp(),
+      }).catch(() => {});
+
+      // 3. Clear locked flag on test submissions if any
+      const assessQ = query(collection(db, 'assessment_test_submissions'), where('studentPrn', '==', targetPrn));
+      const snap = await getDocs(assessQ).catch(() => null);
+      if (snap && !snap.empty) {
+        for (const d of snap.docs) {
+          const data = d.data();
+          if (data.status === 'CRITICAL_BREACH' || data.isLocked) {
+            await updateDoc(d.ref, {
+              status: 'CLEAN',
+              isLocked: false,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
+        }
+      }
+
+      // 4. Update local state
+      setLiveCohort((prev: any) => ({
+        ...prev,
+        autoLockCount: 0,
+        status: 'CLEAN',
+        moduleProgress: {
+          ...(prev?.moduleProgress || {}),
+          autoLockCount: 0,
+          status: 'CLEAN',
+          quarantinedSlugs: [],
+        },
+      }));
+
+      RealtimeSyncService.emit('ALL');
+      RealtimeSyncService.emit('TESTS');
+      RealtimeSyncService.emit('DASHBOARD');
+      RealtimeSyncService.emit('SUBMISSIONS');
+
+      toast.success(`🔓 Proctoring locks cleared for ${studentName}! The student can now resume their work.`);
+    } catch (err: any) {
+      toast.error('Failed to unlock student: ' + err.message);
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto animate-in zoom-in-95">
@@ -969,6 +1072,16 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleUnlockStudentProctoring}
+              disabled={isUnlocking}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+              title="Unlock Student & Clear Proctoring / Cheating Locks"
+            >
+              <Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Unlock Student</span>
+            </button>
+            <button
+              type="button"
               onClick={() => generateIndividualStudentPdf({
                 ...student,
                 problemsSolved,
@@ -977,7 +1090,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 tabSwitchCount,
                 clipboardAttempts,
               })}
-              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
               title="Download Student Transcript PDF"
             >
               <Download className="w-3.5 h-3.5" />
@@ -1429,6 +1542,38 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                             </div>
                           </div>
 
+                          {/* Faculty Manual Marks Award bar */}
+                          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2">
+                              <Award className="w-4 h-4 text-indigo-400 shrink-0" />
+                              <span className="font-semibold text-slate-200">Faculty Marks Award:</span>
+                              <span className="text-slate-400 text-[11px] font-mono">
+                                (Current: {editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20)} / {sub.maxMarks || sub.points || 20})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                step="1"
+                                min={0}
+                                max={sub.maxMarks || sub.points || 20}
+                                value={editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20)}
+                                onChange={(e) => setEditingMarksMap({ ...editingMarksMap, [subId]: Number(e.target.value) })}
+                                className="w-16 px-2.5 py-1 rounded-lg bg-black/80 border border-white/20 text-white font-mono text-xs text-center focus:outline-hidden focus:border-indigo-500"
+                              />
+                              <span className="text-slate-400 text-xs font-mono">/ {sub.maxMarks || sub.points || 20}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveManualMarks(sub, editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20))}
+                                disabled={isSavingMarks}
+                                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Save Marks</span>
+                              </button>
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
                               GCC 14 · C Source · practice_solution.c · Solved in {formatTimeDuration(sub.timeTakenSeconds || sub.timeToSolveSeconds || sub.activeSeconds || sub.duration)} (Attempt #{sub.attemptNumber || 1})
@@ -1467,6 +1612,44 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
         {activeTab === 'overview' && (
           <div className="space-y-3">
+            {/* ========================================================================= */}
+            {/* PROCTORING & EXAM UNLOCK CARD                                              */}
+            {/* ========================================================================= */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Unlock className="w-4 h-4 text-emerald-500" />
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Proctoring &amp; Exam Lock Management
+                  </h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    (liveCohort?.moduleProgress?.autoLockCount || liveCohort?.autoLockCount || 0) > 0 || liveCohort?.status === 'CRITICAL_BREACH' || liveCohort?.moduleProgress?.status === 'CRITICAL_BREACH'
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    {(liveCohort?.moduleProgress?.autoLockCount || liveCohort?.autoLockCount || 0) > 0
+                      ? `LOCKED (${liveCohort?.moduleProgress?.autoLockCount || liveCohort?.autoLockCount} breaches)`
+                      : 'CLEAN / UNLOCKED'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  If student got auto-locked due to repeated tab switching, fullscreen exits, or copy-paste violations, clear all locks here to re-enable their test/practice session.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleUnlockStudentProctoring}
+                  disabled={isUnlocking}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />
+                  <span>{isUnlocking ? 'Unlocking...' : 'Unlock Student & Clear Locks'}</span>
+                </button>
+              </div>
+            </div>
+
             {/* ========================================================================= */}
             {/* HARDWARE DEVICE BINDING CARD                                               */}
             {/* ========================================================================= */}
