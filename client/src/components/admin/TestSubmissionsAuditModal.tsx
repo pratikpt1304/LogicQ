@@ -56,111 +56,15 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
     setIsLoading(true);
     try {
       const liveSubs = await FirestoreDataService.getAssessmentSubmissions(test.id);
-      
-      // If no live submissions exist yet, provide initial seed cohort so admin can test & review right away
-      if (!liveSubs || liveSubs.length === 0) {
-        const demoMockSubs = [
-          {
-            id: `sub_demo_1_${test.id}`,
-            testId: test.id,
-            assignmentId: test.id,
-            testTitle: test.title,
-            studentName: 'Pratik Thora',
-            studentPrn: '2126PMIM1034',
-            studentEmail: 'pratik.thora@sanjivani.edu.in',
-            problemId: 'q-s4-01',
-            problemTitle: 'Binary Packet Serialization & File Stream Checksum',
-            code: `#include <stdio.h>\n#include <string.h>\n\ntypedef struct __attribute__((packed)) {\n    unsigned short id;\n    float val;\n} Packet;\n\nunsigned short computeCRC16(const unsigned char *data, int len) {\n    unsigned short crc = 0xFFFF;\n    for (int i = 0; i < len; i++) {\n        crc ^= data[i];\n        for (int j = 0; j < 8; j++) {\n            if (crc & 1) crc = (crc >> 1) ^ 0xA001;\n            else crc = (crc >> 1);\n        }\n    }\n    return crc;\n}\n\nint main() {\n    Packet p;\n    char tag[16];\n    if (scanf("%s %hu %f", tag, &p.id, &p.val) == 3) {\n        if (p.id == 101) printf("CRC: 0x4A12\\n");\n        else if (p.id == 102) printf("CRC: 0x1120\\n");\n        else printf("CRC: 0x8F9C\\n");\n    }\n    return 0;\n}`,
-            verdict: 'ACCEPTED',
-            academicScore: 20.0,
-            timeTakenSeconds: 492,
-            tabSwitchCount: 0,
-            copyPasteAttempts: 0,
-            cutAttempts: 0,
-            contextMenuAttempts: 0,
-            fullscreenExits: 0,
-            totalKeystrokes: 486,
-            largestBurstChars: 24,
-            submittedAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-            incidents: [
-              { timestamp: '8:12:04 PM', type: 'SESSION_START', details: 'Student entered proctored full-screen workspace.', severity: 'INFO' },
-              { timestamp: '8:18:22 PM', type: 'CODE_RUN', details: 'Ran visible test cases in GCC sandbox. 2/2 passed.', severity: 'INFO' },
-              { timestamp: '8:20:12 PM', type: 'SUBMITTED', details: 'All test cases passed. Final solution locked and submitted.', severity: 'SUCCESS' },
-            ],
-          },
-          {
-            id: `sub_demo_2_${test.id}`,
-            testId: test.id,
-            assignmentId: test.id,
-            testTitle: test.title,
-            studentName: 'Rahul Sharma',
-            studentPrn: '2126PMIM1018',
-            studentEmail: 'rahul.sharma@sanjivani.edu.in',
-            problemId: 'q-s2-01',
-            problemTitle: 'Safe Pointer Swapper & Address Offset Calculator',
-            code: `#include <stdio.h>\n#include <stdlib.h>\n\nvoid swapDouble(int **a, int **b) {\n    int *temp = *a;\n    *a = *b;\n    *b = temp;\n}\n\nint main() {\n    int x, y;\n    if (scanf("%d %d", &x, &y) == 2) {\n        int *px = &x, *py = &y;\n        swapDouble(&px, &py);\n        printf("%d %d\\n", *px, *py);\n    }\n    return 0;\n}`,
-            verdict: 'ACCEPTED',
-            academicScore: 20.0,
-            timeTakenSeconds: 710,
-            tabSwitchCount: 2,
-            copyPasteAttempts: 1,
-            cutAttempts: 0,
-            contextMenuAttempts: 0,
-            fullscreenExits: 1,
-            totalKeystrokes: 312,
-            largestBurstChars: 85,
-            submittedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-            incidents: [
-              { timestamp: '7:45:10 PM', type: 'SESSION_START', details: 'Student began assessment session.', severity: 'INFO' },
-              { timestamp: '7:48:33 PM', type: 'TAB_SWITCH', details: 'Tab switch #1 detected: Window focus lost for 4.2 seconds.', severity: 'WARNING' },
-              { timestamp: '7:51:19 PM', type: 'CLIPBOARD_BLOCKED', details: 'Proctoring guard blocked paste attempt in code editor.', severity: 'WARNING' },
-              { timestamp: '7:53:02 PM', type: 'FULLSCREEN_EXIT', details: 'Fullscreen perimeter violated: Window minimized during test.', severity: 'CRITICAL' },
-              { timestamp: '7:56:50 PM', type: 'SUBMITTED', details: 'Solution submitted under proctoring observation.', severity: 'SUCCESS' },
-            ],
-          },
-          {
-            id: `sub_demo_3_${test.id}`,
-            testId: test.id,
-            assignmentId: test.id,
-            testTitle: test.title,
-            studentName: 'Ananya Deshmukh',
-            studentPrn: '2126PMIM1024',
-            studentEmail: 'ananya.deshmukh@sanjivani.edu.in',
-            problemId: 'q-s1-01',
-            problemTitle: 'Bitwise Parity & Power of Two Validator',
-            code: `#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    return (n > 0) && ((n & (n - 1)) == 0);\n}\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        printf("%s\\n", isPowerOfTwo(n) ? "YES" : "NO");\n    }\n    return 0;\n}`,
-            verdict: 'ACCEPTED',
-            academicScore: 20.0,
-            timeTakenSeconds: 380,
-            tabSwitchCount: 0,
-            copyPasteAttempts: 0,
-            cutAttempts: 0,
-            contextMenuAttempts: 0,
-            fullscreenExits: 0,
-            totalKeystrokes: 240,
-            largestBurstChars: 18,
-            submittedAt: new Date(Date.now() - 1000 * 60 * 70).toISOString(),
-            incidents: [
-              { timestamp: '7:20:00 PM', type: 'SESSION_START', details: 'Student entered proctored exam workspace.', severity: 'INFO' },
-              { timestamp: '7:26:20 PM', type: 'SUBMITTED', details: 'Clean test completion. Zero proctoring breaches.', severity: 'SUCCESS' },
-            ],
-          },
-        ];
-        const cohort = (!liveSubs || liveSubs.length === 0) ? demoMockSubs : liveSubs;
-        setSubmissions(cohort);
-        if (initialSelectedStudentId) {
-          const match = cohort.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
-          if (match) setSelectedStudentSub(match);
-        }
-      } else {
-        setSubmissions(liveSubs);
-        if (initialSelectedStudentId) {
-          const match = liveSubs.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
-          if (match) setSelectedStudentSub(match);
-        }
+      const authentic = Array.isArray(liveSubs) ? liveSubs : [];
+      setSubmissions(authentic);
+      if (initialSelectedStudentId) {
+        const match = authentic.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
+        if (match) setSelectedStudentSub(match);
       }
     } catch (err) {
       console.warn('Failed to load test submissions:', err);
+      setSubmissions([]);
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +79,7 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
 
     // Live subscription for incoming submissions
     const unsub = FirestoreDataService.listenToAssessmentSubmissions(test.id, (incoming) => {
-      if (Array.isArray(incoming) && incoming.length > 0) {
+      if (Array.isArray(incoming)) {
         setSubmissions(incoming);
         if (initialSelectedStudentId) {
           const match = incoming.find((s: any) => s.id === initialSelectedStudentId || s.studentPrn === initialSelectedStudentId);
@@ -664,7 +568,19 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
             /* ========================================================================= */
             /* 4A. STUDENTS SUBMISSIONS LIST                                             */
             /* ========================================================================= */
-            filteredSubmissions.length === 0 ? (
+            submissions.length === 0 ? (
+              <div className="py-16 text-center text-xs text-slate-400 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">No Student Submissions Yet</h4>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    Students who start and submit this test will have their code, scores, and proctoring telemetry appear here in real time.
+                  </p>
+                </div>
+              </div>
+            ) : filteredSubmissions.length === 0 ? (
               <div className="py-16 text-center text-xs text-slate-400 space-y-2">
                 <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
                 <p>No student submissions found matching this filter.</p>
