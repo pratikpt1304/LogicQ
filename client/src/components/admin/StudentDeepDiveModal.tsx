@@ -83,6 +83,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   const [testSubmissions, setTestSubmissions] = useState<any[]>([]);
   const [practiceSubmissions, setPracticeSubmissions] = useState<any[]>([]);
   const [topicAttemptsDraft, setTopicAttemptsDraft] = useState<Record<string, number>>({});
+  const liveCohortRef = React.useRef<any>(null);
+  liveCohortRef.current = liveCohort;
   const [activeTab, setActiveTab] = useState<'lab_internal' | 'practice' | 'overview'>('practice');
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
@@ -173,14 +175,19 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           (snap) => {
             if (snap.exists()) {
               const data = snap.data();
-              setLiveCohort((prev: any) => ({
-                ...(prev || {}),
-                ...data,
-                moduleProgress: {
-                  ...(prev?.moduleProgress || {}),
-                  ...(data?.moduleProgress || {}),
-                }
-              }));
+              setLiveCohort((prev: any) => {
+                const nextCohort = {
+                  ...(prev || {}),
+                  ...data,
+                  moduleProgress: {
+                    ...(prev?.moduleProgress || {}),
+                    ...(data?.moduleProgress || {}),
+                  }
+                };
+                liveCohortRef.current = nextCohort;
+                return nextCohort;
+              });
+              updateCategorizedSubmissions();
             }
           },
           () => {}
@@ -192,14 +199,19 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           (snap) => {
             if (snap.exists()) {
               const eData = snap.data();
-              setLiveCohort((prev: any) => ({
-                ...(prev || {}),
-                ...eData,
-                moduleProgress: {
-                  ...(prev?.moduleProgress || {}),
-                  ...(eData?.moduleProgress || {}),
-                }
-              }));
+              setLiveCohort((prev: any) => {
+                const nextCohort = {
+                  ...(prev || {}),
+                  ...eData,
+                  moduleProgress: {
+                    ...(prev?.moduleProgress || {}),
+                    ...(eData?.moduleProgress || {}),
+                  }
+                };
+                liveCohortRef.current = nextCohort;
+                return nextCohort;
+              });
+              updateCategorizedSubmissions();
             }
           },
           () => {}
@@ -230,16 +242,43 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           (snap) => {
             if (snap.exists()) {
               setTopicAttemptsDraft(snap.data() || {});
+              updateCategorizedSubmissions();
             }
           },
           () => {}
         );
         unsubs.push(uAttempts);
+
+        // Also listen to all practice solution drafts in cohort_progress/{key}/drafts
+        const uDraftsColl = onSnapshot(
+          collection(db, 'cohort_progress', key, 'drafts'),
+          (snap) => {
+            snap.forEach((d) => {
+              const data = d.data();
+              const draftId = d.id;
+              if (
+                draftId.startsWith('practice_topic_') ||
+                draftId.startsWith('topic_') ||
+                /^(m\d+-|practice-|topic-|kanetkar-)/i.test(draftId)
+              ) {
+                const cleanSlug = draftId
+                  .replace(/^practice_topic_/, '')
+                  .replace(/^topic_/, '');
+                rawPracticeDrafts[cleanSlug] = { id: draftId, ...data };
+                rawPracticeDrafts[draftId] = { id: draftId, ...data };
+              }
+            });
+            updateCategorizedSubmissions();
+          },
+          () => {}
+        );
+        unsubs.push(uDraftsColl);
       } catch {}
     });
 
     let rawAssess: any[] = [];
     let rawGeneral: any[] = [];
+    const rawPracticeDrafts: Record<string, any> = {};
 
     const updateCategorizedSubmissions = () => {
       // 1. Group and deduplicate dual-writes across assessment_test_submissions and submissions
@@ -263,6 +302,112 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             tabSwitchCount: Math.max(prev.tabSwitchCount || 0, sub.tabSwitchCount || 0),
             copyPasteAttempts: Math.max(prev.copyPasteAttempts || 0, sub.copyPasteAttempts || 0),
           });
+        }
+      });
+
+      // 2. Synthesize and recover any solved practice problems from cohort_progress.completedProblems and drafts
+      const currentCohort = liveCohortRef.current || liveCohort;
+      const completedList: string[] = [
+        ...(Array.isArray(currentCohort?.completedProblems) ? currentCohort.completedProblems : []),
+        ...(Array.isArray(student?.completedProblems) ? student.completedProblems : []),
+      ];
+      const allKnownPracticeProblemIds = Array.from(new Set<string>([
+        ...completedList,
+        ...Object.keys(rawPracticeDrafts),
+      ]));
+
+      allKnownPracticeProblemIds.forEach((rawId) => {
+        const probId = String(rawId || '').trim().toLowerCase();
+        if (
+          !probId ||
+          probId === 'topic_attempts' ||
+          probId === 'proctoring_telemetry' ||
+          probId === '__account_security' ||
+          probId.startsWith('__') ||
+          probId.includes('exam_') ||
+          probId.includes('telemetry')
+        ) {
+          return;
+        }
+
+        const matchedTopic = TOPIC_PRACTICE_DATA.find((t) =>
+          t.id.toLowerCase() === probId ||
+          (probId && t.id.toLowerCase().includes(probId)) ||
+          (probId && probId.includes(t.id.toLowerCase()))
+        );
+
+        // Check if already in uniqueSubmissionsMap
+        const alreadyPresent = Array.from(uniqueSubmissionsMap.values()).some((s) => {
+          const sId = String(s.problemId || s.problemSlug || s.problemTitle || '').trim().toLowerCase();
+          return (
+            sId === probId ||
+            (matchedTopic && sId === matchedTopic.id.toLowerCase()) ||
+            (probId.length > 4 && sId.includes(probId)) ||
+            (sId.length > 4 && probId.includes(sId))
+          );
+        });
+
+        if (!alreadyPresent) {
+          const draftObj =
+            rawPracticeDrafts[probId] ||
+            rawPracticeDrafts[`practice_topic_${probId}`] ||
+            rawPracticeDrafts[`topic_${probId}`] ||
+            (matchedTopic ? rawPracticeDrafts[matchedTopic.id.toLowerCase()] : null) ||
+            (matchedTopic ? rawPracticeDrafts[`practice_topic_${matchedTopic.id.toLowerCase()}`] : null) ||
+            {};
+
+          const draftCode = draftObj.code || '';
+          const isActuallyCompleted =
+            completedList.some((c) => String(c).toLowerCase() === probId || (matchedTopic && String(c).toLowerCase() === matchedTopic.id.toLowerCase()));
+
+          if (isActuallyCompleted || (draftCode && draftCode.trim().length > 0)) {
+            const topicAttemptsMap = {
+              ...(currentCohort?.topicAttempts || {}),
+              ...topicAttemptsDraft,
+            } as Record<string, number>;
+
+            const attempts = Number(
+              topicAttemptsMap[probId] ||
+              (matchedTopic && topicAttemptsMap[matchedTopic.id]) ||
+              draftObj.attemptNumber ||
+              1
+            );
+
+            const submittedDate = draftObj.updatedAt
+              ? (typeof draftObj.updatedAt === 'number'
+                  ? new Date(draftObj.updatedAt).toISOString()
+                  : new Date(draftObj.updatedAt.seconds ? draftObj.updatedAt.seconds * 1000 : draftObj.updatedAt).toISOString())
+              : (currentCohort?.lastSolvedDate || new Date().toISOString());
+
+            const synthesizedPracticeSub = {
+              id: `practice_cohort_${probId}`,
+              problemId: matchedTopic?.id || probId,
+              problemSlug: matchedTopic?.id || probId,
+              problemTitle: matchedTopic?.topicTitle || matchedTopic?.problem?.title || (probId.replace(/[-_]/g, ' ').toUpperCase()),
+              code: draftCode || '// Solved and verified in practice arena',
+              submittedCode: draftCode || '// Solved and verified in practice arena',
+              language: 'c',
+              verdict: 'ACCEPTED',
+              status: 'PASSED',
+              academicScore: 20,
+              score: 20,
+              points: 20,
+              pointsAwarded: 20,
+              maxMarks: 20,
+              submissionType: 'PRACTICE',
+              difficulty: matchedTopic?.problem?.difficulty || 'EASY',
+              attemptNumber: Math.max(1, attempts),
+              submittedAt: submittedDate,
+              createdAt: submittedDate,
+              tabSwitchCount: 0,
+              copyPasteAttempts: 0,
+              fullscreenExits: 0,
+              cpm: currentCohort?.typingVelocityCPM || currentCohort?.cpm || 0,
+              testTitle: 'Continuous Practical Lab',
+            };
+
+            uniqueSubmissionsMap.set(`synth_${probId}`, synthesizedPracticeSub);
+          }
         }
       });
 

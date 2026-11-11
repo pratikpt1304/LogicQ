@@ -983,9 +983,9 @@ export class FirestoreDataService {
 
       const isPractice = String(data.submissionType || '').toUpperCase() === 'PRACTICE';
       const isLate = Boolean(data.isLate || data.lateStatus === 'LATE');
-      const maxMarks = Number(data.maxMarks ?? 1.0);
+      const maxMarks = Number(data.maxMarks ?? (isPractice ? 20 : 1.0));
       const pointsAwarded = isPractice
-        ? 0
+        ? (data.verdict === 'ACCEPTED' ? Number(data.academicScore ?? data.score ?? 20) : 0)
         : isLate
         ? 0.5 // Section 5: Correct but outside prescribed time = 0.5 mark
         : (data.verdict === 'ACCEPTED' ? Number(data.academicScore ?? data.marksAwarded ?? maxMarks) : 0);
@@ -1009,8 +1009,10 @@ export class FirestoreDataService {
           },
           problemId: data.problemId,
           code: data.code,
+          submittedCode: data.code,
           language: 'c',
           verdict: data.verdict,
+          points: pointsAwarded,
           pointsAwarded,
           academicScore: pointsAwarded,
           score: pointsAwarded,
@@ -1056,7 +1058,9 @@ export class FirestoreDataService {
           problemId: data.problemId,
           problemTitle: data.problemTitle,
           code: data.code,
+          submittedCode: data.code,
           verdict: data.verdict,
+          points: pointsAwarded,
           academicScore: pointsAwarded,
           score: pointsAwarded,
           pointsAwarded,
