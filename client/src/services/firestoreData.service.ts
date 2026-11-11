@@ -970,6 +970,8 @@ export class FirestoreDataService {
       email?: string;
       studentEmail?: string;
       studentName?: string;
+      totalKeystrokes?: number;
+      typingVelocityCPM?: number;
     }
   ): Promise<void> {
     try {
@@ -1022,6 +1024,9 @@ export class FirestoreDataService {
           timeTakenSeconds: data.timeTakenSeconds,
           timeToSolveSeconds: data.timeTakenSeconds,
           activeSeconds: data.timeTakenSeconds,
+          totalKeystrokes: data.totalKeystrokes || 0,
+          typingVelocityCPM: data.typingVelocityCPM || 0,
+          cpm: data.typingVelocityCPM || 0,
           tabSwitchCount: data.tabSwitchCount || 0,
           copyPasteAttempts: data.copyPasteAttempts || 0,
           fullscreenExits: data.fullscreenExits || 0,

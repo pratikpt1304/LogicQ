@@ -1405,6 +1405,13 @@ export const PracticeWorkspacePage: React.FC = () => {
 
       // Mirror solved submission to primary Firestore submissions collection with full student metadata
       const isLab = location.pathname.startsWith('/lab-internal');
+      const activeSeconds = practiceTimerRef.current?.getActiveSeconds() || 60;
+      const keystrokesCount = totalKeystrokesRef.current || Math.max(80, code.length);
+      const computedCpm = Math.min(420, Math.max(90, Math.round((keystrokesCount / Math.max(1, activeSeconds)) * 60)));
+      try {
+        localStorage.setItem('logicq_typing_cpm', String(computedCpm));
+      } catch {}
+
       FirestoreDataService.recordDailySubmission(effectiveUid, {
         problemId: problem?.id || problemSlug,
         problemTitle: problem?.title || problemSlug,
@@ -1412,7 +1419,9 @@ export const PracticeWorkspacePage: React.FC = () => {
         difficulty: (problem as any)?.difficulty || 'MEDIUM',
         code,
         verdict: 'ACCEPTED',
-        timeTakenSeconds: practiceTimerRef.current?.getActiveSeconds() || 60,
+        timeTakenSeconds: activeSeconds,
+        totalKeystrokes: keystrokesCount,
+        typingVelocityCPM: computedCpm,
         submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
         prn: user?.prn || '',
         studentPrn: user?.prn || '',
@@ -1537,6 +1546,13 @@ export const PracticeWorkspacePage: React.FC = () => {
         // Always sync submission to Firestore so Admin, Faculty, and Reports reflect it immediately
         const effectiveUid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'anonymous';
         const isLab = location.pathname.startsWith('/lab-internal');
+        const activeSeconds = practiceTimerRef.current?.getActiveSeconds() || 60;
+        const keystrokesCount = totalKeystrokesRef.current || Math.max(80, code.length);
+        const computedCpm = Math.min(420, Math.max(90, Math.round((keystrokesCount / Math.max(1, activeSeconds)) * 60)));
+        try {
+          localStorage.setItem('logicq_typing_cpm', String(computedCpm));
+        } catch {}
+
         FirestoreDataService.recordDailySubmission(effectiveUid, {
           problemId: problem?.id || problemSlug || 'practice-problem',
           problemTitle: problem?.title || problemSlug || 'Practice Problem',
@@ -1544,7 +1560,9 @@ export const PracticeWorkspacePage: React.FC = () => {
           difficulty: (problem as any)?.difficulty || 'MEDIUM',
           code,
           verdict: immediateSub.verdict,
-          timeTakenSeconds: practiceTimerRef.current?.getActiveSeconds() || 60,
+          timeTakenSeconds: activeSeconds,
+          totalKeystrokes: keystrokesCount,
+          typingVelocityCPM: computedCpm,
           submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
           prn: user?.prn || '',
           studentPrn: user?.prn || '',

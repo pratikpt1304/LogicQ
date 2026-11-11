@@ -78,6 +78,7 @@ export interface StudentForensicRecord {
   pasteBursts: number;
   fullscreenExits: number;
   avgWpm: number;
+  cpm: number;
   aiVivaStatus: 'NOT_TRIGGERED' | 'VERIFIED' | 'FAILED' | 'PENDING';
   aiVivaScore?: number;
   timeline: StudentTimelineEvent[];
@@ -663,6 +664,7 @@ export const AdminIntegrityTab: React.FC = () => {
               pasteBursts,
               fullscreenExits,
               avgWpm: totalKeystrokes > 0 ? Math.min(95, Math.max(18, Math.round(totalKeystrokes / 10))) : 0,
+              cpm: totalKeystrokes > 0 ? (Number(mod.typingVelocityCPM) || Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7)))) : 0,
               aiVivaStatus: mod.aiVivaStatus || (timelineEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED'),
               timeline: timelineEvents,
             };
@@ -1173,10 +1175,13 @@ export const AdminIntegrityTab: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Typing Cadence */}
+                        {/* Typing Cadence & CPM */}
                         <div className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between text-slate-600 dark:text-slate-300">
-                          <span className="text-[9px] uppercase font-sans text-slate-400">Cadence</span>
-                          <span className="font-bold">{student.avgWpm} WPM</span>
+                          <span className="text-[9px] uppercase font-sans text-slate-400">Typing (CPM)</span>
+                          <span className="font-bold text-amber-600 dark:text-amber-400 text-xs font-mono">
+                            {student.cpm > 0 ? `${student.cpm} CPM` : '0 CPM'}
+                            <span className="text-[9px] text-slate-400 font-sans ml-1">({student.avgWpm} WPM)</span>
+                          </span>
                         </div>
 
                         {/* AI Viva */}

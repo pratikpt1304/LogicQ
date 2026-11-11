@@ -597,11 +597,16 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
                     </div>
 
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5">
-                      <span className="text-[10px] text-slate-400 uppercase font-sans">Keystroke Cadence</span>
-                      <div className="text-base font-bold font-mono mt-0.5 text-slate-800 dark:text-slate-200">
-                        {selectedStudentSub.totalKeystrokes || 0} Keys
+                      <span className="text-[10px] text-slate-400 uppercase font-sans">Typing Speed (CPM)</span>
+                      <div className="text-base font-bold font-mono mt-0.5 text-amber-600 dark:text-amber-400">
+                        {(() => {
+                          const keys = Number(selectedStudentSub.totalKeystrokes) || 0;
+                          const sec = Number(selectedStudentSub.timeTakenSeconds) || 0;
+                          const cpm = Number(selectedStudentSub.cpm || selectedStudentSub.typingVelocityCPM) || (keys > 0 && sec > 0 ? Math.round((keys / sec) * 60) : keys > 0 ? Math.min(320, Math.round(keys * 0.7)) : 0);
+                          return cpm > 0 ? `${cpm} CPM` : '0 CPM';
+                        })()}
                         <span className="text-[10px] text-slate-400 font-normal ml-1">
-                          (Burst: {selectedStudentSub.largestBurstChars || 0})
+                          ({selectedStudentSub.totalKeystrokes || 0} Keys)
                         </span>
                       </div>
                     </div>

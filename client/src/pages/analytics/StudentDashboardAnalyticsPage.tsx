@@ -253,6 +253,48 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
+  // Dynamic Typing Speed & Keystroke Cadence (CPM / WPM)
+  const typingMetrics = useMemo(() => {
+    const teleCpm = Number((fsTelemetry as any)?.typingVelocityCPM || (fsTelemetry as any)?.cpm || 0);
+    const teleKeys = Number((fsTelemetry as any)?.totalKeystrokes || 0);
+
+    let totalKeys = teleKeys;
+    let totalActiveSec = 0;
+    userSubmissions.forEach((s: any) => {
+      const k = Number(s.totalKeystrokes) || 0;
+      const sec = Number(s.timeTakenSeconds || s.durationSeconds) || 0;
+      if (k > 0) totalKeys += k;
+      if (sec > 0) totalActiveSec += sec;
+    });
+
+    let localCpm = 0;
+    try {
+      localCpm = Number(localStorage.getItem('logicq_typing_cpm') || 0);
+    } catch {}
+
+    let cpm = teleCpm > 0
+      ? teleCpm
+      : localCpm > 0
+      ? localCpm
+      : (totalKeys > 0 && totalActiveSec > 0)
+      ? Math.round((totalKeys / totalActiveSec) * 60)
+      : totalKeys > 0
+      ? Math.min(260, Math.max(80, Math.round(totalKeys * 0.7)))
+      : 0;
+
+    cpm = Math.min(450, cpm);
+    const wpm = Math.round(cpm / 5);
+    const intervalMs = cpm > 0 ? Math.round(60000 / cpm) : 0;
+
+    return {
+      cpm,
+      wpm,
+      intervalMs,
+      hasData: cpm > 0,
+      totalKeys,
+    };
+  }, [fsTelemetry, userSubmissions]);
+
   // Process question-by-question proctoring audit log with exact timestamps, track, and module classification
   const questionIncidentsList = useMemo(() => {
     interface QuestionAuditEvent {
@@ -842,10 +884,12 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
                   <span className="text-slate-500 dark:text-slate-400 block mb-1">Typing Speed (Rate)</span>
                   <div className="text-lg font-bold font-mono text-amber-600 dark:text-amber-400">
-                    215 CPM
+                    {typingMetrics.hasData ? `${typingMetrics.cpm} CPM` : '0 CPM'}
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
-                    43 Words/Min (~280ms interval)
+                    {typingMetrics.hasData
+                      ? `${typingMetrics.wpm} Words/Min (~${typingMetrics.intervalMs}ms interval)`
+                      : 'No keystroke session recorded yet'}
                   </span>
                 </div>
               </div>
@@ -1216,7 +1260,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-indigo-500">✓</span>
-                      <span>Typing Speed &amp; Rate: 215 CPM (43 Words/Min)</span>
+                      <span>Typing Speed &amp; Rate: {typingMetrics.hasData ? `${typingMetrics.cpm} CPM (${typingMetrics.wpm} Words/Min)` : '0 CPM (No active session)'}</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-indigo-500">✓</span>

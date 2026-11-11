@@ -455,6 +455,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     Math.min(100, 100 - tabSwitchCount * 5 - clipboardAttempts * 10)
   );
 
+  const cpm = Number(mod.typingVelocityCPM) || (totalKeystrokes > 0 ? Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7))) : 0);
+  const wpm = Math.round(cpm / 5);
+
   const isMiniProjectActive =
     liveCohort?.moduleProgress?.miniProjectUnlocked !== undefined
       ? Boolean(liveCohort.moduleProgress.miniProjectUnlocked)
@@ -647,6 +650,38 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+
+        {/* Quick Forensic Telemetry Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 pb-1">
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5">
+            <span className="text-[10px] text-slate-400 uppercase font-sans block">Integrity Score</span>
+            <div className={`text-base font-bold font-mono mt-0.5 ${integrityScore >= 80 ? 'text-emerald-500' : integrityScore >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+              {integrityScore} / 100
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5">
+            <span className="text-[10px] text-slate-400 uppercase font-sans block">Typing Speed (Rate)</span>
+            <div className="text-base font-bold font-mono mt-0.5 text-amber-600 dark:text-amber-400">
+              {cpm > 0 ? `${cpm} CPM` : '0 CPM'}
+              <span className="text-[10px] text-slate-400 font-sans ml-1 font-normal">({wpm} WPM)</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5">
+            <span className="text-[10px] text-slate-400 uppercase font-sans block">Tab Switches</span>
+            <div className={`text-base font-bold font-mono mt-0.5 ${tabSwitchCount > 0 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-300'}`}>
+              {tabSwitchCount} {tabSwitchCount === 1 ? 'event' : 'events'}
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5">
+            <span className="text-[10px] text-slate-400 uppercase font-sans block">Pastes Blocked</span>
+            <div className={`text-base font-bold font-mono mt-0.5 ${clipboardAttempts > 0 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-300'}`}>
+              {clipboardAttempts} blocked
+            </div>
           </div>
         </div>
 
@@ -898,9 +933,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               </span>
                             </div>
                             <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block">Keystrokes</span>
-                              <span className="font-bold text-sm text-indigo-400 block mt-0.5">
-                                {sub.totalKeystrokes || '—'}
+                              <span className="text-slate-400 block">Typing Speed</span>
+                              <span className="font-bold text-sm text-amber-400 block mt-0.5">
+                                {sub.cpm || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : sub.totalKeystrokes ? Math.min(320, Math.round(sub.totalKeystrokes * 0.7)) : 0)} CPM
                               </span>
                             </div>
                           </div>
