@@ -132,6 +132,14 @@ export const DashboardPage: React.FC = () => {
     }
   });
 
+  const [isDefaultPasswordBannerDismissed, setIsDefaultPasswordBannerDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('logicq_dismiss_default_pwd_banner') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [showBackupReminder, setShowBackupReminder] = useState(
     () => !hasDownloadedBackupToday() && !isBackupReminderDismissedToday()
   );
@@ -1298,9 +1306,14 @@ export const DashboardPage: React.FC = () => {
           )}
 
           {/* DEFAULT PASSWORD REMINDER BANNER */}
-          {user?.role === 'STUDENT' && user.prn && user.prn !== 'DUMMY' && !user.prn.includes('DEMO') && !localStorage.getItem(`logicq_custom_password_${user.prn.toUpperCase()}`) && (
+          {user?.role === 'STUDENT' &&
+            user.prn &&
+            user.prn !== 'DUMMY' &&
+            !user.prn.includes('DEMO') &&
+            !isDefaultPasswordBannerDismissed &&
+            !localStorage.getItem(`logicq_custom_password_${user.prn.toUpperCase()}`) && (
             <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 pr-6 sm:pr-0">
                 <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
@@ -1313,13 +1326,29 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
-              >
-                <span>Change Password</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <Link
+                  to="/profile"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-all cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span>Change Password</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDefaultPasswordBannerDismissed(true);
+                    try {
+                      localStorage.setItem('logicq_dismiss_default_pwd_banner', 'true');
+                    } catch {}
+                  }}
+                  className="p-1.5 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 active:scale-90 transition-all cursor-pointer border border-amber-500/20"
+                  title="Dismiss notice"
+                  aria-label="Close default password notice"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
           {/* DAILY CODING BACKUP REMINDER BANNER */}
