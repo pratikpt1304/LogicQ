@@ -143,7 +143,7 @@ class GoogleAppsScriptMailService implements IMailService {
     try {
       const response = await fetch(this.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           to: options.to,
           subject: options.subject,
@@ -190,18 +190,18 @@ class ChainedMailService implements IMailService {
 export function getMailService(): IMailService {
   const providers: IMailService[] = [];
 
-  // 1. Primary SMTP: Direct Gmail SMTP using App Password on Port 587 (STARTTLS)
+  // 1. Primary: Google Apps Script Web App (dispatches over HTTPS port 443; zero port blocking on hosting platforms like Render)
+  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec';
+  if (gasUrl) {
+    providers.push(new GoogleAppsScriptMailService(gasUrl));
+  }
+
+  // 2. Secondary SMTP: Direct Gmail SMTP using App Password
   const smtpUser = process.env.SMTP_USER || ENV.SMTP_USER || 'logicqarena@gmail.com';
   const smtpPass = (process.env.SMTP_PASS || ENV.SMTP_PASS || 'twzlhqrtshcafwvr').replace(/\s+/g, '');
   if (smtpUser && smtpPass) {
     providers.push(new NodemailerMailService(587, false));
     providers.push(new NodemailerMailService(465, true));
-  }
-
-  // 2. Secondary fallback: Google Apps Script Web App
-  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec';
-  if (gasUrl) {
-    providers.push(new GoogleAppsScriptMailService(gasUrl));
   }
 
   // 3. Fallback: Console logger

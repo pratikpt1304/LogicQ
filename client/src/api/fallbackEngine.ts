@@ -470,6 +470,36 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return { success: true, data: { user } };
   }
 
+async function dispatchOtpEmail(to: string, subject: string, otp: string, contextTitle: string): Promise<void> {
+  const cleanTarget = (to || '').trim().toLowerCase();
+  if (!cleanTarget) return;
+
+  try {
+    await fetch('https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        to: cleanTarget,
+        subject,
+        html: `<div style="font-family: Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <h2 style="color: #4f46e5; margin-top: 0; font-size: 20px;">${contextTitle}</h2>
+          <p style="font-size: 15px; color: #334155; margin-bottom: 8px;">Your one-time verification code is:</p>
+          <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 16px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a; text-align: center; border-radius: 8px; margin: 20px 0; font-family: monospace;">
+            ${otp}
+          </div>
+          <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 16px;">This code is valid for 10 minutes. Please enter it on the LogicQ verification screen. Do not share this code with anyone.</p>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            LogicQ Automated Identity Verification • Sanjivani University
+          </div>
+        </div>`,
+        text: `Your LogicQ Verification Code is: ${otp} (valid for 10 minutes). Do not share this code with anyone.`,
+      }),
+    }).catch((err) => console.warn('[FallbackEngine] GAS mail dispatch notice:', err));
+  } catch (e) {
+    console.warn('[FallbackEngine] Mail dispatch error:', e);
+  }
+}
+
   if (path === '/auth/send-login-otp' && method === 'POST') {
     const { identifier, studentRecord } = body;
     if (!identifier) throw new Error('Please enter your registered institutional email address or PRN.');
@@ -588,6 +618,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     try {
       sessionStorage.setItem('logicq_dev_login_otp_' + user.email.toLowerCase(), JSON.stringify({ code: rawOtp, expires: Date.now() + 10 * 60 * 1000 }));
     } catch {}
+
+    // Dispatch authentic email via Google Apps Script Mail Relay (text/plain avoids CORS preflight)
+    dispatchOtpEmail(user.email, `[LogicQ] Your Login Verification Code: ${rawOtp}`, rawOtp, 'LogicQ Student Account Login');
 
     const maskedTarget = user.email.replace(/(?<=.{2}).(?=[^@]*?@)/g, '*');
     return {
@@ -996,28 +1029,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }));
     } catch {}
 
-    // Dispatch real email via Google Apps Script Mail Relay so user receives actual verification email
-    try {
-      fetch('https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: cleanEmail,
-          subject: `[LogicQ] Your Email Verification Code: ${rawOtp}`,
-          html: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
-            <h2 style="color: #4f46e5;">LogicQ Student Identity Validation</h2>
-            <p>Your one-time verification code to bind your email with LogicQ is:</p>
-            <div style="background: #f1f5f9; padding: 15px; font-size: 26px; font-weight: bold; letter-spacing: 5px; color: #0f172a; text-align: center; border-radius: 8px; margin: 20px 0;">
-              ${rawOtp}
-            </div>
-            <p style="font-size: 13px; color: #64748b;">This code is valid for 10 minutes. If you did not request this verification, please ignore this email.</p>
-          </div>`,
-          text: `Your LogicQ Email Verification Code is: ${rawOtp} (valid for 10 minutes).`,
-        }),
-      }).catch((err) => console.warn('[FallbackEngine] GAS mail dispatch warning:', err));
-    } catch (e) {
-      console.warn('[FallbackEngine] Mail dispatch error:', e);
-    }
+    // Dispatch authentic email via Google Apps Script Mail Relay
+    dispatchOtpEmail(cleanEmail, `[LogicQ] Your Email Verification Code: ${rawOtp}`, rawOtp, 'LogicQ Student Identity Validation');
 
     return {
       success: true,
@@ -1145,27 +1158,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         }));
       } catch {}
 
-      try {
-        fetch('https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: cleanEmail,
-            subject: `[LogicQ] Password Reset Verification Code: ${rawOtp}`,
-            html: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
-              <h2 style="color: #4f46e5;">LogicQ Password Security</h2>
-              <p>Your one-time authorization code to reset your LogicQ password is:</p>
-              <div style="background: #f1f5f9; padding: 15px; font-size: 26px; font-weight: bold; letter-spacing: 5px; color: #0f172a; text-align: center; border-radius: 8px; margin: 20px 0;">
-                ${rawOtp}
-              </div>
-              <p style="font-size: 13px; color: #64748b;">This code is valid for 10 minutes. If you did not request this, secure your account immediately.</p>
-            </div>`,
-            text: `Your LogicQ Password Reset Verification Code is: ${rawOtp} (valid for 10 minutes).`,
-          }),
-        }).catch((err) => console.warn('[FallbackEngine] GAS mail dispatch warning:', err));
-      } catch (e) {
-        console.warn('[FallbackEngine] Mail dispatch error:', e);
-      }
+      // Dispatch authentic email via Google Apps Script Mail Relay
+      dispatchOtpEmail(cleanEmail, `[LogicQ] Password Reset Verification Code: ${rawOtp}`, rawOtp, 'LogicQ Password Security');
     }
 
     const maskedTarget = cleanEmail ? cleanEmail.replace(/(?<=.{2}).(?=[^@]*?@)/g, '*') : 'your registered email';
