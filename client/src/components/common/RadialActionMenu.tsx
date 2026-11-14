@@ -100,23 +100,18 @@ export const RadialActionMenu: React.FC = () => {
   if (!user || isAdminOrFaculty || isAdminRoute || isExamPage || isLoginOrVerify) return null;
 
   const radius = 114; // distance of petals from center in pixels
-  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
 
   const rawActions: Omit<RadialActionItem, 'angle'>[] = [
-    ...(isDashboard
-      ? [
-          {
-            id: 'ai-tutor',
-            label: 'AI C Mentor',
-            icon: <Sparkles className="w-4 h-4 text-white" />,
-            bgClass: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/35',
-            onClick: () => {
-              setIsOpen(false);
-              setIsAiTutorOpen(true);
-            },
-          },
-        ]
-      : []),
+    {
+      id: 'ai-tutor',
+      label: 'AI C Mentor',
+      icon: <Sparkles className="w-4 h-4 text-white" />,
+      bgClass: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/35',
+      onClick: () => {
+        setIsOpen(false);
+        setIsAiTutorOpen(true);
+      },
+    },
     {
       id: 'raise-issue',
       label: 'Report Problem',
