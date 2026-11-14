@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, CheckCircle2, ShieldCheck, X, ArrowRight, Loader2, Sparkles, RefreshCw, KeyRound } from 'lucide-react';
+import { Mail, CheckCircle2, ShieldCheck, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext.js';
@@ -53,6 +53,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
     }
   }, [isOpen]);
 
+  // Email binding is MANDATORY — no dismiss allowed until email is bound
   if (!isOpen || !user) return null;
 
   const handleSendOtp = async (e?: React.FormEvent) => {
@@ -251,6 +252,11 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
             setDoc(canonicalRef, {
               prn: effectivePrn,
               email: cleanEmail,
+              boundEmail: cleanEmail,
+              isEmailBound: true,
+              isEmailBoundV2: true,
+              emailVerified: true,
+              identityStatus: 'BOUND',
               name: effectiveName,
               fullName: effectiveName,
               displayName: effectiveName,
@@ -265,10 +271,13 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
             setDoc(cohortRef, {
               prn: effectivePrn,
               boundEmail: cleanEmail,
+              studentEmail: cleanEmail,
               isEmailBound: true,
               isEmailBoundV2: true,
+              emailVerified: true,
               moduleProgress: {
                 boundEmail: cleanEmail,
+                studentEmail: cleanEmail,
                 isEmailBound: true,
                 isEmailBoundV2: true,
                 lastActiveTime: new Date().toISOString(),
@@ -334,7 +343,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         
         {/* Top Decorative Header */}
         <div className="p-6 bg-gradient-to-br from-indigo-500/10 via-cyan-500/5 to-transparent border-b border-[var(--border-line)] relative">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
                 <Mail className="w-6 h-6" />
@@ -352,10 +361,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   PRN: <span className="text-[var(--text-main)] font-bold">{user.prn && user.prn !== 'DUMMY' ? user.prn : (user.username && user.username !== 'DUMMY' ? user.username.toUpperCase() : 'Registered Student')}</span>
                 </p>
               </div>
-            </div>
-
-            <div className="p-2 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20" title="Compulsory Verification Required">
-              <KeyRound className="w-4 h-4" />
             </div>
           </div>
 

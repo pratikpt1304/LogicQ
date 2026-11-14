@@ -80,7 +80,20 @@ It integrates **Apple-grade minimalist human interface design** with **instituti
 
 ---
 
-### 4. 🍏 Apple-Grade Minimalist UI & System Epoch
+### 4. 🧠 Socratic AI Mentor & Real-Time ChatGPT-Grade Streaming
+- **Socratic Pedagogical Guard**: Designed to teach thinking and logic rather than dumping copy-paste solutions for graded modules.
+- **ChatGPT-Style Typewriter Streaming**: Word-by-word streaming animation with micro-pauses at punctuation and dynamic pulsing terminal cursor.
+- **27+ Curated Knowledge Domains**:
+  - ISO C11 concepts (Pointers vs. Arrays, Structs vs. Unions, Dynamic Memory Heap, Bitwise tricks).
+  - GCC 14 compiler error diagnosis (`SIGSEGV`, Buffer Overflows, Time Limit Exceeded).
+  - Academic CIE 20-mark evaluation breakdown and proctoring telemetry explanations.
+  - Viva Voce & technical placement interview preparation guides.
+- **Clean Typography**: Automatic parsing of bold markdown, formatted code boxes, and clean Unicode mathematical symbols (`≤`, `≥`, `>`).
+
+---
+
+### 5. 🍏 Apple-Grade Minimalist UI & Radial Action Petals
+- **Tactile Floating Radial Menu**: Quick-action launcher providing 1-click access to the AI Mentor, C Scratchpad IDE, academic problem ticket reporter, and faculty WhatsApp/Email desk.
 - **Distraction-Free Workspace**: Monaco C11 IDE with collapsible execution dock, auto-saved drafts, and real-time syntax references.
 - **System Launch Epoch**: Built-in global launch epoch (`logicq_clean_launch_2026_11_10_v2`) flushes stale browser local storage and sessions automatically across all devices.
 - **Direct Student Deep-Dive Vault**: Admin modal for hardware device reset (max 2 devices: laptop & mobile), one-click PRN password reset, and full source code inspection.

@@ -300,17 +300,47 @@
   color: var(--text-main) !important;
 }
 
-/* Explicit protection: when text is explicitly dark:text-slate-900 or on light backgrounds in dark mode */
+/* Explicit dark mode text brightness & contrast guarantee */
+html.dark .dark\:text-white,
+html.dark [class*='dark:text-white'],
+html[data-theme='dark'] .dark\:text-white,
+html[data-theme='dark'] [class*='dark:text-white'] {
+  color: #F8FAFC !important;
+}
+
+html.dark .dark\:text-slate-100,
+html.dark [class*='dark:text-slate-100'],
+html[data-theme='dark'] .dark\:text-slate-100,
+html[data-theme='dark'] [class*='dark:text-slate-100'] {
+  color: #F1F5F9 !important;
+}
+
+html.dark .dark\:text-slate-200,
+html.dark [class*='dark:text-slate-200'],
+html[data-theme='dark'] .dark\:text-slate-200,
+html[data-theme='dark'] [class*='dark:text-slate-200'] {
+  color: #E2E8F0 !important;
+}
+
+html.dark .dark\:text-slate-300,
+html.dark [class*='dark:text-slate-300'],
+html[data-theme='dark'] .dark\:text-slate-300,
+html[data-theme='dark'] [class*='dark:text-slate-300'] {
+  color: #CBD5E1 !important;
+}
+
+html.dark .dark\:text-slate-400,
+html.dark [class*='dark:text-slate-400'],
+html[data-theme='dark'] .dark\:text-slate-400,
+html[data-theme='dark'] [class*='dark:text-slate-400'] {
+  color: #94A3B8 !important;
+}
+
+/* Explicit protection: ONLY when an element is explicitly styled with dark:text-slate-900 */
 html.dark .dark\:text-slate-900,
 html.dark [class*='dark:text-slate-900'],
-html.dark [class*='bg-white'] .text-slate-900,
-html.dark [class*='dark:bg-white'] .text-slate-900,
-html.dark [class*='bg-slate-100'] .text-slate-900,
-html.dark [class*='dark:bg-slate-100'] .text-slate-900,
-html.dark button[class*='dark:bg-white'],
-html.dark button[class*='dark:bg-slate-100'],
-html.dark button[class*='bg-white'] .text-slate-900,
-html[data-theme='dark'] .dark\:text-slate-900 {
+html[data-theme='dark'] .dark\:text-slate-900,
+html[data-theme='dark'] [class*='dark:text-slate-900'] {
   color: #0f172a !important;
 }
 
@@ -772,3 +802,18 @@ button.apple-interactive:active:not(:disabled) {
 .apple-drawer-transition {
   transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Anti-Screenshot & Screen Capture Print Shield (Active strictly inside Question Solving Workspaces) */
+@media print {
+  body.proctored-workspace-active:not(.is-admin) #root,
+  body.proctored-workspace-active:not(.is-admin) main,
+  body.proctored-workspace-active:not(.is-admin) section {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+}
+

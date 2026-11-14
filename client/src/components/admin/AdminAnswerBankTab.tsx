@@ -116,7 +116,7 @@ export const AdminAnswerBankTab: React.FC = () => {
                   id: u.id || u.uid || `stu-${key}`,
                   name: u.fullName || u.displayName || u.username || 'Student Candidate',
                   prn: prnKey || '—',
-                  email: u.email || '—',
+                  email: u.boundEmail || u.email || '—',
                   section: normalizedSection,
                   labInternalSubmissions: [],
                   practiceSubmissions: [],

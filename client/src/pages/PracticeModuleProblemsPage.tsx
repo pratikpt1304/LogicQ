@@ -23,6 +23,7 @@ import {
   Eye,
   Search,
 } from 'lucide-react';
+import { MotionSearchBar } from '../components/common/MotionSearchBar.js';
 
 interface PracticeProblemRow {
   id: string;
@@ -329,17 +330,13 @@ export const PracticeModuleProblemsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative sm:w-64">
-          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search problems..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] font-mono"
-          />
-        </div>
+        {/* Search Input with 6 Motion Patterns */}
+        <MotionSearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search module problems..."
+          className="sm:w-72"
+        />
       </div>
 
       {isLoading ? (

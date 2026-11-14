@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Terminal as TerminalIcon,
   Copy,
@@ -15,7 +15,12 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { translateGccDiagnostics, GccHint } from '../../utils/gccErrorTranslator.js';
+import {
+  translateGccDiagnostics,
+  GccHint,
+  analyzeOutputMismatch,
+  OutputMismatchAnalysis,
+} from '../../utils/gccErrorTranslator.js';
 
 export interface TestCaseResult {
   passed?: boolean;
@@ -61,6 +66,10 @@ export interface TerminalConsoleProps {
   onRetry?: () => void;
   /** Callback to clear console */
   onClear?: () => void;
+  /** Callback to jump to a specific line in Monaco editor */
+  onJumpToLine?: (line: number) => void;
+  /** If true, disables plain-English hints and mismatch diagnostics (for strict exams and Lab Internal evaluation) */
+  disableHints?: boolean;
   /** Extra CSS classes */
   className?: string;
 }
@@ -82,6 +91,8 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
   title = 'GCC C11',
   onRetry,
   onClear,
+  onJumpToLine,
+  disableHints = false,
   className = '',
 }) => {
   const [copied, setCopied] = useState(false);
@@ -90,7 +101,20 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
 
   // Combine raw GCC diagnostics
   const rawCompilerText = [compileOutput || '', stderr || ''].filter(Boolean).join('\n').trim();
-  const hints: GccHint[] = translateGccDiagnostics(rawCompilerText);
+  const hints: GccHint[] = disableHints ? [] : translateGccDiagnostics(rawCompilerText);
+
+  // Analyze test case output mismatch
+  const mismatchAnalysis: OutputMismatchAnalysis | null =
+    (!disableHints && (status === 'WRONG_ANSWER' || (expectedOutput != null && stdout != null && stdout.trim() !== expectedOutput.trim())))
+      ? analyzeOutputMismatch(stdout || '', expectedOutput || '')
+      : null;
+
+  // Auto-switch to bugs tab if compiler error occurred with hints
+  useEffect(() => {
+    if (!disableHints && hints.length > 0) {
+      setActiveTab('bugs');
+    }
+  }, [compileOutput, stderr, disableHints]);
 
   // Determine normalized status
   const normalizedStatus = (status || '').toUpperCase();
@@ -345,9 +369,22 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
                     <span>{hint.title}</span>
                   </div>
                   {hint.line && (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/30">
-                      Line {hint.line}{hint.column ? `, Col ${hint.column}` : ''}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {onJumpToLine && (
+                        <button
+                          type="button"
+                          onClick={() => onJumpToLine(hint.line!)}
+                          className="px-2.5 py-0.5 rounded-md bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-500/50 font-mono text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-xs"
+                          title={`Jump to line ${hint.line} in code editor`}
+                        >
+                          <span>Jump to Line {hint.line}</span>
+                          <span>↗</span>
+                        </button>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/30">
+                        Line {hint.line}{hint.column ? `, Col ${hint.column}` : ''}
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -431,6 +468,23 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
                 >
                   {stdout || '(No standard output generated)'}
                 </pre>
+
+                {/* Smart Diagnostic Tip inside Use Case tab */}
+                {mismatchAnalysis && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 space-y-1.5 font-sans mt-2">
+                    <div className="flex items-center gap-2 font-bold text-amber-400 text-xs">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{mismatchAnalysis.title}</span>
+                    </div>
+                    <p className="text-slate-300 text-xs">
+                      {mismatchAnalysis.message}
+                    </p>
+                    <div className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Fix: {mismatchAnalysis.actionableTip}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -462,12 +516,25 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
                 </div>
                 {hints.map((hint, hIdx) => (
                   <div key={hIdx} className="space-y-1.5 pt-2 border-t border-amber-500/20 first:border-0 first:pt-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-amber-600 dark:text-amber-300">{hint.title}</span>
                       {hint.line && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
-                          Line {hint.line}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {onJumpToLine && (
+                            <button
+                              type="button"
+                              onClick={() => onJumpToLine(hint.line!)}
+                              className="px-2 py-0.5 rounded-md bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-500/50 font-mono text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-xs"
+                              title={`Jump to line ${hint.line} in code editor`}
+                            >
+                              <span>Jump to Line {hint.line}</span>
+                              <span>↗</span>
+                            </button>
+                          )}
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                            Line {hint.line}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
@@ -482,6 +549,26 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Smart Output Mismatch Diagnostic Alert */}
+            {mismatchAnalysis && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 space-y-2.5 font-sans">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-300 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
+                  <span>Test Case Output Issue: {mismatchAnalysis.title}</span>
+                </div>
+                <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed">
+                  {mismatchAnalysis.message}
+                </p>
+                <div className="p-2.5 rounded-xl bg-white/80 dark:bg-black/60 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-amber-900 dark:text-amber-100 font-bold">Actionable Fix: </strong>
+                    <span>{mismatchAnalysis.actionableTip}</span>
+                  </div>
+                </div>
               </div>
             )}
 

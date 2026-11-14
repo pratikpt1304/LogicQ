@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { api } from '../../api/client.js';
 import { CodeEditor } from '../../components/editor/CodeEditor.js';
+import { useAntiScreenshot } from '../../hooks/useAntiScreenshot.js';
 import {
   FileText,
   Lock,
@@ -26,6 +27,14 @@ export const MiniProjectWorkspacePage: React.FC = () => {
   const [rubricScores, setRubricScores] = useState<any | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+
+  // Anti-Screenshot & Screen Capture Shield (Mini-Project Proctoring Layer)
+  useAntiScreenshot({
+    enabled: true,
+    blackoutOnBlur: true,
+    wipeClipboard: true,
+    blockPrint: true,
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student-mini-project', miniProjectId],

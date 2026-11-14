@@ -19,7 +19,10 @@ import {
   History,
   User,
   ShieldCheck,
+  Mic,
+  MicOff,
 } from 'lucide-react';
+import { HighlightMatch } from './MotionSearchBar.js';
 import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../../data/topic-practice.data.js';
 import { useTheme } from '../../context/ThemeContext.js';
 
@@ -38,8 +41,47 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const { theme, toggleTheme } = useTheme();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isListening, setIsListening] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Voice Search (Web Speech API)
+  const toggleVoiceSearch = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Voice Search is supported in Chrome, Edge, and Safari browsers.');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      setIsListening(true);
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        setIsListening(false);
+        inputRef.current?.focus();
+      };
+
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
 
   // Auto-focus input when opened
   useEffect(() => {
@@ -213,27 +255,61 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           >
             {/* Search Input Bar (macOS Spotlight Style) */}
             <div className="flex items-center px-5 py-4 border-b border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-900/60 gap-3">
-              <Search className="w-5 h-5 text-indigo-500 shrink-0" />
+              <Search className={`w-5 h-5 shrink-0 transition-colors ${query ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search all 100 topics, pointers, arrays, modules, or pages..."
-                className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+                placeholder={isListening ? 'Listening... Speak your topic or query' : 'Search all 100 topics, pointers, arrays, modules, or pages...'}
+                className={`w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                  isListening ? 'placeholder-rose-500 animate-pulse' : ''
+                }`}
               />
-              {query && (
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Clear Button */}
+                <AnimatePresence>
+                  {query && (
+                    <motion.button
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.6 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.6 }}
+                      onClick={() => setQuery('')}
+                      className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition cursor-pointer"
+                      title="Clear query"
+                    >
+                      <X className="w-4 h-4" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {/* Voice Search Mic with concentric pulse waves */}
                 <button
                   type="button"
-                  onClick={() => setQuery('')}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                  onClick={toggleVoiceSearch}
+                  title={isListening ? 'Stop listening' : 'Voice search'}
+                  className={`relative p-1.5 rounded-xl transition-all cursor-pointer ${
+                    isListening
+                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30'
+                      : 'text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
                 >
-                  <X className="w-4 h-4" />
+                  {isListening && (
+                    <span className="absolute inset-0 rounded-xl bg-rose-500 animate-ping opacity-50" />
+                  )}
+                  {isListening ? (
+                    <MicOff className="w-4 h-4 relative z-10" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
                 </button>
-              )}
-              <div className="hidden sm:flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800/70 border border-slate-300/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
-                <kbd>ESC</kbd>
+
+                <div className="hidden sm:flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800/70 border border-slate-300/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+                  <kbd>ESC</kbd>
+                </div>
               </div>
             </div>
 
@@ -276,7 +352,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold truncate text-slate-900 dark:text-white">
-                              {item.title}
+                              <HighlightMatch text={item.title} query={query} />
                             </span>
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60 shrink-0">
                               {item.category}
@@ -296,7 +372,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             )}
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                            {item.subtitle}
+                            <HighlightMatch text={item.subtitle} query={query} />
                           </p>
                         </div>
                       </div>

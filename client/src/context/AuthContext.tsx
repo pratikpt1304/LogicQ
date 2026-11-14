@@ -13,7 +13,7 @@ import { auth as firebaseAuth, googleAuthProvider, db } from '../config/firebase
 import { doc, getDoc, deleteDoc, updateDoc, setDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
 import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
-import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
+import { isExplicitAdminEmail, isInstitutionalAdminEmail, isFacultyEmail } from '../api/fallbackEngine.js';
 import { isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn } from '../config/academic.config.js';
 import { DeviceSessionService } from '../services/deviceSession.service.js';
 import { findCohortStudent } from '../data/c-programming-cohort.data.js';
@@ -56,6 +56,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isInstitutionalAdmin: boolean;
   isFaculty: boolean;
   isChecker: boolean;
   isOffline: boolean;
@@ -1074,12 +1075,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : cleanId.toUpperCase();
 
-    // 0. Pre-login Ban Check: Banned students cannot log in
+    // 0. Pre-login Ban Check: Banned students cannot log in (bounded 2s race)
     if (prnToCheck && cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
       try {
-        const [enrolledSnap, cohortSnap] = await Promise.all([
-          getDoc(doc(db, 'enrolled_students', prnToCheck)).catch(() => null),
-          getDoc(doc(db, 'cohort_progress', prnToCheck)).catch(() => null),
+        const [enrolledSnap, cohortSnap] = await Promise.race([
+          Promise.all([
+            getDoc(doc(db, 'enrolled_students', prnToCheck)).catch(() => null),
+            getDoc(doc(db, 'cohort_progress', prnToCheck)).catch(() => null),
+          ]),
+          new Promise<[null, null]>((resolve) => setTimeout(() => resolve([null, null]), 2000)),
         ]);
         const isBanned = Boolean(
           enrolledSnap?.data()?.isBanned ||
@@ -1107,7 +1111,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (prnToCheck) {
       let knownCustomPw: string | null = null;
       try {
-        const secDoc = await getDoc(doc(db, 'cohort_progress', prnToCheck, 'drafts', '__account_security'));
+        const secDoc = await Promise.race([
+          getDoc(doc(db, 'cohort_progress', prnToCheck, 'drafts', '__account_security')),
+          new Promise<any>((resolve) => setTimeout(() => resolve({ exists: () => false }), 2000)),
+        ]);
         if (secDoc.exists()) {
           const data = secDoc.data();
           if (data?.code && typeof data.code === 'string') {
@@ -1445,11 +1452,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Failed to sign in. Please verify your PRN and password.');
     }
 
-    // Cross-Device Authoritative Hydration: Restore bound email and progress from Firestore
+    // Cross-Device Authoritative Hydration: Restore bound email and progress from Firestore (fast bounded race)
     if (authUser.role === 'STUDENT' && authUser.prn) {
       const studentPrn = authUser.prn.toUpperCase().trim();
       try {
-        const enrSnap = await getDoc(doc(db, 'enrolled_students', studentPrn));
+        const enrSnap = await Promise.race([
+          getDoc(doc(db, 'enrolled_students', studentPrn)),
+          new Promise<any>((resolve) => setTimeout(() => resolve({ exists: () => false }), 2000)),
+        ]);
         if (enrSnap.exists()) {
           const enr = enrSnap.data();
           if (enr.fullName || enr.name) {
@@ -1474,7 +1484,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const cohortSnap = await getDoc(doc(db, 'cohort_progress', studentPrn));
+        const cohortSnap = await Promise.race([
+          getDoc(doc(db, 'cohort_progress', studentPrn)),
+          new Promise<any>((resolve) => setTimeout(() => resolve({ exists: () => false }), 2000)),
+        ]);
         if (cohortSnap.exists()) {
           const cData = cohortSnap.data();
           if (cData.totalPoints !== undefined) {
@@ -1518,10 +1531,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (authUser.role === 'STUDENT' && authUser.prn) {
-      const reg = await DeviceSessionService.registerDeviceSession(authUser.prn);
-      if (!reg.success) {
-        throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
-      }
       try {
         const prnUpper = authUser.prn.toUpperCase().trim();
         updateDoc(doc(db, 'cohort_progress', prnUpper), { activeSession: true }).catch(() => {});
@@ -1836,7 +1845,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading: authState === 'loading',
         isAuthenticated: authState === 'signedIn' && Boolean(user),
         isAdmin: user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
-        isFaculty: (user?.role === 'FACULTY' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email)) && user?.prn !== '2126PMIM1039',
+        isInstitutionalAdmin: user?.role === 'INSTITUTIONAL_ADMIN' || isInstitutionalAdminEmail(user?.email),
+        isFaculty: (user?.role === 'FACULTY' || user?.role === 'ADMIN' || user?.role === 'INSTITUTIONAL_ADMIN' || isExplicitAdminEmail(user?.email) || isFacultyEmail(user?.email)) && user?.prn !== '2126PMIM1039',
         isChecker: user?.role === 'CHECKER' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
         isOffline,
         login,

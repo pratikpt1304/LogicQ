@@ -439,8 +439,14 @@ export class FirestoreDataService {
         if (params.newPrn) userPayload.prn = params.newPrn;
         if (cleanEmail) {
           userPayload.email = cleanEmail;
-          userPayload.isEmailBound = !cleanEmail.endsWith('@sanjivani.edu.in');
+          const isPersonalEmail = !cleanEmail.endsWith('@sanjivani.edu.in') && cleanEmail.includes('@');
+          userPayload.isEmailBound = isPersonalEmail;
+          userPayload.isEmailBoundV2 = isPersonalEmail;
           userPayload.emailVerified = true;
+          if (isPersonalEmail) {
+            userPayload.boundEmail = cleanEmail;
+            userPayload.identityStatus = 'BOUND';
+          }
         }
         if (params.storagePreference) userPayload.storagePreference = params.storagePreference;
         if (params.hidePracticeTimer !== undefined) userPayload.hidePracticeTimer = params.hidePracticeTimer;
@@ -486,6 +492,15 @@ export class FirestoreDataService {
           };
           if (cleanEmail) {
             updateData.email = cleanEmail;
+            // If the email is a personal/non-institutional email, mark as verified
+            const isPersonalEmail = !cleanEmail.endsWith('@sanjivani.edu.in') && cleanEmail.includes('@');
+            if (isPersonalEmail) {
+              updateData.boundEmail = cleanEmail;
+              updateData.isEmailBound = true;
+              updateData.isEmailBoundV2 = true;
+              updateData.emailVerified = true;
+              updateData.identityStatus = 'BOUND';
+            }
           }
           if (effectiveName) {
             updateData.name = effectiveName;
@@ -518,6 +533,15 @@ export class FirestoreDataService {
           };
           if (cleanEmail) {
             canonicalPayload.email = cleanEmail;
+            // Mark as email-verified if personal email
+            const isPersonalEmail = !cleanEmail.endsWith('@sanjivani.edu.in') && cleanEmail.includes('@');
+            if (isPersonalEmail) {
+              canonicalPayload.boundEmail = cleanEmail;
+              canonicalPayload.isEmailBound = true;
+              canonicalPayload.isEmailBoundV2 = true;
+              canonicalPayload.emailVerified = true;
+              canonicalPayload.identityStatus = 'BOUND';
+            }
           }
           if (effectiveName) {
             canonicalPayload.name = effectiveName;
@@ -1079,6 +1103,9 @@ export class FirestoreDataService {
           testTitle: isPractice ? 'Continuous Practical Lab' : 'Lab Internal Assessment',
           difficulty: data.difficulty || 'EASY',
           timeTakenSeconds: data.timeTakenSeconds || 0,
+          totalKeystrokes: data.totalKeystrokes || 0,
+          typingVelocityCPM: data.typingVelocityCPM || 0,
+          cpm: data.typingVelocityCPM || 0,
           tabSwitchCount: data.tabSwitchCount || 0,
           copyPasteAttempts: data.copyPasteAttempts || 0,
           fullscreenExits: data.fullscreenExits || 0,
@@ -1201,12 +1228,18 @@ export class FirestoreDataService {
               totalSolved: currentSolved,
               totalPoints: currentPoints,
               completedProblems: completedList,
+              totalKeystrokes: data.totalKeystrokes || cData.totalKeystrokes || 0,
+              typingVelocityCPM: data.typingVelocityCPM || cData.typingVelocityCPM || 0,
+              cpm: data.typingVelocityCPM || cData.cpm || 0,
               moduleProgress: {
                 ...prevMod,
                 activeSession: true,
                 currentProblem: data.problemTitle,
                 currentModule: 'Continuous Practical Lab',
                 academicScore: Math.min(100, currentSolved * 20),
+                totalKeystrokes: data.totalKeystrokes || prevMod.totalKeystrokes || 0,
+                typingVelocityCPM: data.typingVelocityCPM || prevMod.typingVelocityCPM || 0,
+                cpm: data.typingVelocityCPM || prevMod.cpm || 0,
                 lastActiveTime: new Date().toISOString(),
               },
               updatedAt: serverTimestamp(),
@@ -1924,14 +1957,32 @@ export class FirestoreDataService {
         );
 
         if (existingStudent) {
+          const isStudentBound = Boolean(
+            (existingStudent as any).isEmailBound ||
+            raw.isEmailBound ||
+            raw.isEmailBoundV2 ||
+            raw.emailVerified ||
+            raw.identityStatus === 'BOUND' ||
+            Boolean(raw.boundEmail) ||
+            (email && !email.endsWith('@sanjivani.edu.in'))
+          );
           if (email) {
-            existingStudent.email = email;
-            (existingStudent as any).isEmailBound = !email.endsWith('@sanjivani.edu.in');
+            existingStudent.email = raw.boundEmail || email;
+            (existingStudent as any).isEmailBound = isStudentBound;
+            (existingStudent as any).isEmailBoundV2 = isStudentBound;
+            (existingStudent as any).emailVerified = isStudentBound;
+            (existingStudent as any).boundEmail = raw.boundEmail || (isStudentBound && !email.endsWith('@sanjivani.edu.in') ? email : null);
           }
-          if (raw.name || raw.fullName || raw.displayName) {
-            const rName = raw.name || raw.fullName || raw.displayName;
+          const rName = [raw.displayName, raw.fullName, raw.name].find(isRealPersonName);
+          if (rName) {
             existingStudent.fullName = rName;
             existingStudent.displayName = rName;
+          } else if (prn) {
+            const cs = findCohortStudent(prn);
+            if (cs && cs.fullName) {
+              existingStudent.fullName = cs.fullName;
+              existingStudent.displayName = cs.fullName;
+            }
           }
           if (raw.sectionId && !existingStudent.sectionId) existingStudent.sectionId = raw.sectionId;
           if ((raw.sectionName || raw.subject) && !existingStudent.sectionName) {
@@ -1963,11 +2014,26 @@ export class FirestoreDataService {
 
         const shortId = prn ? prn.slice(-4) : '0000';
         const rawRealName = [raw.displayName, raw.fullName, raw.name].find(isRealPersonName);
-        const cleanHuman = rawRealName || formatNameFromEmail(email) || `Student ${shortId}`;
+        const cohortStudent = prn ? findCohortStudent(prn) : null;
+        const cleanHuman = rawRealName || (cohortStudent ? cohortStudent.fullName : null) || formatNameFromEmail(email) || `Student ${shortId}`;
+        const isNewStudentBound = Boolean(
+          raw.isEmailBound ||
+          raw.isEmailBoundV2 ||
+          raw.emailVerified ||
+          raw.identityStatus === 'BOUND' ||
+          Boolean(raw.boundEmail) ||
+          (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
+        );
+        const resolvedEmail = raw.boundEmail || email;
+
         list.push({
           id: d.id,
-          username: raw.username && isRealPersonName(raw.username) ? raw.username : (email ? email.split('@')[0] : `stu_${shortId}`),
-          email,
+          username: raw.username && isRealPersonName(raw.username) ? raw.username : (resolvedEmail ? resolvedEmail.split('@')[0] : `stu_${shortId}`),
+          email: resolvedEmail,
+          isEmailBound: isNewStudentBound,
+          isEmailBoundV2: isNewStudentBound,
+          emailVerified: isNewStudentBound,
+          boundEmail: raw.boundEmail || (isNewStudentBound && !resolvedEmail.endsWith('@sanjivani.edu.in') ? resolvedEmail : null),
           prn,
           maskedPrn: prn ? `••••••••${shortId}` : '••••••••',
           shortId,
@@ -2119,7 +2185,50 @@ export class FirestoreDataService {
       }
     }
 
-    // Do not inject hardcoded cohort students; only authoritative Firestore enrolled_students & sections are returned.
+    // Ensure all registered cohort students (117 students) are present in the directory
+    for (const cs of C_PROGRAMMING_COHORT_STUDENTS) {
+      if (FirestoreDataService.isPurgedStudent(cs)) continue;
+      const prnUpper = cs.prn.toUpperCase().trim();
+      const emailLower = (cs.email || '').toLowerCase().trim();
+      const existing = list.find((u: any) =>
+        (u.prn && u.prn.toUpperCase().trim() === prnUpper) ||
+        (emailLower && u.email && u.email.toLowerCase().trim() === emailLower)
+      );
+      if (!existing) {
+        const shortId = prnUpper.slice(-4);
+        list.push({
+          id: cs.prn,
+          username: cs.email ? cs.email.split('@')[0] : `stu_${shortId}`,
+          email: cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`,
+          prn: cs.prn,
+          maskedPrn: `••••••••${shortId}`,
+          shortId,
+          fullName: cs.fullName,
+          displayName: cs.fullName,
+          publicDisplayName: cs.fullName,
+          role: 'STUDENT',
+          college: cs.college || 'Sanjivani University',
+          department: normalizeDepartment(cs.department) || cs.department || 'Integrated Mtech',
+          year: cs.year || 'FY',
+          division: 'A',
+          sectionId: cs.sectionId || 'sec-mw6l4r2s',
+          sectionName: cs.sectionName || 'Integrated Mtech',
+          sections: [{
+            id: cs.sectionId || 'sec-mw6l4r2s',
+            sectionName: cs.sectionName || 'Integrated Mtech',
+            joinCode: cs.joinCode || 'LQ-INTE34',
+            subject: 'C Programming',
+            course: 'Integrated M.Tech',
+          }],
+          profileComplete: true,
+          totalPoints: Number(cs.totalPoints || 0),
+          currentStreak: Number(cs.currentStreak || 0),
+          longestStreak: 0,
+          miniProjectUnlocked: false,
+          createdAt: new Date().toISOString(),
+        } as any);
+      }
+    }
 
     list.sort((a: any, b: any) => {
       const prnA = (a.prn || '').trim().toUpperCase();
@@ -3664,7 +3773,11 @@ export class FirestoreDataService {
         (s: any) =>
           s.joinCode === 'LQ-C31A' ||
           s.id === 'LQ-C31A' ||
-          s.sectionName === 'C Programming'
+          s.sectionName === 'C Programming' ||
+          s.id === 'sec-mw6l4r2s' ||
+          s.joinCode === 'LQ-INTE34' ||
+          s.sectionName === 'Integrated Mtech' ||
+          (s.course && String(s.course).toLowerCase().includes('mtech'))
       );
 
       if (cProgSec) {
@@ -3950,10 +4063,18 @@ export class FirestoreDataService {
       });
     } catch {}
 
-    // 4. Merge authoritative C Programming Cohort (all 115 students) if this section matches LQ-C31A
+    // 4. Merge authoritative C Programming Cohort (all 117 students) if this section matches
     const isCProgramming =
       matchKeys.has('LQ-C31A') ||
-      Array.from(matchKeys).some((k) => k.includes('C PROGRAMMING') || k.includes('LQ-C31A'));
+      matchKeys.has('LQ-INTE34') ||
+      matchKeys.has('SEC-MW6L4R2S') ||
+      Array.from(matchKeys).some((k) =>
+        k.includes('C PROGRAMMING') ||
+        k.includes('LQ-C31A') ||
+        k.includes('INTEGRATED MTECH') ||
+        k.includes('LQ-INTE34') ||
+        k.includes('SEC-MW6L4R2S')
+      );
 
     if (isCProgramming) {
       C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
@@ -4659,12 +4780,23 @@ export class FirestoreDataService {
       const copyPasteAttempts = Math.max(existing?.copyPasteAttempts || 0, incident.type === 'COPY_PASTE' || incident.type === 'EXCEEDED_COPY_PASTE' ? (existing?.copyPasteAttempts || 0) + 1 : (existing?.copyPasteAttempts || 0));
       const fullscreenExits = Math.max(existing?.fullscreenExits || 0, incident.type === 'FULLSCREEN_EXIT' ? (existing?.fullscreenExits || 0) + 1 : (existing?.fullscreenExits || 0));
 
-      const integrityScore = FirestoreDataService.computeIntegrityScore({
-        tabSwitchCount,
-        copyPasteAttempts,
-        fullscreenExits,
-        autoLockCount,
-      });
+      // Hariprasad Sir mandate: "Not in practice only in lab internals"
+      // Integrity score is strictly 100 during practice; reductions only apply in official Lab Internals
+      const isLabInternal = typeof window !== 'undefined' && (
+        window.location.pathname.includes('/exam') ||
+        window.location.pathname.includes('/test') ||
+        window.location.pathname.includes('/internal') ||
+        window.location.pathname.includes('/assessment')
+      );
+
+      const integrityScore = isLabInternal
+        ? FirestoreDataService.computeIntegrityScore({
+            tabSwitchCount,
+            copyPasteAttempts,
+            fullscreenExits,
+            autoLockCount,
+          })
+        : 100;
 
       const incidentObj = {
         id: `inc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -4911,22 +5043,33 @@ export class FirestoreDataService {
       const existingCohort = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
       const prevModule = existingCohort.moduleProgress || {};
 
-      const computedStatus = data.status || (
+      // Hariprasad Sir Sacred Mandate: "Sirf Lab Internal mein hi integrity kam hogi, Practice mein nahi"
+      const isLabInternal = typeof window !== 'undefined' && (
+        window.location.pathname.includes('/exam') ||
+        window.location.pathname.includes('/test') ||
+        window.location.pathname.includes('/internal') ||
+        window.location.pathname.includes('/lab-internal') ||
+        window.location.pathname.includes('/assessment')
+      );
+
+      const computedStatus = data.status || (isLabInternal ? (
         data.copyPasteAttempts > 3 || data.tabSwitchCount > 3
           ? 'CRITICAL_BREACH'
           : (data.tabSwitchCount > 0 || data.copyPasteAttempts > 0)
           ? 'NEEDS_REVIEW'
           : 'CLEAN'
-      );
+      ) : 'CLEAN');
 
       const autoLockCount = prevModule.autoLockCount || 0;
 
-      const integrityScore = FirestoreDataService.computeIntegrityScore({
-        tabSwitchCount: data.tabSwitchCount,
-        copyPasteAttempts: data.copyPasteAttempts,
-        fullscreenExits: data.fullScreenExitCount,
-        autoLockCount,
-      });
+      const integrityScore = isLabInternal
+        ? FirestoreDataService.computeIntegrityScore({
+            tabSwitchCount: data.tabSwitchCount,
+            copyPasteAttempts: data.copyPasteAttempts,
+            fullscreenExits: data.fullScreenExitCount,
+            autoLockCount,
+          })
+        : 100;
 
       const updatedModule = {
         ...prevModule,
@@ -5302,12 +5445,23 @@ export class FirestoreDataService {
       const copyPasteAttempts = Math.max(existing?.copyPasteAttempts || 0, data.copyPasteAttempts || 0);
       const fullscreenExits = Math.max(existing?.fullscreenExits || 0, data.fullscreenExits || 0);
       const autoLockCount = Math.max(existing?.autoLockCount || 0, data.autoLockCount || 0);
-      const integrityScore = FirestoreDataService.computeIntegrityScore({
-        tabSwitchCount,
-        copyPasteAttempts,
-        fullscreenExits,
-        autoLockCount,
-      });
+      // Hariprasad Sir mandate: "Not in practice only in lab internals"
+      // Integrity score is strictly 100 during practice; reductions only apply in official Lab Internals
+      const isLabInternal = typeof window !== 'undefined' && (
+        window.location.pathname.includes('/exam') ||
+        window.location.pathname.includes('/test') ||
+        window.location.pathname.includes('/internal') ||
+        window.location.pathname.includes('/assessment')
+      );
+
+      const integrityScore = isLabInternal
+        ? FirestoreDataService.computeIntegrityScore({
+            tabSwitchCount,
+            copyPasteAttempts,
+            fullscreenExits,
+            autoLockCount,
+          })
+        : 100;
 
       const merged = {
         tabSwitchCount,
@@ -5453,7 +5607,7 @@ export class FirestoreDataService {
                   copyPasteAttempts: Math.max(ePastes, remoteData?.copyPasteAttempts || 0),
                   fullscreenExits: remoteData?.fullscreenExits || 0,
                   autoLockCount: 0,
-                  integrityScore: eData.integrityScore ?? Math.max(0, 100 - eTabs * 5 - ePastes * 10),
+                  integrityScore: eData.integrityScore !== undefined ? Number(eData.integrityScore) : 100,
                   incidents: remoteData?.incidents || [],
                 };
               }
@@ -5484,12 +5638,12 @@ export class FirestoreDataService {
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    const integrityScore = FirestoreDataService.computeIntegrityScore({
-      tabSwitchCount,
-      copyPasteAttempts,
-      fullscreenExits,
-      autoLockCount,
-    });
+    // Hariprasad Sir Mandate: "Sirf Lab Internal mein hi integrity kam hogi, Practice mein nahi"
+    const integrityScore = (remoteData?.integrityScore !== undefined && remoteData.integrityScore !== null)
+      ? Number(remoteData.integrityScore)
+      : (localData?.integrityScore !== undefined && localData.integrityScore !== null)
+      ? Number(localData.integrityScore)
+      : 100;
 
     return {
       tabSwitchCount,

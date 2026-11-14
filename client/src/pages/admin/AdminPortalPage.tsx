@@ -24,6 +24,8 @@ import {
   AlertTriangle,
   ChevronRight,
   Archive,
+  UserCog,
+  Flag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,6 +37,8 @@ import { AdminTestOrchestratorTab } from '../../components/admin/AdminTestOrches
 import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { AdminAnswerBankTab } from '../../components/admin/AdminAnswerBankTab.js';
+import { AdminStaffTab } from '../../components/admin/AdminStaffTab.js';
+import { AdminRaisedIssuesTab } from '../../components/admin/AdminRaisedIssuesTab.js';
 // AdminAnswerBankTab kept for legacy reference — Answer Bank is now inside StudentDeepDiveModal
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -49,7 +53,8 @@ export type AdminTabKey =
   | 'question-bank'
   | 'test-orchestrator'
   | 'integrity'
-  | 'reports';
+  | 'reports'
+  | 'raised-issues';
 
 interface TabItem {
   id: AdminTabKey;
@@ -66,6 +71,7 @@ const TABS: TabItem[] = [
   { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
   { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
+  { id: 'raised-issues', label: 'Student Issues', icon: Flag },
 ];
 
 const DEFAULT_STATS = {
@@ -85,7 +91,7 @@ const DEFAULT_SECTIONS: any[] = [];
 const DEFAULT_LIVE_EVENTS: any[] = [];
 
 export const AdminPortalPage: React.FC = () => {
-  const { user, isAdmin, isFaculty, logout } = useAuth();
+  const { user, isAdmin, isInstitutionalAdmin, isFaculty, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -95,6 +101,7 @@ export const AdminPortalPage: React.FC = () => {
 
   // Sections management state
   const [sections, setSections] = useState<any[]>([]);
+  const [openIssuesCount, setOpenIssuesCount] = useState<number>(0);
 
   // Real-time synchronization & fake cache purge
   React.useEffect(() => {
@@ -132,9 +139,11 @@ export const AdminPortalPage: React.FC = () => {
                 const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
                 const tabSwitches = Math.max(Number(mod.tabSwitches) || 0, Number(u.tabSwitchCount) || 0, Number(u.tabSwitches) || 0);
                 const pasteBursts = Math.max(Number(mod.pasteBursts) || 0, Number(u.clipboardAttempts) || 0, Number(u.pasteBursts) || 0);
+                // ⚠️ SACRED RULE: Integrity ONLY from Lab Internal — NEVER from Practice tabSwitches
+                // Always use stored integrityScore; fallback = 100 (not recomputed from tabSwitches)
                 const computedIntegrity = mod.integrityScore !== undefined
                   ? Number(mod.integrityScore)
-                  : (tabSwitches > 0 || pasteBursts > 0 ? Math.max(0, 100 - tabSwitches * 5 - pasteBursts * 10) : (u.integrityScore ?? 100));
+                  : (u.integrityScore !== undefined ? Number(u.integrityScore) : 100);
 
                 const sName = u.fullName || u.displayName || u.name || u.username || 'Student Candidate';
                 return {
@@ -270,6 +279,34 @@ export const AdminPortalPage: React.FC = () => {
       loadRealData();
     }, (err) => console.warn('Live enrolled onSnapshot notice:', err));
 
+    const computeDeduplicatedOpenCount = (docs: Array<{ data: () => any }>) => {
+      const uniqueMap = new Map<string, string>();
+      docs.forEach((d) => {
+        const data = d.data();
+        const prn = (data?.studentPrn || '').trim().toUpperCase();
+        const title = (data?.questionTitle || '').trim().toLowerCase();
+        const desc = (data?.description || '').trim().toLowerCase();
+        const sig = `${prn}:::${title}:::${desc}`;
+        const status = data?.status || 'OPEN';
+
+        if (!uniqueMap.has(sig)) {
+          uniqueMap.set(sig, status);
+        } else if (status === 'RESOLVED') {
+          uniqueMap.set(sig, 'RESOLVED');
+        }
+      });
+
+      let openCount = 0;
+      uniqueMap.forEach((status) => {
+        if (status !== 'RESOLVED') openCount++;
+      });
+      return openCount;
+    };
+
+    const unsubIssues = onSnapshot(collection(db, 'raised_issues'), (snap) => {
+      setOpenIssuesCount(computeDeduplicatedOpenCount(snap.docs));
+    }, (err) => console.warn('Live raised_issues onSnapshot notice:', err));
+
     let unsubUsers: (() => void) | null = null;
     try {
       unsubUsers = onSnapshot(collection(db, 'users'), () => {
@@ -284,6 +321,14 @@ export const AdminPortalPage: React.FC = () => {
     const unsubMeshUsers = realtimeSync.on('USERS', () => loadRealData());
     const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => loadRealData());
     const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => loadRealData());
+    const unsubMeshIssues = () => {
+      import('firebase/firestore').then(({ getDocs, collection }) => {
+        getDocs(collection(db, 'raised_issues')).then((snap) => {
+          setOpenIssuesCount(computeDeduplicatedOpenCount(snap.docs));
+        }).catch(() => {});
+      });
+    };
+    const unsubMeshIssuesEvent = realtimeSync.on('ISSUES', unsubMeshIssues);
 
     return () => {
       unsubCohort();
@@ -291,13 +336,27 @@ export const AdminPortalPage: React.FC = () => {
       unsubAssessmentSubmissions();
       unsubSections();
       unsubEnrolled();
+      unsubIssues();
       if (unsubUsers) unsubUsers();
       unsubMeshSections();
       unsubMeshUsers();
       unsubMeshDashboard();
       unsubMeshSubmissions();
+      if (unsubMeshIssuesEvent) unsubMeshIssuesEvent();
     };
   }, []);
+
+  // Dynamic tabs with live issue count
+  const tabs: TabItem[] = React.useMemo(() => [
+    { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
+    { id: 'sections', label: 'Sections', icon: Layers },
+    { id: 'students', label: 'Students', icon: Users },
+    { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
+    { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
+    { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
+    { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
+    { id: 'raised-issues', label: 'Student Issues', icon: Flag, badge: openIssuesCount > 0 ? String(openIssuesCount) : undefined },
+  ], [openIssuesCount]);
 
   const saveSections = (updated: any[]) => {
     setSections(updated);
@@ -422,15 +481,6 @@ export const AdminPortalPage: React.FC = () => {
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">System Online</span>
             </div>
 
-            {/* Dark / Light Mode */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition"
-              title="Toggle Theme"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
             {/* Admin User Info */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-white/10">
               <div className="w-7 h-7 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center font-mono">
@@ -456,7 +506,7 @@ export const AdminPortalPage: React.FC = () => {
         {/* Horizontal Navigation Tabs (Apple HIG Native Segmented Control) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 border-t border-slate-200/60 dark:border-white/[0.06]">
           <div className="p-1 rounded-2xl bg-slate-200/60 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.05] inline-flex items-center gap-1 overflow-x-auto max-w-full no-scrollbar shadow-xs">
-            {TABS.map((tab) => {
+            {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -474,7 +524,9 @@ export const AdminPortalPage: React.FC = () => {
                   {tab.badge && (
                     <span
                       className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        isActive
+                        tab.id === 'raised-issues'
+                          ? 'bg-rose-500 text-white font-bold shadow-xs animate-pulse'
+                          : isActive
                           ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold'
                           : 'bg-slate-300/60 dark:bg-white/10 text-slate-500'
                       }`}
@@ -514,6 +566,7 @@ export const AdminPortalPage: React.FC = () => {
         {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab sections={sections} />}
         {activeTab === 'integrity' && <AdminIntegrityTab />}
         {activeTab === 'reports' && <AdminReportsTab />}
+        {activeTab === 'raised-issues' && <AdminRaisedIssuesTab />}
       </main>
 
       {/* Candidate Deep-Dive Modal (1-Click Inspection) */}

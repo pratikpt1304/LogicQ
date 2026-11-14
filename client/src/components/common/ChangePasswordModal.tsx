@@ -30,12 +30,12 @@ export function getWeeklyPasswordChangeStatus(userId: string) {
     const daysRemaining = Math.max(1, Math.ceil((data.weekStart + oneWeekMs - now) / (24 * 60 * 60 * 1000)));
     return {
       count: data.count || 0,
-      remaining: Math.max(0, 2 - (data.count || 0)),
-      isLimitReached: (data.count || 0) >= 2,
+      remaining: Math.max(0, 10 - (data.count || 0)),
+      isLimitReached: false,
       daysRemaining,
     };
   } catch {
-    return { count: 0, remaining: 2, isLimitReached: false, daysRemaining: 7 };
+    return { count: 0, remaining: 10, isLimitReached: false, daysRemaining: 7 };
   }
 }
 

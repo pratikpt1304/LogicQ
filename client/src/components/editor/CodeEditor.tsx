@@ -1,8 +1,9 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2, Cloud } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2, Cloud, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
+import { extractMonacoMarkers, MonacoGccMarker } from '../../utils/gccErrorTranslator.js';
 
 interface CodeEditorProps {
   code: string;
@@ -19,6 +20,8 @@ interface CodeEditorProps {
   hideHeader?: boolean;
   hideRunButton?: boolean;
   forceTheme?: 'dark' | 'light';
+  compileError?: string | null;
+  onEditorMount?: (editor: any) => void;
 }
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
@@ -112,14 +115,19 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   hideHeader = false,
   hideRunButton = false,
   forceTheme,
+  compileError,
+  onEditorMount,
 }) => {
   const disableCopyPasteRef = React.useRef(disableCopyPaste);
   const onBlockedActionRef = React.useRef(onBlockedAction);
+  const onEditorMountRef = React.useRef(onEditorMount);
   disableCopyPasteRef.current = disableCopyPaste;
   onBlockedActionRef.current = onBlockedAction;
+  onEditorMountRef.current = onEditorMount;
   const { theme } = useTheme();
   const effectiveTheme = forceTheme || theme;
   const [copied, setCopied] = React.useState(false);
+  const [activeMarkers, setActiveMarkers] = React.useState<MonacoGccMarker[]>([]);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const editorRef = React.useRef<any>(null);
   const isProgrammaticUpdateRef = React.useRef<boolean>(false);
@@ -200,6 +208,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     editor.onKeyDown((e: any) => {
       if (disableCopyPasteRef.current) {
+        // Any Shift key combination (Shift + [, Shift + ], Shift + 9, Shift alone, uppercase letters, etc.) is NEVER copy-paste
+        if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          return;
+        }
+
         // Ctrl+V or Cmd+V (Paste)
         if ((e.ctrlKey || e.metaKey) && (e.keyCode === 52 || e.code === 'KeyV' || e.browserEvent?.key === 'v' || e.browserEvent?.key === 'V')) {
           e.preventDefault();
@@ -257,11 +270,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
       const onBeforeInputCapture = (e: any) => {
         if (!disableCopyPasteRef.current) return;
+        // Strictly only block actual clipboard paste or external drag-and-drop actions.
+        // DO NOT block insertReplacementText (triggered by typing curly brackets {}, quotes, auto-closing bracket pairs, or replacing selected text).
         if (
           e.inputType === 'insertFromPaste' ||
           e.inputType === 'insertFromPasteAsQuotation' ||
-          e.inputType === 'insertFromDrop' ||
-          e.inputType === 'insertReplacementText'
+          e.inputType === 'insertFromDrop'
         ) {
           blockClipboardAction(e, 'paste');
         }
@@ -288,10 +302,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       if (e?.isFlush) return;
       if (isInternalEdit) return;
 
-      // Burst Paste Protection for Mobile (Catches clipboard injections that bypass synthetic events)
+      // Burst Paste Protection for Mobile (Catches large clipboard injections that bypass synthetic events)
       if (disableCopyPasteRef.current && e.changes) {
         for (const change of e.changes) {
-          if (change.text && change.text.length > 8 && !change.text.startsWith('\n    ')) {
+          // Normal typing or bracket expansions are small; large multi-line pastes are > 25 chars
+          if (change.text && change.text.length > 25 && !change.text.trim().startsWith('{') && !change.text.startsWith('\n')) {
             isInternalEdit = true;
             try {
               editor.trigger('anti-paste', 'undo', null);
@@ -305,8 +320,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       const val = editor.getValue();
+      // Clear compiler error squiggles when student edits code
+      const currentModel = editor.getModel();
+      if (currentModel) {
+        monaco.editor.setModelMarkers(currentModel, 'gcc', []);
+      }
+      setActiveMarkers([]);
       onChangeRef.current(val);
     });
+
+    onEditorMountRef.current?.(editor);
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       if (!readOnlyRef.current && onSubmitRef.current && !isSubmittingRef.current) {
@@ -354,6 +377,40 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     registerLogicQMonacoThemes(monaco);
     monaco.editor.setTheme(monacoThemeName);
   }, [monacoThemeName]);
+
+  // Synchronize inline GCC compiler error markers (red squiggles) in Monaco Editor
+  React.useEffect(() => {
+    if (!editorRef.current) return;
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    if (compileError && typeof compileError === 'string') {
+      const parsedMarkers = extractMonacoMarkers(compileError);
+      setActiveMarkers(parsedMarkers);
+
+      const monacoMarkers = parsedMarkers.map((m) => {
+        const lineContent = model.getLineContent(m.line) || '';
+        return {
+          startLineNumber: m.line,
+          startColumn: m.column || 1,
+          endLineNumber: m.endLine || m.line,
+          endColumn: Math.max(m.endColumn || 20, lineContent.length + 1),
+          message: `${m.title}: ${m.remedy}`,
+          severity: m.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+        };
+      });
+
+      monaco.editor.setModelMarkers(model, 'gcc', monacoMarkers);
+
+      if (parsedMarkers.length > 0 && parsedMarkers[0].line) {
+        editorRef.current.revealLineInCenter(parsedMarkers[0].line);
+        editorRef.current.setPosition({ lineNumber: parsedMarkers[0].line, column: parsedMarkers[0].column || 1 });
+      }
+    } else {
+      setActiveMarkers([]);
+      monaco.editor.setModelMarkers(model, 'gcc', []);
+    }
+  }, [compileError]);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -627,6 +684,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           effectiveTheme === 'dark' ? 'bg-[#0c1017]' : ''
         }`}
       />
+
+      {/* Floating Actionable Compiler Error Alert (Jump to Error in 1-Click) */}
+      {activeMarkers.length > 0 && activeMarkers[0].line && (
+        <div className="absolute bottom-12 sm:bottom-4 left-3 right-3 sm:left-6 sm:right-6 z-30 flex items-center justify-between p-3 px-4 rounded-2xl bg-rose-950/95 border border-rose-500/50 text-rose-100 backdrop-blur-xl shadow-2xl text-xs font-mono animate-fadeIn">
+          <div className="flex items-center gap-2.5 truncate pr-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+            <span className="font-bold text-white px-2 py-0.5 rounded-lg bg-rose-900/90 border border-rose-500/40 shrink-0 text-[11px]">
+              Line {activeMarkers[0].line}
+            </span>
+            <span className="truncate text-rose-200 font-sans font-medium text-xs">
+              <strong className="text-white font-semibold">{activeMarkers[0].title}: </strong>
+              {activeMarkers[0].remedy}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (editorRef.current && activeMarkers[0].line) {
+                editorRef.current.revealLineInCenter(activeMarkers[0].line);
+                editorRef.current.setPosition({ lineNumber: activeMarkers[0].line, column: activeMarkers[0].column || 1 });
+                editorRef.current.focus();
+              }
+            }}
+            className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shrink-0 transition active:scale-95 cursor-pointer shadow-md shadow-rose-600/30 whitespace-nowrap flex items-center gap-1.5"
+          >
+            <span>Jump to Line {activeMarkers[0].line}</span>
+            <span>↗</span>
+          </button>
+        </div>
+      )}
 
       {/* Mobile C Symbol Helper Bar (Tab, {, }, ;, *, &, #, <, >) */}
       <div

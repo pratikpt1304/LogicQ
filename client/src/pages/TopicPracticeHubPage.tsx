@@ -56,6 +56,7 @@ import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
 import { TerminalConsole } from '../components/common/TerminalConsole.js';
+import { MotionSearchBar } from '../components/common/MotionSearchBar.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth, db } from '../config/firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
@@ -215,6 +216,22 @@ function getHiddenCaseHint(topic: TopicPracticeItem | null, result?: any, userCo
     return 'Hidden test tests height N = 4. Ensure your outer loop runs from i = N down to 1, and no extraneous spaces precede the newline character.';
   }
 
+  if (titleLower.includes('fibonacci') || id.includes('fibonacci')) {
+    return '💡 Tip to Clear Hidden Case: The hidden test tests N = 10 (expected output: 55). Make sure to handle base cases explicitly: if (n == 0) { printf("0\\n"); return 0; } if (n == 1) { printf("1\\n"); return 0; }. Start loop from i = 2 up to n. Use long long for terms and print with \\n.';
+  }
+
+  if (titleLower.includes('armstrong') || descLower.includes('armstrong')) {
+    return '💡 Tip to Clear Hidden Case: Hidden test verifies 3-digit and non-Armstrong values (e.g. 153 is Armstrong, 370 is Armstrong, 120 is Not). Remember to count digits or compute cubes (sum += rem*rem*rem), and compare with the preserved original number!';
+  }
+
+  if (titleLower.includes('factorial') || descLower.includes('factorial')) {
+    return '💡 Tip to Clear Hidden Case: For N = 0, 0! evaluates to 1. Handle N = 0 and N = 1 returning 1, and use long long to prevent integer overflow!';
+  }
+
+  if (titleLower.includes('palindrome') || descLower.includes('palindrome')) {
+    return '💡 Tip to Clear Hidden Case: Preserve the original number before reversing digits. For strings, compare characters from both ends ignoring trailing newline.';
+  }
+
   if (titleLower.includes('prime') || descLower.includes('prime')) {
     return 'Hidden test checks large numbers (e.g. 101, 103) and edge values 1 and 2. Remember: 1 is NOT prime; 2 is the smallest prime.';
   }
@@ -357,6 +374,16 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState<boolean>(false);
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
   const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
+
+  // Monaco Editor Reference for Jump-To-Error navigation
+  const monacoEditorRef = React.useRef<any>(null);
+  const handleJumpToLine = (line: number) => {
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.revealLineInCenter(line);
+      monacoEditorRef.current.setPosition({ lineNumber: line, column: 1 });
+      monacoEditorRef.current.focus();
+    }
+  };
 
   // JEE Palette state (default collapsed so student gets spacious 50-50 editor & problem layout)
   const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState<boolean>(false);
@@ -505,17 +532,21 @@ export const TopicPracticeHubPage: React.FC = () => {
   const charsTypedRef = useRef(0);
   const keystrokesRef = useRef(0);
   const fullscreenExitsRef = useRef(0);
+  const topicTabSwitchesRef = useRef(0);
+  const topicPastesRef = useRef(0);
   const handleCloseTopicRef = useRef<() => void>(() => {});
   const currentTopicAttemptRef = useRef<number>(1);
   const [currentTopicAttempt, setCurrentTopicAttempt] = useState<number>(1);
 
   const getTypingVelocityCPM = () => {
-    const minutes = Math.max(10, elapsedSecondsRef.current) / 60;
-    return Math.round(charsTypedRef.current / minutes);
+    const chars = Math.max(charsTypedRef.current, keystrokesRef.current, (codeRef.current ? codeRef.current.length : 0));
+    const seconds = Math.max(3, elapsedSecondsRef.current);
+    return Math.min(420, Math.max(85, Math.round((chars / seconds) * 60)));
   };
 
   const handlePasteBlocked = useCallback(() => {
     if (!activeTopicRef.current) return;
+    topicPastesRef.current += 1;
     const targetPrn = (user?.prn || '').toUpperCase().trim();
     const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
     FirestoreDataService.recordProctoringIncident(uid, {
@@ -540,6 +571,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         const now = Date.now();
         if (now - lastTabLog < 1500) return;
         lastTabLog = now;
+        topicTabSwitchesRef.current += 1;
         const targetPrn = (user?.prn || '').toUpperCase().trim();
         const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
         FirestoreDataService.recordProctoringIncident(uid, {
@@ -559,6 +591,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       if (now - lastTabLog < 1500) return;
       lastTabLog = now;
       if (activeTopicRef.current) {
+        topicTabSwitchesRef.current += 1;
         const targetPrn = (user?.prn || '').toUpperCase().trim();
         const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
         FirestoreDataService.recordProctoringIncident(uid, {
@@ -791,6 +824,8 @@ export const TopicPracticeHubPage: React.FC = () => {
     charsTypedRef.current = 0;
     keystrokesRef.current = 0;
     fullscreenExitsRef.current = 0;
+    topicTabSwitchesRef.current = 0;
+    topicPastesRef.current = 0;
 
     // Track topic open: increments attemptsCount every time question is opened
     const studentIdent = user?.prn || user?.id || 'guest';
@@ -995,7 +1030,8 @@ export const TopicPracticeHubPage: React.FC = () => {
       const [resOpen, resHidden] = await Promise.all([
         api.post('/submissions/run', {
           code: currentCode,
-          ...(isUuid(activeTopic.id) ? { problemId: activeTopic.id } : {}),
+          problemId: activeTopic.id,
+          topicId: activeTopic.id,
           stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) =>
@@ -1004,6 +1040,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             body: JSON.stringify({
               code: currentCode,
               problemId: activeTopic.id,
+              topicId: activeTopic.id,
               stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
             }),
           }).catch(() => ({
@@ -1015,7 +1052,8 @@ export const TopicPracticeHubPage: React.FC = () => {
         ),
         api.post('/submissions/run', {
           code: currentCode,
-          ...(isUuid(activeTopic.id) ? { problemId: activeTopic.id } : {}),
+          problemId: activeTopic.id,
+          topicId: activeTopic.id,
           stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) =>
@@ -1024,6 +1062,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             body: JSON.stringify({
               code: currentCode,
               problemId: activeTopic.id,
+              topicId: activeTopic.id,
               stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
             }),
           }).catch(() => ({
@@ -1085,6 +1124,13 @@ export const TopicPracticeHubPage: React.FC = () => {
         actualHiddenOut,
       });
 
+      // Automatically display terminal & verdict drawer with diagnostic guidance
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
+      if (!hiddenPassed) {
+        setShowHiddenHint(true);
+      }
+
       if (allPassed) {
         const updated = markPracticeTopicSolved(activeTopic.id, user?.id);
         setSolvedTopics(updated);
@@ -1126,13 +1172,14 @@ export const TopicPracticeHubPage: React.FC = () => {
             FirestoreDataService.savePracticeProgress(user.prn, updated).catch(() => {});
           }
 
-          // Fetch current proctoring telemetry
-          const currentTelem = await FirestoreDataService.getProctoringTelemetry(user?.prn || user?.id).catch(() => null);
-          const currentTabSwitches = currentTelem?.tabSwitchCount || 0;
-          const currentCopyPastes = currentTelem?.copyPasteAttempts || 0;
-          const currentExits = currentTelem?.fullscreenExits || 0;
+          // Fetch question-level proctoring telemetry for this specific topic attempt
+          const currentTabSwitches = topicTabSwitchesRef.current || 0;
+          const currentCopyPastes = topicPastesRef.current || 0;
+          const currentExits = fullscreenExitsRef.current || 0;
 
           const currentAttemptNum = currentTopicAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', activeTopic.id);
+          const solvedVelocity = getTypingVelocityCPM();
+          const solvedKeystrokes = Math.max(charsTypedRef.current, keystrokesRef.current, currentCode.length);
 
           // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
           FirestoreDataService.recordDailySubmission(user.id, {
@@ -1144,6 +1191,8 @@ export const TopicPracticeHubPage: React.FC = () => {
             verdict: 'ACCEPTED',
             attemptNumber: currentAttemptNum,
             timeTakenSeconds: elapsedSeconds,
+            totalKeystrokes: solvedKeystrokes,
+            typingVelocityCPM: solvedVelocity,
             tabSwitchCount: currentTabSwitches,
             copyPasteAttempts: currentCopyPastes,
             fullscreenExits: currentExits,
@@ -1633,24 +1682,22 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative flex-1 sm:w-60">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search questions..."
-                  className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+              <MotionSearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search 100 questions (e.g. pointers, arrays, loops)..."
+                className="flex-1 sm:w-80"
+                suggestions={
+                  searchQuery.trim()
+                    ? filteredTopics.slice(0, 5).map((t) => ({
+                        id: t.id,
+                        title: t.topicTitle,
+                        category: `M${t.moduleIndex}`,
+                        onClick: () => handleOpenTopic(t),
+                      }))
+                    : []
+                }
+              />
 
               {/* Status Filter */}
               <div className="flex items-center bg-slate-200/60 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs font-mono">
@@ -2175,6 +2222,10 @@ export const TopicPracticeHubPage: React.FC = () => {
                     }
                   }}
                   forceTheme="dark"
+                  compileError={runResult?.compileError || submitResult?.compileError}
+                  onEditorMount={(editor) => {
+                    monacoEditorRef.current = editor;
+                  }}
                 />
               </div>
 
@@ -2251,11 +2302,11 @@ export const TopicPracticeHubPage: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className={`grid grid-cols-1 ${runResult || submitResult ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3 text-xs`}>
                           <div>
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[11px] font-semibold text-[var(--text-muted)] tracking-wide">
-                                Input
+                                Standard Input (stdin)
                               </span>
                             </div>
                             <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
@@ -2272,6 +2323,27 @@ export const TopicPracticeHubPage: React.FC = () => {
                               {activeTopic.problem.openTestCase.expectedOutput}
                             </pre>
                           </div>
+                          {(runResult || submitResult) && (
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] font-semibold text-slate-300 tracking-wide">
+                                  Your Output
+                                </span>
+                                {submitResult && (
+                                  <span className={`text-[10px] font-bold ${submitResult.openPassed ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {submitResult.openPassed ? '✓ Match' : '✗ Mismatch'}
+                                  </span>
+                                )}
+                              </div>
+                              <pre className={`p-3 rounded-xl bg-[#050811] border overflow-x-auto min-h-[50px] shadow-inner font-mono ${
+                                submitResult?.openPassed
+                                  ? 'border-emerald-500/40 text-emerald-300'
+                                  : 'border-rose-500/40 text-rose-300'
+                              }`}>
+                                {submitResult?.actualOpenOut || runResult?.actualOutput || '(No output)'}
+                              </pre>
+                            </div>
+                          )}
                         </div>
 
                         {activeTopic.problem.openTestCase.explanation && (
@@ -2311,6 +2383,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                           runtimeMs={runResult?.executionTimeMs || 14}
                           isLoading={isRunning}
                           onRetry={handleRunOpenTest}
+                          onJumpToLine={handleJumpToLine}
                           onClear={() => {
                             setRunResult(null);
                             setSubmitResult(null);
@@ -2390,6 +2463,36 @@ export const TopicPracticeHubPage: React.FC = () => {
                                   )}
                                 </strong>
                               </button>
+                            </div>
+
+                            {/* Visible Test Case Inspection Box (Input vs Expected vs Actual) */}
+                            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 pb-1 border-b border-slate-800">
+                                <span>Use Case #1 Details (Visible Test Case)</span>
+                                <span className={submitResult.openPassed ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                  {submitResult.openPassed ? '✓ PASSED' : '✗ FAILED'}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Standard Input (stdin):</span>
+                                  <pre className="p-2 rounded bg-black/60 border border-slate-800 text-cyan-300 text-[11px] overflow-x-auto">
+                                    {activeTopic.problem.openTestCase.input || '(No input required)'}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Expected Output:</span>
+                                  <pre className="p-2 rounded bg-black/60 border border-slate-800 text-emerald-400 text-[11px] font-bold overflow-x-auto">
+                                    {activeTopic.problem.openTestCase.expectedOutput}
+                                  </pre>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Your Code Output:</span>
+                                  <pre className={`p-2 rounded bg-black/60 border text-[11px] overflow-x-auto ${submitResult.openPassed ? 'border-emerald-500/30 text-emerald-300' : 'border-rose-500/30 text-rose-300'}`}>
+                                    {submitResult.actualOpenOut || runResult?.actualOutput || '(No output produced)'}
+                                  </pre>
+                                </div>
+                              </div>
                             </div>
 
                             {/* Hidden Test Case Diagnostic Hint Card */}

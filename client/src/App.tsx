@@ -25,6 +25,7 @@ import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.j
 import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
 import { TopicPracticeHubPage } from './pages/TopicPracticeHubPage.js';
 import { PublicReportVerificationPage } from './pages/PublicReportVerificationPage.js';
+import { StudentVerificationPage } from './pages/StudentVerificationPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { SectionManagementPage } from './pages/faculty/SectionManagementPage.js';
 import { QuestionBankPage } from './pages/faculty/QuestionBankPage.js';
@@ -40,6 +41,8 @@ import { AdminPortalPage } from './pages/admin/AdminPortalPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
 import { BindEmailModal } from './components/common/BindEmailModal.js';
 import { ChangePasswordModal } from './components/common/ChangePasswordModal.js';
+import { StudentLiveAlertListener } from './components/common/StudentLiveAlertListener.js';
+import { RadialActionMenu } from './components/common/RadialActionMenu.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -137,6 +140,17 @@ export const App: React.FC = () => {
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
   const [isAutoChangePasswordOpen, setIsAutoChangePasswordOpen] = React.useState(false);
 
+  const isGlobalAdmin = Boolean(
+    isAdmin ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'FACULTY' ||
+    user?.role === 'INSTITUTIONAL_ADMIN' ||
+    (user?.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+    (user?.prn || '').toUpperCase().trim() === 'LOGICQARENA' ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/faculty')
+  );
+
   // Mandatory email binding for students who haven't bound their verified personal email yet (Epoch V2)
   useEffect(() => {
     if (!user) {
@@ -159,8 +173,9 @@ export const App: React.FC = () => {
     }
 
     if (user.role === 'STUDENT') {
-      const prnUpper = (user.prn || '').toUpperCase();
-      const userEmail = (user.email || '').toLowerCase();
+      const prnUpper = (user.prn || '').toUpperCase().trim();
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const boundEmail = ((user as any).boundEmail || '').toLowerCase().trim();
 
       // Demo accounts or showcase students never get interrupted by email binding
       if (prnUpper.includes('DEMO') || prnUpper === 'DUMMY' || (user.id && user.id.includes('demo'))) {
@@ -169,38 +184,36 @@ export const App: React.FC = () => {
         return;
       }
 
-      // Check if student has already bound a personal email or completed verification
-      const isExplicitlyUnbound = (user as any).isEmailBound === false || (user as any).isEmailBoundV2 === false;
-      const hasRealBoundEmail = Boolean(
-        user.email &&
-        !user.email.endsWith('@sanjivani.edu.in') &&
-        !user.email.includes('placeholder')
-      );
-      const hasBoundEmail = !isExplicitlyUnbound && Boolean(
-        (user as any).isEmailBoundV2 ||
-        (user as any).isEmailBound ||
-        hasRealBoundEmail
+      // Check if student has bound email in localStorage or Firestore
+      const storedBoundV2 = prnUpper ? localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true' : false;
+      const storedBoundStatus = prnUpper ? localStorage.getItem(`logicq_bound_status_${prnUpper}`) === 'true' : false;
+      const storedBoundEmail = prnUpper ? localStorage.getItem(`logicq_bound_email_${prnUpper}`) : null;
+      const isDismissed = false; // Email binding is mandatory — dismiss is no longer allowed
+
+      const hasPersonalEmail = Boolean(
+        (userEmail && !userEmail.endsWith('@sanjivani.edu.in') && !userEmail.includes('placeholder') && userEmail.includes('@')) ||
+        (storedBoundEmail && !storedBoundEmail.endsWith('@sanjivani.edu.in') && storedBoundEmail.includes('@')) ||
+        (boundEmail && !boundEmail.endsWith('@sanjivani.edu.in') && boundEmail.includes('@'))
       );
 
-      // Strictly compulsory: no dismissal without actual verified binding
+      const hasBoundEmail = Boolean(
+        storedBoundV2 ||
+        storedBoundStatus ||
+        hasPersonalEmail ||
+        (user as any).isEmailBoundV2 === true ||
+        (user as any).isEmailBound === true ||
+        (user as any).identityStatus === 'BOUND'
+      );
+
+      // If already bound, never show popup. Dismiss is no longer an option — email binding is mandatory.
       if (hasBoundEmail) {
         setIsAutoBindEmailOpen(false);
-        // If email is already bound, prompt Change Password if they haven't set a custom password yet
-        const hasCustomPw = Boolean(
-          (prnUpper && localStorage.getItem(`logicq_custom_password_${prnUpper}`)) ||
-          (user.id && localStorage.getItem(`logicq_custom_password_${user.id}`))
-        );
-        const hasPrompted = sessionStorage.getItem(`logicq_pwd_prompt_${prnUpper || user.id}`) === 'true';
-        if (!hasCustomPw && !hasPrompted && location.pathname !== '/login') {
-          sessionStorage.setItem(`logicq_pwd_prompt_${prnUpper || user.id}`, 'true');
-          const pwdTimer = setTimeout(() => setIsAutoChangePasswordOpen(true), 1500);
-          return () => clearTimeout(pwdTimer);
-        }
+        setIsAutoChangePasswordOpen(false);
         return;
       }
 
       if (location.pathname !== '/login') {
-        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 1500);
+        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 2500);
         return () => clearTimeout(timer);
       }
     } else {
@@ -273,6 +286,7 @@ export const App: React.FC = () => {
         <Navbar />
       </div>
       <PwaManager />
+      <StudentLiveAlertListener />
 
       <main className={`flex-1 w-full overflow-x-hidden ${isWorkspaceRoute ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         <Routes>
@@ -298,6 +312,9 @@ export const App: React.FC = () => {
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/how-to-install" element={<HowToInstallPage />} />
+          <Route path="/verify" element={<StudentVerificationPage />} />
+          <Route path="/verify/:identifier" element={<StudentVerificationPage />} />
+          <Route path="/verify/student/:identifier" element={<StudentVerificationPage />} />
           <Route path="/verify/report/:reportId" element={<PublicReportVerificationPage />} />
 
           {/* Authentication */}
@@ -555,15 +572,12 @@ export const App: React.FC = () => {
       <BindEmailModal
         isOpen={isAutoBindEmailOpen}
         onClose={() => {
-          localStorage.setItem('logicq_dismiss_bind_modal', 'true');
-          sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
+          // Only close after successful binding (onSuccess) — not via dismiss
+          // Modal is mandatory; this onClose is called only after email bind success
           setIsAutoBindEmailOpen(false);
         }}
         onSuccess={() => {
           setIsAutoBindEmailOpen(false);
-          setTimeout(() => {
-            setIsAutoChangePasswordOpen(true);
-          }, 400);
         }}
         forcePrompt={false}
       />
@@ -571,6 +585,9 @@ export const App: React.FC = () => {
         isOpen={isAutoChangePasswordOpen}
         onClose={() => setIsAutoChangePasswordOpen(false)}
       />
+
+      {/* 360 Radial Neumorphic Bubble Quick Action Menu */}
+      <RadialActionMenu />
     </div>
   );
 };

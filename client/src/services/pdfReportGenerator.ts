@@ -37,7 +37,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   const contentWidth = pageWidth - (margin * 2); // 180mm
 
   // Generate QR code data URL
-  const verifyUrl = `https://logicq-clanguage.web.app/analytics?student=${encodeURIComponent(opts.prn || opts.email)}`;
+  const verifyUrl = `https://logicq-clanguage.web.app/verify?student=${encodeURIComponent(opts.prn || opts.email)}`;
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 160, margin: 1 });
@@ -113,7 +113,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.text(`${opts.cieMarks.toFixed(1)} / 20`, margin + 3, y + 12);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Continuous Evaluation', margin + 3, y + 17);
+  doc.text(opts.cieMarks > 0 ? 'Continuous Evaluation' : 'No Lab Submissions Yet', margin + 3, y + 17);
 
   // Tile 2: Academic Accuracy
   doc.setFillColor(236, 253, 245); // emerald-50
@@ -127,7 +127,8 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.text(`${opts.compilerAccuracy}%`, margin + tileWidth + 6, y + 12);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${opts.acceptedCount} Accepted Solutions`, margin + tileWidth + 6, y + 17);
+  const solutionText = opts.acceptedCount === 1 ? '1 Accepted Solution' : `${opts.acceptedCount} Accepted Solutions`;
+  doc.text(solutionText, margin + tileWidth + 6, y + 17);
 
   // Tile 3: Experiments Mastered
   doc.setFillColor(245, 243, 255); // purple-50

@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogicQ - Student User Manual & Guide | Integrated M.Tech AY 2026-27</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-dark: #172554;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --border: #e2e8f0;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-main);
+      background: var(--bg-page);
+      line-height: 1.65;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Print styles */
+    @media print {
+      body { background: white !important; font-size: 12pt; }
+      .no-print { display: none !important; }
+      .container { max-width: 100% !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+      .cover-banner { border-radius: 0 !important; page-break-after: always; padding: 120px 40px !important; }
+      .section-card { page-break-inside: avoid; border: none !important; box-shadow: none !important; padding: 15px 0 !important; }
+      a { text-decoration: none; color: inherit; }
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 30px auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08);
+    }
+
+    /* Cover Page / Banner */
+    .cover-banner {
+      background: linear-gradient(135deg, #1e3a8a 0%, #172554 60%, #0f172a 100%);
+      color: #ffffff;
+      padding: 60px 50px 50px;
+      position: relative;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .cover-title {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .cover-subtitle {
+      font-size: 20px;
+      font-weight: 500;
+      color: #93c5fd;
+      margin-bottom: 24px;
+    }
+
+    .cover-tagline {
+      font-style: italic;
+      color: #cbd5e1;
+      font-size: 16px;
+      border-left: 3px solid #60a5fa;
+      padding-left: 14px;
+      margin-bottom: 35px;
+    }
+
+    .cover-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 15px;
+      padding-top: 25px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .cover-meta strong {
+      color: #ffffff;
+    }
+
+    .cover-meta a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 16px 40px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .btn-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-print:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .search-input {
+      padding: 9px 16px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 13px;
+      min-width: 260px;
+      outline: none;
+      background: white;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    /* Content Area */
+    .content-body {
+      padding: 40px 50px 60px;
+    }
+
+    /* Section Cards */
+    .section-card {
+      margin-bottom: 40px;
+      scroll-margin-top: 30px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 22px 0 10px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: #334155;
+    }
+
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    /* Highlights / Callouts */
+    .callout {
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 18px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .callout-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .callout-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+
+    .callout-danger {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .callout-success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 14px;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #1e293b;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr.total-row {
+      font-weight: 700;
+      background: #f8fafc;
+      color: var(--primary);
+    }
+
+    /* Code Blocks */
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+    }
+
+    .code-wrong {
+      color: #dc2626;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .code-right {
+      color: #16a34a;
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    /* At a glance box */
+    .at-a-glance {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 35px;
+    }
+
+    .at-a-glance h2 {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 14px;
+      color: var(--primary);
+    }
+
+    .at-a-glance ul {
+      margin-left: 20px;
+      margin-bottom: 0;
+    }
+
+    .at-a-glance li {
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    /* Quick steps grid */
+    .step-list {
+      list-style-type: none;
+      margin: 16px 0;
+      padding: 0;
+      counter-reset: step-counter;
+    }
+
+    .step-list li {
+      position: relative;
+      padding-left: 42px;
+      margin-bottom: 16px;
+      counter-increment: step-counter;
+    }
+
+    .step-list li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 26px;
+      height: 26px;
+      background: var(--accent);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Q&A Accordion Style */
+    .qa-item {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+    }
+
+    .qa-question {
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qa-answer {
+      color: #334155;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .footer-note {
+      text-align: center;
+      padding: 30px;
+      background: #f1f5f9;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .footer-note a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Cover Header -->
+  <div class="cover-banner">
+    <div class="cover-badge">Official Student User Manual</div>
+    <div class="cover-title">LogicQ</div>
+    <div class="cover-subtitle">User Guide</div>
+    <div class="cover-tagline">Practice C. Solve every module. Build real understanding.</div>
+
+    <div class="cover-meta">
+      <div>
+        <strong>Integrated M.Tech</strong> | Academic Year 2026-27<br>
+        Platform: <a href="https://logicq-clanguage.web.app" target="_blank">logicq-clanguage.web.app</a>
+      </div>
+      <div>
+        Developed by <strong>Bitwise Club</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions Bar -->
+  <div class="controls-bar no-print">
+    <button class="btn-print" onclick="window.print()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <path d="M6 14h12v8H6z"/>
+      </svg>
+      Print / Save as PDF
+    </button>
+    <input type="text" id="guideSearch" class="search-input" placeholder="Search guide (e.g. OTP, viva, locked)..." oninput="filterGuide()">
+  </div>
+
+  <!-- Guide Body -->
+  <div class="content-body" id="guideContent">
+
+    <!-- At a glance -->
+    <div class="at-a-glance section-card">
+      <h2>📌 At a glance</h2>
+      <ul>
+        <li><strong>100 marks per module:</strong> 4 sections &times; 20 questions (80 marks) + 1 integrated mini-project (20 marks).</li>
+        <li><strong>3 test cases per question:</strong> 2 visible and 1 hidden.</li>
+        <li><strong>Time matters:</strong> a correct answer within the prescribed time earns the full mark.</li>
+        <li><strong>One submission per question:</strong> once you submit a correct solution, it is locked.</li>
+        <li><strong>Two separate scores:</strong> your Academic Score and your Integrity Score are never merged.</li>
+      </ul>
+    </div>
+
+    <!-- Section 1 -->
+    <div class="section-card">
+      <h2>1. Create your account and verify your identity</h2>
+      <p>Your identity is bound to one PRN, one email address and one mobile number. You do this once.</p>
+      
+      <ol class="step-list">
+        <li><strong>Open the portal</strong> (or your instant join link) in Google Chrome or Microsoft Edge.</li>
+        <li><strong>Enter your PRN</strong> in UPPERCASE with no spaces, for example <code>2126PMIM1003</code>. The system checks whether it already exists.</li>
+        <li><strong>Enter your email address</strong> and verify the email OTP.</li>
+        <li><strong>Enter your mobile number</strong> and verify the mobile OTP.</li>
+        <li><strong>Only after both OTPs succeed</strong>, your PRN, email and mobile are bound to your account.</li>
+      </ol>
+
+      <div class="callout callout-info">
+        <strong>💡 Good to know:</strong>
+        <ul style="margin: 8px 0 0 20px;">
+          <li>Your PRN, email and mobile must each be unique. One email or mobile cannot belong to two PRNs, and one PRN cannot have two email/mobile pairs.</li>
+          <li>OTPs expire and have retry limits. Request a new one if yours expires.</li>
+          <li>Until your identity is bound and your account is Active, you cannot see questions, test cases, the code editor or any assessment.</li>
+          <li>If your details conflict with an existing record, you cannot bypass it. Contact the Department Faculty Desk for identity recovery.</li>
+        </ul>
+      </div>
+      <p><strong>Account states:</strong> <code>Pending</code>, <code>Email OTP Verified</code>, <code>Mobile OTP Verified</code>, <code>Identity Bound</code>, <code>Active</code>, <code>Suspended</code>.</p>
+    </div>
+
+    <!-- Section 2 -->
+    <div class="section-card">
+      <h2>2. Join a section</h2>
+      <p>Your faculty adds you to a section in one of two ways:</p>
+      <ul>
+        <li><strong>Excel upload:</strong> faculty import your name, PRN, email and mobile. You still complete both OTPs.</li>
+        <li><strong>Instant join form:</strong> faculty share a link, QR code or WhatsApp message. Enter your name, PRN, email and mobile, then verify both OTPs. Submitting the form alone does not give you access.</li>
+      </ul>
+    </div>
+
+    <!-- Section 3 -->
+    <div class="section-card">
+      <h2>3. Devices and sessions</h2>
+      <ul>
+        <li>Each account can register up to <strong>two devices</strong> (for example one laptop and one phone). A third device is blocked.</li>
+        <li><strong>Only one session is active at a time.</strong> Signing in on another device ends the open session.</li>
+        <li>If your device is damaged or replaced, ask department faculty to reset your registered devices.</li>
+      </ul>
+    </div>
+
+    <!-- Section 4 -->
+    <div class="section-card">
+      <h2>4. Your dashboard</h2>
+      <p>After login you see:</p>
+      <ul>
+        <li><strong>Test cards:</strong> Active Tests, Upcoming Tests, Completed Tests.</li>
+        <li><strong>Current Module</strong> and your progress.</li>
+        <li><strong>Academic Score and Integrity Score</strong>, shown separately.</li>
+        <li><strong>Strong areas</strong>, areas of concern and learning gaps.</li>
+        <li><strong>AI learning insights:</strong> specific practice recommendations.</li>
+      </ul>
+      <p><em>Open Profile from your avatar to see your PRN, division, bound email, mobile and registered devices.</em></p>
+    </div>
+
+    <!-- Section 5 -->
+    <div class="section-card">
+      <h2>5. How a module is scored (100 marks)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Calculation</th>
+            <th>Marks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Section 1</td>
+            <td>20 questions &times; 1</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td>Section 2</td>
+            <td>20 questions &times; 1</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td>Section 3</td>
+            <td>20 questions &times; 1</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td>Section 4</td>
+            <td>20 questions &times; 1</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td>Integrated Mini-Project</td>
+            <td>Rubric-based</td>
+            <td>20</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td></td>
+            <td>100</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Time-based marking</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Result</th>
+            <th>Mark</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Correct and within the prescribed time</td>
+            <td><strong>1</strong></td>
+          </tr>
+          <tr>
+            <td>Correct but outside the prescribed time</td>
+            <td><strong>0.5</strong></td>
+          </tr>
+          <tr>
+            <td>Incorrect</td>
+            <td><strong>0</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Each question has a difficulty and an expected solving time:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Difficulty</th>
+            <th>Expected time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Easy</td>
+            <td>2–8 minutes</td>
+          </tr>
+          <tr>
+            <td>Medium</td>
+            <td>8–15 minutes</td>
+          </tr>
+          <tr>
+            <td>Hard</td>
+            <td>15–25 minutes</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Your question timer starts when you <strong>start the question</strong>, not when you log in. After submission you can see your actual time, the expected reference time, and the deviation in minutes and percent.</p>
+    </div>
+
+    <!-- Section 6 -->
+    <div class="section-card">
+      <h2>6. The four modules</h2>
+      <ol>
+        <li><strong>Control Structures:</strong> if-else, switch-case, nested loops, primality checking, bitwise operators.</li>
+        <li><strong>Arrays and Matrices:</strong> 1D arrays, frequency counting, matrix multiplication, spiral generator, transposes.</li>
+        <li><strong>Strings and Buffers:</strong> custom strlen, strcpy and strcmp without string.h, palindromes, anagrams, buffer safety.</li>
+        <li><strong>Functions and Pointers:</strong> pass by value and reference, Tower of Hanoi, pointer arithmetic, malloc and free, structs.</li>
+      </ol>
+      <p><em>The mini-project combines concepts from all four sections (see Section 12).</em></p>
+    </div>
+
+    <!-- Section 7 -->
+    <div class="section-card">
+      <h2>7. Solve a question</h2>
+      <ol class="step-list">
+        <li><strong>Open and start the question.</strong> The timer begins now.</li>
+        <li><strong>Read the problem:</strong> statement, scenario, input and output format, constraints and examples. Starter code is provided where applicable.</li>
+        <li><strong>Write your code</strong> in the built-in secure editor.</li>
+        <li><strong>Run.</strong> Check against the two visible test cases and read the console output.</li>
+        <li><strong>Submit.</strong> The hidden test case runs on the server. You see Passed or Failed for each case, but never the hidden input or output.</li>
+        <li><strong>Lock.</strong> Once a correct submission is accepted, the question is locked. There is no Retry, Reopen, Reset or Attempt Again, and your original submission and timing are kept as a permanent record.</li>
+      </ol>
+
+      <h3>Test cases</h3>
+      <ul>
+        <li><strong>Test Case 1 and 2 (visible):</strong> you see the input, expected output and test condition.</li>
+        <li><strong>Test Case 3 (hidden):</strong> evaluated on the server. Think about edge cases: zero, negative values, boundaries, large inputs.</li>
+      </ul>
+
+      <div class="callout callout-warning">
+        <strong>⚠️ Keep input and output clean:</strong><br>
+        Test harnesses match output character by character. Use only <code>scanf</code> and <code>printf</code> for the answer.<br><br>
+        • <span style="color:#b91c1c; font-weight:600;">WRONG:</span> <code class="code-wrong">printf("Enter n: ");</code><br>
+        • <span style="color:#15803d; font-weight:600;">RIGHT:</span> <code class="code-right">scanf("%d", &amp;n);</code><br>
+        • <span style="color:#15803d; font-weight:600;">RIGHT:</span> <code class="code-right">printf("%d\n", ans);</code>
+      </div>
+
+      <p><strong>Infinite loop guard:</strong> The compiler allows 1.0 second of CPU time. Loops like <code>while(1)</code> end with Time Limit Exceeded.</p>
+
+      <h3>Different questions for different students</h3>
+      <p>Question order and question variants are randomised, and inputs and parameters can differ per student. Each question you receive has its own <strong>Question Variant ID</strong>. Do not rely on a friend's solution.</p>
+    </div>
+
+    <!-- Section 8 -->
+    <div class="section-card">
+      <h2>8. Practice Mode</h2>
+      <p>Practice Mode is for learning without pressure.</p>
+      <ul>
+        <li>Unlimited time per problem.</li>
+        <li>Switching tabs or looking up syntax never affects your Integrity Score.</li>
+        <li>Every keystroke is auto-saved to the cloud, so a dropped connection costs you nothing.</li>
+      </ul>
+    </div>
+
+    <!-- Section 9 -->
+    <div class="section-card">
+      <h2>9. Assessments (timed and proctored)</h2>
+      <p>Faculty create and assign tests. A test has a name, instructions, duration, question count and start and end time.</p>
+      <ol class="step-list">
+        <li><strong>Find the test</strong> in Active Tests on your dashboard, or open the link shared by faculty.</li>
+        <li><strong>Start in fullscreen</strong> where your browser supports it.</li>
+        <li><strong>Start each question</strong> when you are ready; its timer begins then.</li>
+        <li><strong>Submit in time.</strong> Everything auto-submits when the test timer ends.</li>
+      </ol>
+      <p><em>Before you start: check your connection and battery, and close other applications.</em></p>
+    </div>
+
+    <!-- Section 10 -->
+    <div class="section-card">
+      <h2>10. AI Viva: verifying your understanding</h2>
+      <p>As part of assessments, you may be asked a short viva about your own code.</p>
+      <ul>
+        <li><strong>When:</strong> after every second successive correct submission (the 2nd, 4th, 6th and so on).</li>
+        <li><strong>What:</strong> an AI-generated question based on your <strong>actual submitted code</strong>. It may cover logic, variables, loops, conditions, pointers, edge cases, complexity or why you made a choice.</li>
+        <li><strong>Time:</strong> a strict <strong>one-minute timer</strong>. You see the question, the countdown and an answer field or recording control. Submit before time runs out.</li>
+        <li><strong>What is recorded:</strong> the question, your answer or recording, response time, whether you answered before timeout, and the linked code. Faculty review your response alongside your code.</li>
+      </ul>
+      <div class="callout callout-info">
+        <strong>🛡️ This is not an accusation:</strong> The viva is marked on your record as "Suspicious Flag - Viva Trigger", which only means an extra understanding check was triggered. It is not a conclusion that you cheated. If you wrote the code yourself, you will be able to explain it.<br><br>
+        <em>If you submit an incorrect final answer, the successive-correct counter resets.</em>
+      </div>
+    </div>
+
+    <!-- Section 11 -->
+    <div class="section-card">
+      <h2>11. Assessment integrity</h2>
+      <p>During assessments, LogicQ looks for unusual behaviour that may need faculty review. Practice Mode is not affected.</p>
+      
+      <h3>What the editor restricts</h3>
+      <p>Where technically possible, the secure editor blocks copy, paste, cut, right-click, text selection, drag and drop, and external content insertion. Attempts are recorded with timestamps.</p>
+
+      <h3>What is recorded</h3>
+      <ul>
+        <li><strong>Environment:</strong> tab switches, focus loss (count and duration), fullscreen exits, navigation attempts.</li>
+        <li><strong>Clipboard:</strong> copy, paste, cut and drag-drop attempts.</li>
+        <li><strong>Writing behaviour:</strong> typing and editing patterns, large sudden code insertions, how your code grew over time.</li>
+        <li><strong>Running and debugging:</strong> compile and runtime errors, number of runs, time between edits and runs.</li>
+        <li><strong>Engagement and timing:</strong> active work time and how the solution emerged over time.</li>
+      </ul>
+
+      <h3>How to read your Integrity Score</h3>
+      <ul>
+        <li>It is a number from <strong>0 to 100</strong> for each question and for your whole assessment, where <strong>lower is better</strong>.</li>
+        <li><strong>Classifications:</strong> Normal, Low Risk, Moderate Risk, High Risk, Critical Risk.</li>
+        <li><strong>It is a risk indicator, not proof.</strong> No single signal and no single score leads to an automatic academic penalty. Faculty review flagged sessions.</li>
+        <li><strong>It is separate from your Academic Score.</strong> A high academic score and a review flag can exist together.</li>
+        <li>You can see your own score, classification and recorded metrics. Internal thresholds and weights are not shown.</li>
+      </ul>
+
+      <h3>Staying clean</h3>
+      <ul>
+        <li>Stay in fullscreen and on the assessment tab.</li>
+        <li>Type your own code. Do not paste from AI tools or websites.</li>
+        <li>Work step by step: write, run, debug, improve.</li>
+      </ul>
+    </div>
+
+    <!-- Section 12 -->
+    <div class="section-card">
+      <h2>12. Mini-project</h2>
+      <p>The mini-project is worth <strong>20 marks</strong> and combines concepts from all four sections.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Rubric component</th>
+            <th>Marks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Section 1 competency</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td>Section 2 competency</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td>Section 3 competency</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td>Section 4 competency</td>
+            <td>5</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td>20</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul>
+        <li><strong>It starts INACTIVE.</strong> Joining a section, finishing questions or completing the module does not activate it.</li>
+        <li><strong>Faculty activate it for you individually</strong> after reviewing your progress. There is no bulk or automatic activation.</li>
+        <li>Once active, you work in the same secure, monitored environment as other assessments.</li>
+        <li>Your project score and Integrity Score are recorded separately.</li>
+      </ul>
+      <p><em>If you meet the eligibility criteria and your project is still inactive, speak to your faculty.</em></p>
+    </div>
+
+    <!-- Section 13 -->
+    <div class="section-card">
+      <h2>13. Analytics, reports and transcripts</h2>
+      <h3>Performance charts</h3>
+      <ul>
+        <li>Overall marks, percentage and percentile.</li>
+        <li>Module-wise and Section 1–4 performance.</li>
+        <li>Easy, Medium and Hard performance.</li>
+        <li>Topic and learning-outcome performance.</li>
+        <li>Expected versus actual time and deviation.</li>
+        <li>Success on Test Case 1, Test Case 2 and the hidden test.</li>
+        <li>Performance trend across tests and modules.</li>
+      </ul>
+
+      <h3>Gap analysis and learning insights</h3>
+      <p>AI looks at repeated mistakes, long solving times, compilation errors, hidden-test failures and your improvement trend, then tells you your strengths, developing areas and gaps, with specific practice recommendations. One question never defines you. If you need support, you get a support alert with suggestions. Strong performers get challenge problems and extension activities. Faculty can review and override these insights.</p>
+
+      <h3>Module completion dashboard</h3>
+      <p>When you complete a module you get a dashboard and downloadable report based only on your actual submissions. It shows Academic Score X/100 and Integrity Score Y/100 separately, plus question-wise and section scores, the mini-project score (if completed), strengths, concerns, gaps, timing and test-case performance.</p>
+
+      <h3>Performance Report (PDF)</h3>
+      <p>Select <strong>Download Performance Report</strong>.</p>
+      <ul>
+        <li><strong>Part A, Submitted Solutions:</strong> question ID and statement, difficulty, your code, submission time, all three test results and marks.</li>
+        <li><strong>Part B, Performance and Integrity:</strong> timing and deviation, marks, Integrity Score, recorded behaviour metrics, and viva details if triggered.</li>
+      </ul>
+    </div>
+
+    <!-- Section 14 -->
+    <div class="section-card">
+      <h2>14. Your privacy</h2>
+      <ul>
+        <li>Only data needed for assessment, academic analytics, integrity verification and learning analytics is collected.</li>
+        <li>Identity, academic and behavioural data are kept separate.</li>
+        <li>Students see only their own data. Faculty see only the sections and students they are authorised for.</li>
+        <li>Faculty dashboards show summaries, not raw keystrokes.</li>
+        <li>Ask your department for the retention and deletion policy.</li>
+      </ul>
+    </div>
+
+    <!-- Section 15 -->
+    <div class="section-card">
+      <h2>15. Code of conduct</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px;">
+        <div class="callout callout-success" style="margin: 0;">
+          <strong style="color: #166534; font-size: 15px;">✅ Do</strong>
+          <ul style="margin: 10px 0 0 18px;">
+            <li>Complete OTP verification and keep your details accurate.</li>
+            <li>Stay within two registered devices.</li>
+            <li>Start a question only when you are ready, because its timer begins immediately.</li>
+            <li>Use Practice Mode to build speed and understanding.</li>
+            <li>Explain your own code confidently when a viva appears.</li>
+          </ul>
+        </div>
+        <div class="callout callout-danger" style="margin: 0;">
+          <strong style="color: #991b1b; font-size: 15px;">❌ Don't</strong>
+          <ul style="margin: 10px 0 0 18px;">
+            <li>Sign in from a third device or share your account.</li>
+            <li>Leave fullscreen or switch tabs during an assessment.</li>
+            <li>Paste code from AI tools or outside repositories.</li>
+            <li>Add prompts like <code>printf("Enter: ")</code> to your code.</li>
+            <li>Share solutions. Your variants are different, and sharing does not help you.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 16 -->
+    <div class="section-card">
+      <h2>16. Troubleshooting</h2>
+      
+      <div class="qa-item">
+        <div class="qa-question">❓ I cannot access any questions.</div>
+        <p class="qa-answer">Your identity must be bound and your account Active. Complete both OTPs, or contact the Department Faculty Desk.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ My OTP did not arrive or has expired.</div>
+        <p class="qa-answer">Request a new one. There are retry and rate limits, so wait a moment between attempts.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ My PRN, email or mobile is rejected as a conflict.</div>
+        <p class="qa-answer">Each must be unique and permanently paired. Contact the Department Faculty Desk for identity recovery.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ My question is locked.</div>
+        <p class="qa-answer">A successfully submitted question cannot be reopened. This is by design.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ "Wrong Answer" but my output looks right.</div>
+        <p class="qa-answer">Compare the console diff closely. Hidden trailing spaces or a missing <code>\n</code> cause a mismatch. Also test edge cases, since the hidden test may check one.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ Compile error: "break statement outside loop or switch".</div>
+        <p class="qa-answer">Check your closing curly braces. A brace closed too early pushes <code>default:</code> and <code>break;</code> outside the switch.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ I see Error 404 or "Segfault Encountered".</div>
+        <p class="qa-answer">You opened an outdated link or your session expired. Select Return Home.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ My third device is blocked.</div>
+        <p class="qa-answer">This is the two-device limit working as designed. Ask department faculty to reset your registered devices.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ My mini-project is inactive.</div>
+        <p class="qa-answer">Faculty activate it individually. Ask your faculty to review your progress.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ I think my integrity flag is wrong.</div>
+        <p class="qa-answer">A flag is a risk indicator, not a verdict. Faculty review it, and you can discuss it with them.</p>
+      </div>
+
+      <div class="callout callout-info" style="margin-top: 20px;">
+        💬 <strong>Still stuck?</strong> Contact the Department Faculty Desk or reach out via Faculty WhatsApp / Faculty Email.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    LogicQ &bull; Smart C Programming Practice & Evaluation &bull; <a href="https://logicq-clanguage.web.app" target="_blank">logicq-clanguage.web.app</a><br>
+    Developed with pride by <strong>Bitwise Club</strong> &bull; Integrated M.Tech AY 2026-27
+  </div>
+
+</div>
+
+<script>
+  function filterGuide() {
+    const q = document.getElementById('guideSearch').value.toLowerCase().trim();
+    const sections = document.querySelectorAll('.section-card, .qa-item');
+    sections.forEach(sec => {
+      if (!q) {
+        sec.style.display = '';
+        return;
+      }
+      const text = sec.innerText.toLowerCase();
+      sec.style.display = text.includes(q) ? '' : 'none';
+    });
+  }
+</script>
+
+</body>
+</html>

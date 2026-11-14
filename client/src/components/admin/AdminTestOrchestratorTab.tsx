@@ -25,12 +25,14 @@ import {
   FileSpreadsheet,
   UploadCloud,
   Download,
+  MessageSquare,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { TestSubmissionsAuditModal } from './TestSubmissionsAuditModal.js';
+import { WhatsAppBroadcastModal } from './WhatsAppBroadcastModal.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -180,6 +182,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [selectedAuditTest, setSelectedAuditTest] = useState<AdminTestDefinition | null>(null);
   const [selectedAuditStudentId, setSelectedAuditStudentId] = useState<string | null>(null);
   const [testSubmissionsMap, setTestSubmissionsMap] = useState<Record<string, any[]>>({});
+  const [selectedWhatsAppTest, setSelectedWhatsAppTest] = useState<AdminTestDefinition | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -1135,7 +1138,17 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   {t.status === 'ACTIVE' ? 'Mark Completed' : t.status === 'UPCOMING' ? 'Start Test Now' : 'Reactivate'}
                 </button>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedWhatsAppTest(t)}
+                    className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                    title="Broadcast Assessment Alert on WhatsApp (OpenWA Gateway)"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1683,6 +1696,13 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           initialSelectedStudentId={selectedAuditStudentId}
         />
       )}
+
+      {/* 5. WHATSAPP / OPENWA BROADCAST MODAL */}
+      <WhatsAppBroadcastModal
+        isOpen={Boolean(selectedWhatsAppTest)}
+        onClose={() => setSelectedWhatsAppTest(null)}
+        test={selectedWhatsAppTest}
+      />
     </div>
   );
 };

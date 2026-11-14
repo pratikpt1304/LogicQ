@@ -15,6 +15,8 @@ import {
   AlertCircle,
   ExternalLink,
   Layers,
+  CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -22,6 +24,9 @@ import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
+import { FadeUp, StaggerContainer, StaggerItem } from '../common/ScrollAnimations.js';
+import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
+import { isRealPersonName } from '../../config/academic.config.js';
 
 export interface AdminStudentRecord {
   id: string;
@@ -47,7 +52,7 @@ export const AdminStudentsTab: React.FC = () => {
   const [students, setStudents] = useState<AdminStudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'VERIFIED' | 'UNLOCKED'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'VERIFIED' | 'UNLOCKED'>('ALL');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<AdminStudentRecord | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
@@ -95,11 +100,18 @@ export const AdminStudentsTab: React.FC = () => {
             if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
               const cleaned = parsed
                 .filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
-                .map((s: any) => ({
-                  ...s,
-                  name: s.name || s.fullName || s.displayName || 'Student Candidate',
-                  section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
-                }));
+                .map((s: any) => {
+                  const prnC = (s.prn || '').toUpperCase().trim();
+                  const cs = prnC ? findCohortStudent(prnC) : null;
+                  const validName = (s.name && isRealPersonName(s.name) ? s.name : null) ||
+                                    (cs ? cs.fullName : null) ||
+                                    s.name || s.fullName || s.displayName || 'Student Candidate';
+                  return {
+                    ...s,
+                    name: validName,
+                    section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
+                  };
+                });
               setStudents(cleaned);
             }
           }
@@ -133,21 +145,44 @@ export const AdminStudentsTab: React.FC = () => {
             .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
             .map((u) => {
               const anyUser = u as any;
-              const isBound = Boolean(
-                anyUser.isEmailBoundV2 ||
-                anyUser.emailVerified ||
-                (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in') && anyUser.email.includes('@'))
-              );
-
               const prnClean = (anyUser.prn || '').toUpperCase().trim();
               const userEmail = (anyUser.email || '').toLowerCase().trim();
               const userId = String(anyUser.id || anyUser.uid || '').trim();
 
+              const altPrn = prnClean.startsWith('1226') ? '2126' + prnClean.slice(4) : (prnClean.startsWith('2126') ? '1226' + prnClean.slice(4) : null);
               const cData = cohortMap.get(prnClean) ||
                             cohortMap.get(prnClean.replace(/0/g, 'O')) ||
                             cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                            (altPrn ? cohortMap.get(altPrn) : null) ||
                             cohortMap.get(userId.toUpperCase()) || {};
               const mod = cData.moduleProgress || {};
+
+              const isBound = Boolean(
+                anyUser.isEmailBound ||
+                anyUser.isEmailBoundV2 ||
+                anyUser.emailVerified ||
+                anyUser.identityStatus === 'BOUND' ||
+                Boolean(anyUser.boundEmail) ||
+                cData.isEmailBound ||
+                cData.isEmailBoundV2 ||
+                cData.emailVerified ||
+                Boolean(cData.boundEmail) ||
+                Boolean(mod.boundEmail) ||
+                Boolean(mod.isEmailBound) ||
+                Boolean(mod.isEmailBoundV2) ||
+                (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in') && anyUser.email.includes('@')) ||
+                (cData.boundEmail && !cData.boundEmail.endsWith('@sanjivani.edu.in') && cData.boundEmail.includes('@')) ||
+                (cData.studentEmail && !cData.studentEmail.endsWith('@sanjivani.edu.in') && cData.studentEmail.includes('@'))
+              );
+
+              const resolvedEmail =
+                cData.boundEmail ||
+                mod.boundEmail ||
+                anyUser.boundEmail ||
+                (cData.studentEmail && !cData.studentEmail.endsWith('@sanjivani.edu.in') ? cData.studentEmail : null) ||
+                (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in') ? anyUser.email : null) ||
+                anyUser.email ||
+                (prnClean ? `${prnClean.toLowerCase()}@sanjivani.edu.in` : '—');
 
               // Match student's submissions across tests and practice
               const matchedSubs = [...assessSubs, ...genSubs].filter((s: any) => {
@@ -206,9 +241,11 @@ export const AdminStudentsTab: React.FC = () => {
                 ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
               );
 
+              // ⚠️ SACRED RULE: Integrity ONLY from Lab Internal — NEVER from Practice tabSwitches
+              // Always use stored integrityScore from Firestore; fallback = 100 (not recomputed)
               const computedIntegrity = mod.integrityScore !== undefined
                 ? Number(mod.integrityScore)
-                : Math.max(0, Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10));
+                : (anyUser.integrityScore !== undefined ? Number(anyUser.integrityScore) : 100);
 
               const computedAcademic = mod.academicScore !== undefined
                 ? Number(mod.academicScore)
@@ -219,18 +256,29 @@ export const AdminStudentsTab: React.FC = () => {
                 (anyUser.department && anyUser.department.toLowerCase().includes('mtech')) ||
                 (anyUser.course && anyUser.course.toLowerCase().includes('mtech')) ||
                 (anyUser.sectionName && anyUser.sectionName.toLowerCase().includes('mtech')) ||
-                (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
+                (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI')));
 
               const rawSection = isMtechUser ? 'Integrated Mtech' : (anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'));
               const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
                 ? 'Integrated Mtech'
                 : rawSection;
 
+              const cs = prnClean ? findCohortStudent(prnClean) : null;
+              const resolvedStudentName =
+                (anyUser.fullName && isRealPersonName(anyUser.fullName) ? anyUser.fullName : null) ||
+                (anyUser.displayName && isRealPersonName(anyUser.displayName) ? anyUser.displayName : null) ||
+                (cData.studentName && isRealPersonName(cData.studentName) ? cData.studentName : null) ||
+                (cs ? cs.fullName : null) ||
+                anyUser.fullName ||
+                anyUser.displayName ||
+                anyUser.username ||
+                'Student Candidate';
+
               return {
                 id: anyUser.id || anyUser.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,
-                name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student Candidate',
+                name: resolvedStudentName,
                 prn: (anyUser.prn || '').toUpperCase() || '—',
-                email: anyUser.email || '—',
+                email: resolvedEmail,
                 section: normalizedSection,
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: computedAcademic,
@@ -290,10 +338,19 @@ export const AdminStudentsTab: React.FC = () => {
         const prnClean = (raw.prn || '').toUpperCase().trim();
         const email = (raw.email || '').toLowerCase().trim();
         const isBound = Boolean(
+          raw.isEmailBound ||
           raw.isEmailBoundV2 ||
           raw.emailVerified ||
-          (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
+          raw.identityStatus === 'BOUND' ||
+          Boolean(raw.boundEmail) ||
+          (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@')) ||
+          (raw.boundEmail && !raw.boundEmail.endsWith('@sanjivani.edu.in'))
         );
+        const resolvedEmail =
+          raw.boundEmail ||
+          (email && !email.endsWith('@sanjivani.edu.in') ? email : null) ||
+          email ||
+          '—';
         const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
         const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
 
@@ -302,7 +359,7 @@ export const AdminStudentsTab: React.FC = () => {
           (raw.department && raw.department.toLowerCase().includes('mtech')) ||
           (raw.course && raw.course.toLowerCase().includes('mtech')) ||
           (raw.sectionName && raw.sectionName.toLowerCase().includes('mtech')) ||
-          (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
+          (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI')));
 
         const resolvedSection = isMtechStudent
           ? 'Integrated Mtech'
@@ -312,11 +369,12 @@ export const AdminStudentsTab: React.FC = () => {
           id: d.id,
           name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
           prn: prnClean || '—',
-          email: email || '—',
+          email: resolvedEmail,
           section: resolvedSection,
           identityStatus: isBound ? 'BOUND' : 'PENDING',
           academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
           integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
+          problemsSolved: Number(raw.totalSolved) || 0,
           miniProjectUnlocked: isUnlocked,
           lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
         });
@@ -331,7 +389,22 @@ export const AdminStudentsTab: React.FC = () => {
           });
           liveList.forEach((st) => {
             const k = (st.prn || st.email || st.id).toUpperCase();
-            if (k) map.set(k, st);
+            if (k) {
+              const existing = map.get(k);
+              if (existing) {
+                if (existing.identityStatus === 'BOUND') {
+                  st.identityStatus = 'BOUND';
+                }
+                if (existing.email && !existing.email.endsWith('@sanjivani.edu.in') && st.email.endsWith('@sanjivani.edu.in')) {
+                  st.email = existing.email;
+                }
+                st.problemsSolved = Math.max(existing.problemsSolved ?? 0, st.problemsSolved ?? 0);
+                st.tabSwitchCount = existing.tabSwitchCount ?? st.tabSwitchCount;
+                st.clipboardAttempts = existing.clipboardAttempts ?? st.clipboardAttempts;
+                st.totalKeystrokes = existing.totalKeystrokes ?? st.totalKeystrokes;
+              }
+              map.set(k, st);
+            }
           });
           const merged = Array.from(map.values());
           try {
@@ -347,7 +420,7 @@ export const AdminStudentsTab: React.FC = () => {
       console.warn('Live enrolled_students onSnapshot notice:', err);
     });
 
-    // Live real-time listener on cohort_progress for miniProject and points
+    // Live real-time listener on cohort_progress for miniProject, points & verification
     const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), (snap) => {
       if (!isMounted) return;
       snap.docChanges().forEach((change) => {
@@ -357,6 +430,25 @@ export const AdminStudentsTab: React.FC = () => {
           setStudents((prev) =>
             prev.map((s) => {
               if (FirestoreDataService.arePrnsMatching(s.prn, prnClean) || (data.studentEmail && s.email && s.email.toLowerCase() === String(data.studentEmail).toLowerCase())) {
+                const isNowBound = Boolean(
+                  s.identityStatus === 'BOUND' ||
+                  data.isEmailBound ||
+                  data.isEmailBoundV2 ||
+                  data.emailVerified ||
+                  Boolean(data.boundEmail) ||
+                  Boolean(data?.moduleProgress?.boundEmail) ||
+                  Boolean(data?.moduleProgress?.isEmailBound) ||
+                  (data.boundEmail && !data.boundEmail.endsWith('@sanjivani.edu.in')) ||
+                  (data.studentEmail && !data.studentEmail.endsWith('@sanjivani.edu.in'))
+                );
+
+                const resolvedEmail =
+                  data.boundEmail ||
+                  data?.moduleProgress?.boundEmail ||
+                  (data.studentEmail && !data.studentEmail.endsWith('@sanjivani.edu.in') ? data.studentEmail : null) ||
+                  (s.email && !s.email.endsWith('@sanjivani.edu.in') ? s.email : null) ||
+                  s.email;
+
                 const totalSolved = data.totalSolved ?? (Array.isArray(data.completedProblems) ? data.completedProblems.length : 0);
                 const computedAcademic = data?.moduleProgress?.academicScore !== undefined
                   ? Number(data.moduleProgress.academicScore)
@@ -369,12 +461,15 @@ export const AdminStudentsTab: React.FC = () => {
                   : (s.clipboardAttempts ?? 0);
                 const computedIntegrity = data?.moduleProgress?.integrityScore !== undefined
                   ? Number(data.moduleProgress.integrityScore)
-                  : (newTabSwitches > 0 || newPasteBursts > 0 ? Math.max(0, 100 - newTabSwitches * 5 - newPasteBursts * 10) : (s.integrityScore ?? 100));
+                  : (s.integrityScore ?? 100);
 
                 return {
                   ...s,
+                  identityStatus: isNowBound ? 'BOUND' : s.identityStatus,
+                  email: resolvedEmail,
                   academicScore: computedAcademic,
                   integrityScore: computedIntegrity,
+                  problemsSolved: Math.max(s.problemsSolved ?? 0, totalSolved),
                   tabSwitchCount: newTabSwitches,
                   clipboardAttempts: newPasteBursts,
                   miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
@@ -467,29 +562,53 @@ export const AdminStudentsTab: React.FC = () => {
     );
   };
 
-  // Filter logic
-  const filteredStudents = students.filter((s) => {
-    const q = searchQuery.toLowerCase().trim();
-    const nameStr = String(s.name || (s as any).fullName || (s as any).displayName || '').toLowerCase();
-    const prnStr = String(s.prn || '').toLowerCase();
-    const emailStr = String(s.email || '').toLowerCase();
-    const sectionStr = String(s.section || '').toLowerCase();
-    const matchesSearch =
-      !q ||
-      nameStr.includes(q) ||
-      prnStr.includes(q) ||
-      emailStr.includes(q) ||
-      sectionStr.includes(q);
+  // Filter & numerical PRN sorting logic (Ascending by last 4 digits of PRN)
+  const filteredStudents = React.useMemo(() => {
+    const list = students.filter((s) => {
+      const q = searchQuery.toLowerCase().trim();
+      const nameStr = String(s.name || (s as any).fullName || (s as any).displayName || '').toLowerCase();
+      const prnStr = String(s.prn || '').toLowerCase();
+      const emailStr = String(s.email || '').toLowerCase();
+      const sectionStr = String(s.section || '').toLowerCase();
+      const matchesSearch =
+        !q ||
+        nameStr.includes(q) ||
+        prnStr.includes(q) ||
+        emailStr.includes(q) ||
+        sectionStr.includes(q);
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (selectedSection !== 'ALL' && s.section !== selectedSection) return false;
+      if (selectedSection !== 'ALL' && s.section !== selectedSection) return false;
 
-    if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
-    if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
-    return true;
-  });
+      if (activeFilter === 'ACTIVE') return (s.problemsSolved ?? 0) >= 1;
+      if (activeFilter === 'INACTIVE') return (s.problemsSolved ?? 0) === 0;
+      if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
+      if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
+      return true;
+    });
 
+    const getPrnNum = (prn?: string): number => {
+      if (!prn) return 999999;
+      const clean = String(prn).trim();
+      const match = clean.match(/(\d{3,5})$/);
+      if (match) return parseInt(match[1], 10);
+      const digits = clean.replace(/\D/g, '');
+      if (digits.length >= 4) return parseInt(digits.slice(-4), 10);
+      if (digits.length > 0) return parseInt(digits, 10);
+      return 999999;
+    };
+
+    return list.sort((a, b) => {
+      const aNum = getPrnNum(a.prn);
+      const bNum = getPrnNum(b.prn);
+      if (aNum !== bNum) return aNum - bNum;
+      return String(a.prn || '').localeCompare(String(b.prn || ''));
+    });
+  }, [students, searchQuery, selectedSection, activeFilter]);
+
+  const activeCount = students.filter((s) => (s.problemsSolved ?? 0) >= 1).length;
+  const inactiveCount = students.filter((s) => (s.problemsSolved ?? 0) === 0).length;
   const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
   const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
 
@@ -498,6 +617,7 @@ export const AdminStudentsTab: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. APPLE MINIMALIST HEADER & SEARCH BAR                                   */}
       {/* ========================================================================= */}
+      <FadeUp delay={0.05}>
       <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -569,10 +689,34 @@ export const AdminStudentsTab: React.FC = () => {
           </button>
           <button
             type="button"
+            onClick={() => setActiveFilter('ACTIVE')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+              activeFilter === 'ACTIVE'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Active ({activeCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('INACTIVE')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+              activeFilter === 'INACTIVE'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span>Inactive ({inactiveCount})</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveFilter('VERIFIED')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
               activeFilter === 'VERIFIED'
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
@@ -603,6 +747,7 @@ export const AdminStudentsTab: React.FC = () => {
           )}
         </div>
       </div>
+      </FadeUp>
 
       {/* ========================================================================= */}
       {/* 2. APPLE-GRADE STUDENT ROSTER (Clean Cards / Native List)                 */}
@@ -627,17 +772,21 @@ export const AdminStudentsTab: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StaggerContainer
+          key={`students_grid_${activeFilter}_${selectedSection}_${searchQuery}`}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          staggerDelay={filteredStudents.length > 50 ? 0.008 : filteredStudents.length > 20 ? 0.015 : 0.025}
+        >
           {filteredStudents.map((st) => {
             const isEmailCopied = copiedEmail === st.email;
             const studentDisplayName = st.name || (st as any).fullName || (st as any).displayName || 'Student Candidate';
             const studentInitials = (studentDisplayName || 'ST').slice(0, 2).toUpperCase();
 
             return (
+              <StaggerItem key={st.id}>
               <div
-                key={st.id}
                 onClick={() => setSelectedStudentForModal(st)}
-                className="group rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121620] p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-blue-500/40 transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer"
+                className="group rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121620] p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-blue-500/40 transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer h-full"
               >
                 {/* Top: Avatar + Identity + Section */}
                 <div className="flex items-start gap-3">
@@ -685,11 +834,18 @@ export const AdminStudentsTab: React.FC = () => {
 
                 {/* Middle: Email with copy */}
                 <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400">
-                  <span className="truncate max-w-[210px]" title={st.email}>{st.email}</span>
+                  <a
+                    href={`mailto:${st.email}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate max-w-[210px] hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer"
+                    title={`Click to email ${st.email}`}
+                  >
+                    {st.email}
+                  </a>
                   <button
                     type="button"
                     onClick={(e) => handleCopyEmail(st.email, e)}
-                    className="p-1 hover:text-blue-500 rounded-md transition shrink-0"
+                    className="p-1 hover:text-blue-500 rounded-md transition shrink-0 cursor-pointer"
                     title="Copy Email"
                   >
                     {isEmailCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -698,17 +854,42 @@ export const AdminStudentsTab: React.FC = () => {
 
                 {/* Bottom: Verification + Mini-project + Chevron */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/5 gap-2">
-                  {st.identityStatus === 'BOUND' ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      <ShieldCheck className="w-3 h-3" />
-                      <span>Verified</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Pending</span>
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {st.identityStatus === 'BOUND' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>Verified</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Pending</span>
+                      </span>
+                    )}
+
+                    {(st.problemsSolved ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20" title={`${st.problemsSolved} problems solved`}>
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>{st.problemsSolved} Solved</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-white/5 text-slate-400" title="0 problems solved">
+                        <span>0 Solved</span>
+                      </span>
+                    )}
+
+                    {((st.tabSwitchCount ?? 0) > 0 || (st.clipboardAttempts ?? 0) > 0) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title={`${st.tabSwitchCount || 0} tab switches, ${st.clipboardAttempts || 0} pastes`}>
+                        <Eye className="w-3 h-3 text-amber-500" />
+                        <span>{st.tabSwitchCount || 0} Tabs</span>
+                      </span>
+                    ) : (st.problemsSolved ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="Zero proctoring violations recorded">
+                        <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                        <span>Clean</span>
+                      </span>
+                    ) : null}
+                  </div>
 
                   <div className="flex items-center gap-1.5">
                     <button
@@ -740,9 +921,10 @@ export const AdminStudentsTab: React.FC = () => {
                   </div>
                 </div>
               </div>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       )}
 
       {/* ========================================================================= */}

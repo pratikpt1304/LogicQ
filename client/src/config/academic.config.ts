@@ -288,8 +288,15 @@ export function formatNameFromEmail(email?: string | null): string | null {
   if (!email || typeof email !== 'string') return null;
   const localPart = email.split('@')[0];
   if (!localPart || localPart.startsWith('stu_') || localPart.startsWith('student_') || localPart === 'student') return null;
+  // If email is an institutional PRN email (e.g. 2126pmim1118 or 1226pmif1057), do not treat branch code as student name
+  if (/^\d+[a-zA-Z]+\d*$/.test(localPart)) return null;
+
   const cleaned = localPart.replace(/[0-9]+/g, '').replace(/[._-]/g, ' ').trim();
   if (cleaned.length < 2) return null;
+  const lowerCleaned = cleaned.toLowerCase();
+  const knownBranchCodes = ['pmim', 'pmif', 'imte', 'comp', 'mech', 'civil', 'it', 'aids', 'student', 'admin', 'faculty'];
+  if (knownBranchCodes.includes(lowerCleaned)) return null;
+
   return cleaned
     .split(' ')
     .filter(Boolean)
@@ -301,8 +308,10 @@ export function isRealPersonName(name?: string | null): boolean {
   if (!name || typeof name !== 'string') return false;
   const trimmed = name.trim();
   if (trimmed.length < 2) return false;
+  const lower = trimmed.toLowerCase();
+  if (['pmim', 'pmif', 'imte', 'comp', 'student', 'student candidate', 'candidate', 'admin', 'null', 'undefined'].includes(lower)) return false;
   if (trimmed.includes('••••') || trimmed.includes(' • ')) return false;
-  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student' || trimmed.toLowerCase() === 'enrolled student') return false;
+  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || lower === 'student' || lower === 'enrolled student') return false;
   if (/^(stu|student|sec_stu|std|admin|usr|user|qa_student)_[a-z0-9_]+/i.test(trimmed)) return false;
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
   if (/^[a-zA-Z0-9_-]{18,}$/i.test(trimmed) && !trimmed.includes(' ')) return false;

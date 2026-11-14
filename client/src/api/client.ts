@@ -243,6 +243,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       try {
         const parsed = JSON.parse(config.body);
         if (parsed.problemId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(parsed.problemId))) {
+          if (!parsed.topicId) parsed.topicId = parsed.problemId;
           delete parsed.problemId;
           config.body = JSON.stringify(parsed);
         }
@@ -254,13 +255,17 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   let useFallback = false;
 
   // Resilient retry loop to smoothly absorb Render free tier cold-starts (502/503/504)
-  const maxAttempts = (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice') || cleanEndpoint.startsWith('/submissions')) ? 3 : 1;
+  // For /auth/login, use a fast 8s timeout and 1 attempt so students never wait 135s cold-starts
+  const isDirectLogin = cleanEndpoint === '/auth/login';
+  const maxAttempts = isDirectLogin
+    ? 1
+    : (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice') || cleanEndpoint.startsWith('/submissions')) ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const fetchConfig: RequestInit = { ...config };
       if (!fetchConfig.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-        // Generous 45s timeout to seamlessly absorb Render free tier spin-up
-        fetchConfig.signal = (AbortSignal as any).timeout(45000);
+        const timeoutMs = isDirectLogin ? 8000 : 45000;
+        fetchConfig.signal = (AbortSignal as any).timeout(timeoutMs);
       }
       response = await fetch(url, fetchConfig);
       if (response && (response.status === 502 || response.status === 503 || response.status === 504) && attempt < maxAttempts) {

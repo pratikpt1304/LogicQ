@@ -34,6 +34,8 @@ import {
   Brain,
   Search,
 } from 'lucide-react';
+import { StudentNotificationBell } from '../common/StudentNotificationBell.js';
+import { SatisfyingThemeToggle } from '../common/SatisfyingThemeToggle.js';
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
@@ -167,18 +169,20 @@ export const Navbar: React.FC = () => {
             <>
               {/* Global Command Palette Search Pill (Students only) */}
               {isStudent && (
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
                   onClick={() => setIsCommandPaletteOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/[0.05] hover:bg-slate-200/80 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white transition text-xs font-medium shadow-xs select-none active:scale-95"
+                  className="group flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-200/50 dark:bg-white/[0.08] border border-slate-200/70 dark:border-white/[0.12] hover:border-indigo-500/40 hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs font-medium shadow-xs select-none cursor-pointer"
                   title="Search topics & actions (Ctrl+K)"
                 >
-                  <Search className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="hidden lg:inline text-xs">Search...</span>
-                  <kbd className="text-[10px] font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-300">
+                  <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <span className="hidden lg:inline text-xs font-medium">Search...</span>
+                  <kbd className="text-[10px] font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-300 group-hover:border-indigo-500/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     ⌘K
                   </kbd>
-                </button>
+                </motion.button>
               )}
 
               {/* Admin Console Indicator Badge */}
@@ -187,6 +191,11 @@ export const Navbar: React.FC = () => {
                   <Sparkles className="w-3.5 h-3.5 text-blue-500" />
                   <span>Admin Master Console</span>
                 </span>
+              )}
+
+              {/* Student Notification Center / Bell */}
+              {isStudent && (
+                <StudentNotificationBell />
               )}
 
               {/* User Dropdown */}
@@ -267,6 +276,17 @@ export const Navbar: React.FC = () => {
                             <span>My Assigned Tests</span>
                           </Link>
 
+                          <a
+                            href="/student-guide.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                          >
+                            <BookOpen className="w-4 h-4 text-amber-500" />
+                            <span>Student User Guide</span>
+                          </a>
+
 
 
                           {!isStandalone && (
@@ -341,11 +361,7 @@ export const Navbar: React.FC = () => {
                           </div>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => toggleTheme()}
-                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer text-left"
-                        >
+                        <div className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300">
                           <div className="flex items-center gap-3">
                             {theme === 'dark' ? (
                               <Sun className="w-4 h-4 text-amber-500" />
@@ -354,10 +370,8 @@ export const Navbar: React.FC = () => {
                             )}
                             <span>Appearance</span>
                           </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-semibold">
-                            {theme === 'dark' ? 'Dark' : 'Light'}
-                          </span>
-                        </button>
+                          <SatisfyingThemeToggle size="sm" />
+                        </div>
                       </div>
 
                       {/* Sign Out */}
@@ -377,20 +391,8 @@ export const Navbar: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)] transition-colors"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-4 h-4 text-[var(--color-warning)]" />
-                ) : (
-                  <Moon className="w-4 h-4 text-[var(--color-accent)]" />
-                )}
-              </button>
+            <div className="flex items-center gap-3">
+              <SatisfyingThemeToggle size="sm" />
 
               <Link
                 to="/login"
@@ -404,20 +406,20 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Actions (minimum 44x44px tap targets) */}
         <div className="flex md:hidden items-center gap-2">
+          {user && isStudent && (
+            <div className="md:hidden">
+              <StudentNotificationBell />
+            </div>
+          )}
+
           {!user && (
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] active:scale-95 transition-transform"
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-[var(--color-warning)]" />
-              ) : (
-                <Moon className="w-4 h-4 text-[var(--color-accent)]" />
-              )}
-            </button>
+            <SatisfyingThemeToggle size="sm" />
+          )}
+
+          {user && isStudent && (
+            <div className="md:hidden">
+              <StudentNotificationBell />
+            </div>
           )}
 
           {!user && (

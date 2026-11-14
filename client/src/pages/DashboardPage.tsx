@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { FadeUp, StaggerContainer, StaggerItem } from '../components/common/ScrollAnimations.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -10,7 +11,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth, db } from '../config/firebase.js';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
@@ -71,7 +72,10 @@ import {
   User,
   BarChart2,
   Layers,
+  Flag,
 } from 'lucide-react';
+import { StudentIssuesModal } from '../components/common/StudentIssuesModal.js';
+import { AiTutorChatModal } from '../components/common/AiTutorChatModal.js';
 
 export const DashboardPage: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, refreshUser } = useAuth();
@@ -80,6 +84,60 @@ export const DashboardPage: React.FC = () => {
   const isPrivilegedProgression = Boolean(isAdmin || isFaculty);
   const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests' | 'project'>('practice');
   const [isMiniProjectUnlocked, setIsMiniProjectUnlocked] = useState<boolean>(false);
+  const [isMyIssuesOpen, setIsMyIssuesOpen] = useState<boolean>(false);
+  const [isAiTutorOpen, setIsAiTutorOpen] = useState<boolean>(false);
+  const [recentlyResolvedIssues, setRecentlyResolvedIssues] = useState<any[]>([]);
+  const [isResolvedBannerDismissed, setIsResolvedBannerDismissed] = useState<boolean>(false);
+
+  // Real-time listener for student's resolved issues on Dashboard
+  useEffect(() => {
+    const cleanPrn = (user?.prn || '').toUpperCase().trim();
+    const uEmail = (user?.email || '').toLowerCase().trim();
+    const uId = user?.id || '';
+    if (!cleanPrn && !uEmail && !uId) return;
+
+    const unsub = onSnapshot(collection(db, 'raised_issues'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        const pPrn = String(data.studentPrn || '').toUpperCase().trim();
+        const pEmail = String(data.studentEmail || '').toLowerCase().trim();
+        const pId = String(data.studentId || '').trim();
+
+        const isMine =
+          (cleanPrn && pPrn && (pPrn === cleanPrn || cleanPrn.includes(pPrn) || pPrn.includes(cleanPrn))) ||
+          (uEmail && pEmail && pEmail === uEmail) ||
+          (uId && pId && pId === uId);
+
+        if (isMine && data.status === 'RESOLVED') {
+          list.push({ id: d.id, ...data });
+        }
+      });
+      try {
+        const dismissedKey = cleanPrn ? `logicq_dismissed_resolved_${cleanPrn}` : 'logicq_dismissed_resolved';
+        const dismissedIds = new Set<string>(JSON.parse(localStorage.getItem(dismissedKey) || '[]'));
+        const unread = list.filter((item) => !dismissedIds.has(item.id));
+        setRecentlyResolvedIssues(unread);
+      } catch {
+        setRecentlyResolvedIssues(list);
+      }
+    }, () => {});
+
+    return () => unsub();
+  }, [user?.prn, user?.email, user?.id]);
+
+  const handleDismissResolvedBanner = (issueIds?: string[]) => {
+    setIsResolvedBannerDismissed(true);
+    try {
+      const cleanPrn = (user?.prn || '').toUpperCase().trim();
+      const dismissedKey = cleanPrn ? `logicq_dismissed_resolved_${cleanPrn}` : 'logicq_dismissed_resolved';
+      const existing = new Set<string>(JSON.parse(localStorage.getItem(dismissedKey) || '[]'));
+      const targetIds = issueIds || recentlyResolvedIssues.map((i) => i.id);
+      targetIds.forEach((id) => existing.add(id));
+      localStorage.setItem(dismissedKey, JSON.stringify(Array.from(existing)));
+      setRecentlyResolvedIssues((prev) => prev.filter((i) => !existing.has(i.id)));
+    } catch {}
+  };
 
   // Sync Mini-Project unlock status dynamically from Firestore & localStorage
   useEffect(() => {
@@ -321,6 +379,27 @@ export const DashboardPage: React.FC = () => {
       return undefined;
     }
   }, []);
+
+  // 1a.3 Sanitize and sync student raised issues cache (prevents duplicate submissions)
+  React.useEffect(() => {
+    try {
+      const storedKey = 'logicq_faculty_raised_issues';
+      const raw = localStorage.getItem(storedKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Deduplicate local storage entries
+        const unique = new Map<string, any>();
+        parsed.forEach((item: any) => {
+          const sig = `${item.studentPrn || ''}:::${item.questionTitle || ''}:::${item.description || ''}`;
+          if (!unique.has(sig)) {
+            unique.set(sig, { ...item, syncedToCloud: true });
+          }
+        });
+        localStorage.setItem(storedKey, JSON.stringify(Array.from(unique.values()).slice(0, 100)));
+      }
+    } catch {}
+  }, [user]);
 
   // 1b. Fetch Student Sections from Firestore (so student always sees their real enrolled section name)
   const { data: studentFirestoreSections = [] } = useQuery({
@@ -1305,6 +1384,51 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
+          {/* FACULTY RESOLVED ISSUE NOTIFICATION BANNER */}
+          {recentlyResolvedIssues.length > 0 && !isResolvedBannerDismissed && (
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 backdrop-blur-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3.5">
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      🎉 Faculty Update: Issue Resolved!
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                      {recentlyResolvedIssues.length} Resolved
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                    Your reported issue on &quot;{recentlyResolvedIssues[0]?.questionTitle || 'Reported Problem'}&quot; has been resolved by faculty.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMyIssuesOpen(true);
+                    handleDismissResolvedBanner(recentlyResolvedIssues.map((i) => i.id));
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>View Resolution Notes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDismissResolvedBanner(recentlyResolvedIssues.map((i) => i.id))}
+                  className="p-1.5 rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-90 transition-all cursor-pointer border border-emerald-500/20"
+                  title="Dismiss notice"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* DEFAULT PASSWORD REMINDER BANNER */}
           {user?.role === 'STUDENT' &&
             user.prn &&
@@ -1397,6 +1521,7 @@ export const DashboardPage: React.FC = () => {
           )}
 
           {/* 1. APPLE FROSTED HERO CARD (1-CLICK DIRECT TO CODE) */}
+          <FadeUp delay={0.05}>
           <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
             {/* Ambient Background Glows */}
             <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1467,11 +1592,12 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
+          </FadeUp>
 
           {/* 2. APPLE FITNESS-STYLE STATS TRIO */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Stat 1: Topic Practice Mastery */}
-            <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
+            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
@@ -1542,10 +1668,10 @@ export const DashboardPage: React.FC = () => {
                 <span>Med {practiceMedSolved}/{practiceMedTotal}</span>
                 <span>Hard {practiceHardSolved}/{practiceHardTotal}</span>
               </div>
-            </div>
+            </div></StaggerItem>
 
             {/* Stat 2: Lab Internal Evaluation */}
-            <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
+            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-500/20">
@@ -1616,10 +1742,10 @@ export const DashboardPage: React.FC = () => {
                 <span>Med {labMedSolved}/{labMedTotal}</span>
                 <span>Hard {labHardSolved}/{labHardTotal}</span>
               </div>
-            </div>
+            </div></StaggerItem>
 
             {/* Stat 3: Submissions & Accuracy */}
-            <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
+            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
@@ -1657,10 +1783,11 @@ export const DashboardPage: React.FC = () => {
                   Analytics →
                 </Link>
               </div>
-            </div>
-          </div>
+            </div></StaggerItem>
+          </StaggerContainer>
 
           {/* 3. APPLE SEGMENTED CONTROL & MODULES SECTION */}
+          <FadeUp delay={0.1}>
           <div className="space-y-4">
             {/* UNLOCKED MINI-PROJECT NOTIFICATION BANNER (ONLY VISIBLE ONCE UNLOCKED BY FACULTY/ADMIN) */}
             {isMiniProjectUnlocked && (
@@ -2075,9 +2202,12 @@ export const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
+          </FadeUp>
 
           {/* 4. ONLINE C COMPILER PLAYGROUND */}
+          <FadeUp delay={0.08}>
           <OnlineCompilerCard />
+          </FadeUp>
         </div>
 
       {/* OPTION 1: STUDENT CODING PROGRESS & PROFILE MODAL */}
@@ -2445,6 +2575,18 @@ export const DashboardPage: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* Student Reported Issues Modal */}
+      <StudentIssuesModal
+        isOpen={isMyIssuesOpen}
+        onClose={() => setIsMyIssuesOpen(false)}
+      />
+
+      {/* LogicQ Socratic AI Mentor Modal (Dashboard Only) */}
+      <AiTutorChatModal
+        isOpen={isAiTutorOpen}
+        onClose={() => setIsAiTutorOpen(false)}
+      />
     </div>
   );
 };

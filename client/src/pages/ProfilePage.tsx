@@ -2246,9 +2246,9 @@ export const ProfilePage: React.FC = () => {
           aria-labelledby="profile-settings-title"
           className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md animate-fadeIn"
         >
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden transition-all">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden transition-all">
             {/* Apple Sheet Header */}
-            <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                   <Edit3 className="w-4 h-4" />
@@ -2272,7 +2272,7 @@ export const ProfilePage: React.FC = () => {
 
             {/* Form with Scrollable Body */}
             <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              <div className="p-5 overflow-y-auto space-y-4 flex-1">
                 {editError && (
                   <div
                     role="alert"
@@ -2284,7 +2284,7 @@ export const ProfilePage: React.FC = () => {
 
                 {/* Section 1: Academic Identity (Apple Card) */}
                 {!isAdminOrFaculty ? (
-                  <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3 text-xs">
+                  <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 space-y-2 text-xs">
                     <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                       <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <KeyRound className="w-3.5 h-3.5 text-indigo-500" />
@@ -2333,7 +2333,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
                         <Mail className="w-3.5 h-3.5 text-emerald-500" />
                         <span>Bound Email:</span>
@@ -2371,7 +2371,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
                         <Building2 className="w-3.5 h-3.5 text-blue-500" />
                         <span>Institution:</span>
@@ -2382,7 +2382,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     {isOwnProfile && (
-                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
                         <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
                           <Lock className="w-3.5 h-3.5 text-indigo-500" />
                           <span>Password:</span>
@@ -2423,9 +2423,9 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 {/* Section 2: Public Profile Fields */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Public Full Name */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label
                         htmlFor="edit-display-name"
@@ -2444,16 +2444,16 @@ export const ProfilePage: React.FC = () => {
                       value={editForm.displayName}
                       onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
                       placeholder="e.g. Pratik Balasaheb Thorat"
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      className="w-full px-3.5 py-2 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
-                    <span className="text-[11px] text-slate-400 block">
+                    <span className="text-[10.5px] text-slate-400 block">
                       Shown to peers on the leaderboard and campus discussions.
                     </span>
                   </div>
 
                   {/* Department & Academic Year Grid */}
                   <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <label
                         htmlFor="edit-department"
                         className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
@@ -2464,7 +2464,7 @@ export const ProfilePage: React.FC = () => {
                         id="edit-department"
                         value={editForm.department}
                         onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                        className="w-full px-3.5 py-2 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
                       >
                         {ALLOWED_DEPARTMENTS.map((dept) => (
                           <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
@@ -2475,7 +2475,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     {!isAdminOrFaculty && (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <label
                           htmlFor="edit-year"
                           className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
@@ -2486,7 +2486,7 @@ export const ProfilePage: React.FC = () => {
                           id="edit-year"
                           value={editForm.year}
                           onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
-                          className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                          className="w-full px-3.5 py-2 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
                         >
                           {ALLOWED_YEARS.map((yr) => (
                             <option key={yr} value={yr} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">

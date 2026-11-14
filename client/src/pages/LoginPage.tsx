@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/common/Logo.js';
+import { StickmanLoginButton } from '../components/common/StickmanLoginButton.js';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import {
@@ -33,16 +34,17 @@ export const LoginPage: React.FC = () => {
     (user?.email && user.email.toLowerCase() === 'logicqarena@gmail.com');
 
   const defaultDestination = isTargetAdmin ? '/admin' : '/dashboard';
-  const from = fromLocation
+  const rawFrom = fromLocation
     ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
     : defaultDestination;
+  const from = (!rawFrom || rawFrom === '/login' || rawFrom.startsWith('/login')) ? defaultDestination : rawFrom;
 
   // If already authenticated, redirect immediately away from login
   useEffect(() => {
     if (user) {
       const dest = (user.role === 'ADMIN' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com')
         ? '/admin'
-        : from;
+        : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
     }
   }, [user, navigate, from]);
@@ -136,10 +138,8 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'Student'}!`);
-      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN') ? '/admin' : from;
-      setTimeout(() => {
-        navigate(dest, { replace: true });
-      }, 1000);
+      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN') ? '/admin' : (from === '/login' ? '/dashboard' : from);
+      navigate(dest, { replace: true });
     } catch (err: any) {
       setError(
         err?.message ||
@@ -520,15 +520,13 @@ export const LoginPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handlePrnLogin()}
+                  {/* Neumorphic Walking Stickman Sign In Button */}
+                  <StickmanLoginButton
+                    onClick={handlePrnLogin}
+                    loading={loading}
                     disabled={loading || !prn.trim()}
-                    className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    <span>{loading ? 'Authenticating...' : 'Sign In as Student'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                    label="Sign In as Student"
+                  />
                 </div>
               )}
 
@@ -555,14 +553,12 @@ export const LoginPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <button
-                        type="submit"
+                      <StickmanLoginButton
+                        onClick={() => handleSendOtp()}
+                        loading={loading}
                         disabled={loading || !identifier.trim()}
-                        className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                      >
-                        <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        label="Send OTP Code"
+                      />
                     </form>
                   )}
 
@@ -611,14 +607,12 @@ export const LoginPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <button
-                        type="submit"
+                      <StickmanLoginButton
+                        onClick={() => verifyCode(fullOtpCode)}
+                        loading={loading}
                         disabled={loading || fullOtpCode.length !== 6}
-                        className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                      >
-                        <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Continue'}</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        label="Verify OTP & Continue"
+                      />
 
                       <div className="flex items-center justify-between pt-3 border-t border-[var(--border-line)] text-xs text-[var(--text-muted)]">
                         {cooldown > 0 ? (

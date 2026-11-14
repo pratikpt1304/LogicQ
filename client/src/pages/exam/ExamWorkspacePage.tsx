@@ -42,11 +42,17 @@ import {
   Cloud,
   RotateCcw,
 } from 'lucide-react';
+import { useAntiScreenshot } from '../../hooks/useAntiScreenshot.js';
+import { ScreenSecurityShield } from '../../components/common/ScreenSecurityShield.js';
 
 export const ExamWorkspacePage: React.FC = () => {
   const { assignmentId, problemId } = useParams<{ assignmentId: string; problemId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin, isFaculty } = useAuth();
+
+  // Staff bypass: ADMIN / FACULTY / INSTITUTIONAL_ADMIN are exempt from all proctor restrictions
+  const isStaffUser = isAdmin || isFaculty ||
+    user?.role === 'ADMIN' || user?.role === 'FACULTY' || user?.role === 'INSTITUTIONAL_ADMIN';
 
   // Attempt & Problem Data
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -99,6 +105,19 @@ export const ExamWorkspacePage: React.FC = () => {
   const isExitingRef = useRef<boolean>(false);
   const currentExamAttemptRef = useRef<number>(1);
   const [currentExamAttempt, setCurrentExamAttempt] = useState<number>(1);
+
+  // Anti-Screenshot & Screen Capture Shield (Exam Proctoring Layer — disabled for staff)
+  const { isBlurred, setIsBlurred } = useAntiScreenshot({
+    enabled: !isLocked && !isStaffUser,
+    blackoutOnBlur: !isStaffUser,
+    wipeClipboard: !isStaffUser,
+    blockPrint: !isStaffUser,
+    onScreenshotAttempt: (reason) => {
+      if (!isStaffUser) {
+        addProctorIncident('SCREENSHOT_ATTEMPT', `Screenshot attempt intercepted: ${reason}`, 'CRITICAL');
+      }
+    },
+  });
 
   // Helper to safely exit proctored exam and immediately restore normal browser screen
   const exitExamTo = useCallback((targetPath: string = '/student/tests') => {
@@ -477,8 +496,9 @@ export const ExamWorkspacePage: React.FC = () => {
     return () => clearInterval(interval);
   }, [attemptId, isLocked, sendTelemetryPing]);
 
-  // Auto fullscreen attempt on mount
+  // Auto fullscreen attempt on mount (skipped for staff users)
   useEffect(() => {
+    if (isStaffUser) return; // Staff don't need fullscreen enforcement
     if (!isLocked && typeof document !== 'undefined' && !document.fullscreenElement) {
       document.documentElement.requestFullscreen().then(() => {
         setIsFullscreen(true);
@@ -497,8 +517,8 @@ export const ExamWorkspacePage: React.FC = () => {
 
       if (active) {
         hasEnteredFullscreenRef.current = true;
-      } else if (!active && hasEnteredFullscreenRef.current && !isLocked && !isExitingRef.current) {
-        // Proctoring violation: Student exited full-screen! Immediately kick them out
+      } else if (!active && hasEnteredFullscreenRef.current && !isLocked && !isExitingRef.current && !isStaffUser) {
+        // Proctoring violation: Student exited full-screen! (staff exempt)
         setFullScreenExitCount((c) => {
           const next = c + 1;
           sendTelemetryPing({ fullScreenExitCount: next });
@@ -570,6 +590,7 @@ export const ExamWorkspacePage: React.FC = () => {
     };
 
     const handleVisibilityChange = () => {
+      if (isStaffUser) return; // Staff exempt from tab-switch tracking
       if (document.hidden && !isLocked) {
         setTabSwitchCount((c) => {
           const next = c + 1;
@@ -648,7 +669,7 @@ export const ExamWorkspacePage: React.FC = () => {
 
   // 4. Anti-Copying Clipboard Guards (Section 20)
   const handleEditorBlockedAction = (actionName: string) => {
-    if (isLocked) return;
+    if (isLocked || isStaffUser) return;
     const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
     if (actionName === 'copy' || actionName === 'paste') {
       setCopyPasteAttempts((c) => {
@@ -1035,8 +1056,13 @@ export const ExamWorkspacePage: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-slate-100 text-slate-900 flex flex-col overflow-hidden select-none font-sans">
+      {/* Screen Security Blackout Shield - activates when window loses focus (Snipping Tool / screen recorder detected) */}
+      <ScreenSecurityShield
+        isVisible={isBlurred && !isLocked && !isStaffUser}
+        onRestore={() => setIsBlurred(false)}
+      />
       {/* 0. Fullscreen Proctored Requirement Modal (Blocks interaction until student enters fullscreen) */}
-      {!isFullscreen && !isLocked && (
+      {!isFullscreen && !isLocked && !isStaffUser && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
@@ -1322,12 +1348,12 @@ export const ExamWorkspacePage: React.FC = () => {
           {/* Monaco Editor Container with hideHeader={true} */}
           <div
             className="flex-1 min-h-[350px] relative"
-            onCopy={(e) => { e.preventDefault(); handleEditorBlockedAction('copy'); }}
-            onPaste={(e) => { e.preventDefault(); handleEditorBlockedAction('paste'); }}
-            onCut={(e) => { e.preventDefault(); handleEditorBlockedAction('cut'); }}
-            onContextMenu={(e) => { e.preventDefault(); handleEditorBlockedAction('contextmenu'); }}
-            onDragStart={(e) => { e.preventDefault(); }}
-            onDrop={(e) => { e.preventDefault(); }}
+            onCopy={(e) => { if (!isStaffUser) { e.preventDefault(); handleEditorBlockedAction('copy'); } }}
+            onPaste={(e) => { if (!isStaffUser) { e.preventDefault(); handleEditorBlockedAction('paste'); } }}
+            onCut={(e) => { if (!isStaffUser) { e.preventDefault(); handleEditorBlockedAction('cut'); } }}
+            onContextMenu={(e) => { if (!isStaffUser) { e.preventDefault(); handleEditorBlockedAction('contextmenu'); } }}
+            onDragStart={(e) => { if (!isStaffUser) e.preventDefault(); }}
+            onDrop={(e) => { if (!isStaffUser) e.preventDefault(); }}
           >
             <CodeEditor
               code={code}

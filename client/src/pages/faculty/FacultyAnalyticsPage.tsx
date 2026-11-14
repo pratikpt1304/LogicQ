@@ -103,6 +103,15 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [copiedPrn, setCopiedPrn] = useState(false);
   const [isSendingEmailBlast, setIsSendingEmailBlast] = useState(false);
 
+  // Auto-open student inspection modal if ?student= query parameter is provided in the URL
+  useEffect(() => {
+    const studentParam = searchParams.get('student');
+    if (studentParam) {
+      setSelectedStudentForInspect(studentParam);
+      setSearchQuery(studentParam);
+    }
+  }, [searchParams]);
+
   const handleEmailBlast = async () => {
     const inactiveStudents = filteredStudents.filter(
       (s) => s.statusCategory === 'NEEDS_HELP' || s.currentStreak === 0
@@ -288,8 +297,10 @@ export const FacultyAnalyticsPage: React.FC = () => {
             Number(st.labCompletedModules ?? st.student?.labCompletedModules ?? 0),
             Number(st.labInternalScore ?? st.student?.labInternalScore ?? 0)
           );
+          // ⚠️ SACRED RULE: Integrity ONLY from Lab Internal — NEVER from Practice tabSwitches
+          // Use stored integrityScore from Firestore; if missing, default = 100
           const statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 
-            Number(st.tabSwitchCount || 0) > 3 ? 'INTEGRITY_FLAG' :
+            (st.integrityScore !== undefined && Number(st.integrityScore) < 85) ? 'INTEGRITY_FLAG' :
             (solvedCount < 10 && labCompletedModules < 2) ? 'NEEDS_HELP' : 'CONSISTENT';
 
           studentMap.set(key, {
@@ -305,8 +316,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
             totalPoints: points,
             currentStreak: streak,
             solvedCount: Math.min(100, solvedCount),
-            integrityScore: Math.max(40, 100 - (Number(st.tabSwitchCount || 0) * 12)),
-            integrityRisk: Number(st.tabSwitchCount || 0) > 3 ? 'HIGH' : 'NORMAL',
+            integrityScore: st.integrityScore !== undefined ? Number(st.integrityScore) : 100,
+            integrityRisk: (st.integrityScore !== undefined && Number(st.integrityScore) < 60) ? 'HIGH' : 'NORMAL',
             tabSwitchCount: Number(st.tabSwitchCount || 0),
             copyPasteAttempts: Number(st.copyPasteAttempts || 0),
             statusCategory,
@@ -370,25 +381,21 @@ export const FacultyAnalyticsPage: React.FC = () => {
         const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || existing?.tabSwitchCount || 0);
         const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || existing?.copyPasteAttempts || 0);
 
-        let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
-        let integrityScore = 100;
+        // ⚠️ SACRED RULE: Integrity ONLY from Lab Internal — NEVER recompute from tabSwitches (practice)
+        // Use stored integrityScore from Firestore; if missing fallback to existing or 100
+        const integrityScore = u.integrityScore !== undefined
+          ? Number(u.integrityScore)
+          : (existing?.integrityScore !== undefined ? Number(existing.integrityScore) : 100);
 
-        if (tabSwitches >= 5 || pasteAttempts >= 5) {
-          integrityRisk = 'CRITICAL';
-          integrityScore = 20;
-        } else if (tabSwitches >= 3 || pasteAttempts >= 3) {
-          integrityRisk = 'HIGH';
-          integrityScore = 40;
-        } else if (tabSwitches > 1 || pasteAttempts > 1) {
-          integrityRisk = 'MODERATE';
-          integrityScore = 70;
-        } else if (tabSwitches === 1) {
-          integrityRisk = 'LOW';
-          integrityScore = 90;
-        }
+        // integrityRisk is derived from stored score (not tabSwitches)
+        let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
+        if (integrityScore < 20) integrityRisk = 'CRITICAL';
+        else if (integrityScore < 50) integrityRisk = 'HIGH';
+        else if (integrityScore < 75) integrityRisk = 'MODERATE';
+        else if (integrityScore < 90) integrityRisk = 'LOW';
 
         let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
-        if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
+        if (integrityScore < 85) {
           statusCategory = 'INTEGRITY_FLAG';
         } else if (solvedCount < 1 && labCompletedModules < 1) {
           statusCategory = 'NEEDS_HELP';

@@ -201,6 +201,15 @@ export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
 ];
 
+export const INSTITUTIONAL_ADMIN_EMAILS = [
+  'hod.sanjivani@gmail.com',
+];
+
+export const FACULTY_EMAILS = [
+  'faculty.mtech@gmail.com',
+  'hariprasad.logicq@gmail.com',
+];
+
 export const PURGED_EMAILS = [
   'hariprasathset@sanjivani.edu.in',
   'admin@logicq.io',
@@ -234,6 +243,22 @@ export function isWalkthroughAccount(email?: string | null): boolean {
 export function isExplicitAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isInstitutionalAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return INSTITUTIONAL_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isFacultyEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return FACULTY_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isAnyStaffEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(e) || INSTITUTIONAL_ADMIN_EMAILS.includes(e) || FACULTY_EMAILS.includes(e);
 }
 
 function isEmailDomainAllowed(email: string): { allowed: boolean; allowedDomains: string[] } {
@@ -1402,6 +1427,45 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         passwordHash: await bcrypt.hash('AdminPassword123!', 10),
         college: 'Sanjivani University',
         department: 'CSE',
+        profileComplete: true,
+      },
+    });
+  }
+  // Institutional Admin (HOD / Dean / VC)
+  if (isInstitutionalAdminEmail(lower)) {
+    const passwordHash = await bcrypt.hash('LogicQ@HOD2026', 10);
+    return await prisma.user.upsert({
+      where: { email: lower },
+      update: { role: 'INSTITUTIONAL_ADMIN', profileComplete: true },
+      create: {
+        username: lower.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_'),
+        email: lower,
+        role: 'INSTITUTIONAL_ADMIN',
+        fullName: 'HOD / Dean',
+        displayName: 'HOD (Institutional Admin)',
+        passwordHash,
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
+        profileComplete: true,
+      },
+    });
+  }
+  // Faculty staff accounts
+  if (isFacultyEmail(lower)) {
+    const isHariprasad = lower.includes('hariprasad');
+    const passwordHash = await bcrypt.hash(isHariprasad ? 'LogicQ@Hariprasad2026' : 'LogicQ@Faculty2026', 10);
+    return await prisma.user.upsert({
+      where: { email: lower },
+      update: { role: 'FACULTY', profileComplete: true },
+      create: {
+        username: lower.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_'),
+        email: lower,
+        role: 'FACULTY',
+        fullName: isHariprasad ? 'Hariprasad Sir' : 'Faculty Instructor',
+        displayName: isHariprasad ? 'Hariprasad Sir (Faculty)' : 'Faculty (M.Tech)',
+        passwordHash,
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
         profileComplete: true,
       },
     });

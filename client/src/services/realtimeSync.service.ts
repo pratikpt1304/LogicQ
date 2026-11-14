@@ -11,6 +11,7 @@ export type SyncScope =
   | 'SUBMISSIONS'
   | 'USERS'
   | 'DASHBOARD'
+  | 'ISSUES'
   | 'ALL';
 
 export interface SyncMessage {

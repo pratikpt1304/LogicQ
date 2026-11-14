@@ -78,10 +78,11 @@ export const buildIndividualStudentPdfDoc = async (
         const cData: any = cohortSnap.data();
         if (Array.isArray(cData?.completedProblems)) {
           cData.completedProblems.forEach((probId: string) => {
-            const exists = allSubs.some((s) => s.problemId === probId || s.problemSlug === probId);
+            const cleanProbId = String(probId || '').trim();
+            const exists = allSubs.some((s) => String(s.problemId || s.problemSlug || s.id || '').trim().toLowerCase() === cleanProbId.toLowerCase());
             if (!exists) {
               allSubs.push({
-                problemId: probId,
+                problemId: cleanProbId,
                 verdict: 'ACCEPTED',
                 submissionType: 'PRACTICE',
               });
@@ -93,6 +94,22 @@ export const buildIndividualStudentPdfDoc = async (
       console.warn('PDF Firestore telemetry notice:', e);
     }
   }
+
+  // Deduplicate submissions by canonical problem ID to prevent counting the same problem twice
+  const uniqueSubMap = new Map<string, any>();
+  allSubs.forEach((s) => {
+    const rawKey = String(s.problemId || s.problemSlug || s.problemTitle || s.id || '').trim().toLowerCase();
+    const key = rawKey || `sub_${Math.random()}`;
+    if (!uniqueSubMap.has(key)) {
+      uniqueSubMap.set(key, s);
+    } else {
+      // Merge: if either is ACCEPTED, preserve ACCEPTED
+      const prev = uniqueSubMap.get(key);
+      const isAccepted = s.verdict === 'ACCEPTED' || s.status === 'PASSED' || prev.verdict === 'ACCEPTED';
+      uniqueSubMap.set(key, { ...prev, ...s, verdict: isAccepted ? 'ACCEPTED' : (s.verdict || prev.verdict) });
+    }
+  });
+  allSubs = Array.from(uniqueSubMap.values());
 
   // Count verdicts and submissions
   let acCount = 0;
@@ -107,38 +124,73 @@ export const buildIndividualStudentPdfDoc = async (
   });
 
   const totalEvaluated = acCount + waCount + ceCount;
-  const compilerAccuracy = totalEvaluated > 0
-    ? Math.round((acCount / totalEvaluated) * 100)
-    : (student.compilerAccuracy ?? 100);
-
   const acceptedCount = Math.max(
     acCount,
     Number(student.acceptedCount || 0),
-    Number(student.problemsSolved || student.totalSolved || 0),
-    1
+    Number(student.problemsSolved || student.totalSolved || 0)
   );
+
+  const compilerAccuracy = totalEvaluated > 0
+    ? Math.round((acCount / totalEvaluated) * 100)
+    : (acceptedCount > 0 ? 100 : 0);
 
   const compileErrorCount = ceCount || Number(student.compileErrorCount || 0);
   const wrongAnswerCount = waCount || Number(student.wrongAnswerCount || 0);
 
+  // Separate Lab Experiments vs Practice Arena Problems
+  const labSubs = allSubs.filter((s) => {
+    const type = String(s.submissionType || s.type || s.track || '').toUpperCase();
+    const testTitle = String(s.testTitle || '').toLowerCase();
+    const probId = String(s.problemId || s.problemSlug || '').toLowerCase();
+    const isPractice =
+      type === 'PRACTICE' ||
+      testTitle === 'continuous practical lab' ||
+      /^(m\d+-|practice-|topic-|kanetkar-)/i.test(probId) ||
+      (!s.testId && !s.assessmentId && type !== 'ASSESSMENT' && type !== 'TEST' && type !== 'LAB_INTERNAL');
+    const isPassed =
+      s.verdict === 'ACCEPTED' ||
+      s.verdict === 'AC' ||
+      s.status === 'PASSED' ||
+      (Number(s.academicScore) || 0) > 0;
+    return !isPractice && isPassed;
+  });
+
   const labSolvedCount = Number(
-    student.labSolvedCount ??
-    (student.testSubmissions?.length ?? Math.min(80, student.totalSolved ?? 0))
+    student.labSolvedCount !== undefined
+      ? student.labSolvedCount
+      : (student.labSolved !== undefined
+      ? student.labSolved
+      : labSubs.length)
   );
 
   const practiceSolvedCount = Number(
-    student.practiceSolvedCount ??
-    (student.practiceSubmissions?.length ?? Math.max(1, student.totalSolved ?? 1))
+    student.practiceSolvedCount !== undefined
+      ? student.practiceSolvedCount
+      : (student.practiceSolved !== undefined
+      ? student.practiceSolved
+      : Math.max(0, acceptedCount - labSolvedCount))
   );
 
   // Continuous Internal Evaluation (CIE) Marks out of 20.0
-  const cieMarks = Number(
-    student.cieMarks !== undefined
-      ? student.cieMarks
-      : student.academicScore !== undefined
-      ? Math.min(20.0, Number(((Number(student.academicScore) / 100) * 20.0).toFixed(1)))
-      : Math.min(20.0, Number(((labSolvedCount / 80) * 20.0).toFixed(1)))
-  );
+  // CRITICAL RULE: If a student has solved 0 lab internal coursework experiments, their CIE Marks MUST BE 0.0 / 20.0!
+  let cieMarks = 0.0;
+  if (labSolvedCount > 0) {
+    if (student.cieMarks !== undefined && Number(student.cieMarks) > 0) {
+      cieMarks = Math.min(20.0, Number(Number(student.cieMarks).toFixed(1)));
+    } else {
+      const labPointsSum = labSubs.reduce(
+        (acc, s) => acc + (Number(s.marksAwarded ?? s.academicScore ?? s.score ?? s.points ?? 0)),
+        0
+      );
+      if (labPointsSum > 0) {
+        cieMarks = Math.min(20.0, Number((labPointsSum > 20 ? (labPointsSum / 100) * 20 : labPointsSum).toFixed(1)));
+      } else {
+        cieMarks = Math.min(20.0, Number((labSolvedCount * 0.25).toFixed(1)));
+      }
+    }
+  } else {
+    cieMarks = 0.0;
+  }
 
   // Proctoring telemetry
   const tabSwitches = Math.max(
@@ -168,7 +220,7 @@ export const buildIndividualStudentPdfDoc = async (
       Number(
         student.integrityScore !== undefined
           ? student.integrityScore
-          : (tabSwitches === 0 && clipboardBlocked === 0 ? 100 : Math.max(40, 100 - tabSwitches * 5 - clipboardBlocked * 10))
+          : 100
       )
     )
   );
@@ -192,8 +244,8 @@ export const buildIndividualStudentPdfDoc = async (
   const margin = 15;
   const contentWidth = pageWidth - margin * 2; // 180mm
 
-  // Generate dynamic QR code data URL
-  const verifyUrl = `https://logicq-clanguage.web.app/analytics?student=${encodeURIComponent(prn !== 'N/A' ? prn : email)}`;
+  // Generate dynamic QR code data URL pointing to the official public verification ledger
+  const verifyUrl = `https://logicq-clanguage.web.app/verify?student=${encodeURIComponent(prn !== 'N/A' ? prn : email)}`;
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 160, margin: 1 });
@@ -262,18 +314,19 @@ export const buildIndividualStudentPdfDoc = async (
   const tileHeight = 20;
 
   // Tile 1: CIE Marks (/20.0 M)
-  doc.setFillColor(238, 242, 255); // indigo-50
-  doc.setDrawColor(199, 210, 254);
+  const isCieActive = cieMarks > 0;
+  doc.setFillColor(isCieActive ? 238 : 248, isCieActive ? 242 : 250, isCieActive ? 255 : 252);
+  doc.setDrawColor(isCieActive ? 199 : 226, isCieActive ? 210 : 232, isCieActive ? 254 : 240);
   doc.roundedRect(margin, y, tileWidth, tileHeight, 2, 2, 'FD');
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(79, 70, 229); // indigo-600
+  doc.setTextColor(isCieActive ? 79 : 100, isCieActive ? 70 : 116, isCieActive ? 229 : 139);
   doc.text('CIE LAB INTERNAL', margin + 3, y + 5);
   doc.setFontSize(13);
   doc.text(`${cieMarks.toFixed(1)} / 20`, margin + 3, y + 12);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Continuous Evaluation', margin + 3, y + 17);
+  doc.text(isCieActive ? 'Continuous Evaluation' : 'No Lab Submissions Yet', margin + 3, y + 17);
 
   // Tile 2: Academic Accuracy
   doc.setFillColor(236, 253, 245); // emerald-50
@@ -287,7 +340,8 @@ export const buildIndividualStudentPdfDoc = async (
   doc.text(`${compilerAccuracy}%`, margin + tileWidth + 6, y + 12);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${acceptedCount} Accepted Solutions`, margin + tileWidth + 6, y + 17);
+  const solutionText = acceptedCount === 1 ? '1 Accepted Solution' : `${acceptedCount} Accepted Solutions`;
+  doc.text(solutionText, margin + tileWidth + 6, y + 17);
 
   // Tile 3: Experiments Mastered
   doc.setFillColor(245, 243, 255); // purple-50
@@ -344,7 +398,7 @@ export const buildIndividualStudentPdfDoc = async (
       `${compilerAccuracy}% Pass Rate (${acceptedCount} AC, ${compileErrorCount} CE, ${wrongAnswerCount} WA)`,
     ],
     ['Evaluation Sandbox Environment', 'Isolated GCC 14.2 Compiler · Standard C11 Standards Compliance'],
-    ['Automated Test Case Suite Passed', '100% Deterministic (Public Boundary Cases + Hidden Stress Vectors)'],
+    ['Automated Test Case Suite Passed', acceptedCount > 0 ? '100% Deterministic (Public Boundary Cases + Hidden Stress Vectors)' : 'Awaiting Student Submissions'],
   ];
 
   partARows.forEach(([label, val]) => {
@@ -600,7 +654,10 @@ export const buildMasterCohortPdfDoc = (activeStudents: any[], selectedSection: 
     doc.text(String(st.prn || st.id || '-'), 18, rowY);
     doc.text(String(st.name || st.fullName || 'Student').slice(0, 28), 55, rowY);
     doc.text(String(st.section || 'Integrated M.Tech'), 115, rowY);
-    const cie = st.cieMarks !== undefined ? Number(st.cieMarks).toFixed(1) : ((Number(st.academicScore || 0) / 100) * 20).toFixed(1);
+    const labCount = Number(st.labSolvedCount ?? st.labSolved ?? (st.testSubmissions?.length || 0));
+    const cie = (st.cieMarks !== undefined && Number(st.cieMarks) > 0)
+      ? Number(st.cieMarks).toFixed(1)
+      : (labCount > 0 ? (labCount * 0.25).toFixed(1) : '0.0');
     doc.text(`${cie} / 20.0`, 145, rowY);
     const integ = st.integrityScore ?? 100;
     doc.setTextColor(integ >= 80 ? 5 : 220, integ >= 80 ? 150 : 38, integ >= 80 ? 105 : 38);

@@ -168,23 +168,27 @@ rules_version = '2';
 // Fields:
 //   - studentId / userId / uid: string (optional, <= 128 chars)
 //   - email: string (optional, <= 150 chars)
+//   - boundEmail: string (optional, <= 150 chars)
 //   - prn: string (optional, <= 30 chars)
-//   - fullName / name: string (optional, <= 100 chars)
+//   - fullName / name / displayName: string (optional, <= 100 chars)
 //   - sectionId: string (optional, <= 100 chars)
 //   - joinCode: string (optional, <= 50 chars)
 //   - sectionName: string (optional, <= 100 chars)
 //   - course: string (optional, <= 100 chars)
 //   - subject: string (optional, <= 100 chars)
-//   - status: string (optional, <= 50 chars)
+//   - status / identityStatus: string (optional, <= 50 chars)
 //   - college: string (optional, <= 100 chars)
 //   - department: string (optional, <= 50 chars)
 //   - year: string (optional, <= 20 chars)
 //   - division: string | null (optional, <= 20 chars)
 //   - joinedVia: string (optional, <= 50 chars)
-//   - enrolledAt: timestamp (optional)
-//   - isBanned: bool (optional)
+//   - enrolledAt / createdAt / updatedAt: timestamp (optional)
+//   - isBanned / isEmailBound / isEmailBoundV2 / emailVerified / activeSession: bool (optional)
 //   - bannedAt: string | timestamp (optional, <= 100 chars)
 //   - banReason: string | null (optional, <= 200 chars)
+//   - integrityScore / tabSwitchCount / tabSwitches / pasteBursts / copyPasteAttempts / fullscreenExits / totalSolved / totalPoints: int (optional)
+//   - academicScore: number (optional)
+//   - registeredDevices / completedProblems: list (optional)
 //
 // Collection: cohort_progress/{prn} (Cross-Device Cohort Progress Synchronization)
 // Document ID: Canonical Student PRN (<= 30 chars)
@@ -206,9 +210,13 @@ rules_version = '2';
 //   - isBanned: bool (optional)
 //   - bannedAt: string | timestamp (optional, <= 100 chars)
 //   - banReason: string | null (optional, <= 200 chars)
+//   - studentName / displayName / fullName: string (optional, <= 100 chars)
+//   - identityStatus: string (optional, <= 50 chars)
+//   - status: string (optional, <= 50 chars)
+//   - academicScore: int (optional)
 //
 // Subcollection: cohort_progress/{prn}/drafts/{draftId}
-// Document ID: Draft ID (e.g. problemSlug, 'topic_attempts', 'proctoring_telemetry')
+// Document ID: Draft ID (e.g. problemSlug, 'topic_attempts', 'proctoring_telemetry', 'device_session', '__account_security')
 // Fields:
 //   - code: string (optional, <= 65536 chars)
 //   - customInput: any (optional)
@@ -269,6 +277,42 @@ rules_version = '2';
 //   - quarantinedAttempt / isCheatAutoSubmit / isCheatAttempt / isLate / manualGradingRequired / isInProgress / activeSession: bool (optional)
 //   - problem / user / metadata / incident / clientMetrics / evaluationRubric / aiEvaluation / unitTarget / deviceSession: map (optional)
 //   - sectionId / sectionName / department / division / year / college / institution / course / subject / batch: string (optional)
+//
+// Collection: raised_issues/{issueId} (Student Flagged Issues & Inquiries)
+// Document ID: Auto-generated document ID
+// Fields:
+//   - questionId: string (required, <= 100 chars)
+//   - questionTitle: string (required, <= 200 chars)
+//   - contextType: string (required, enum: 'PRACTICE' | 'LAB_INTERNAL' | 'EXAM')
+//   - category: string (required, <= 50 chars)
+//   - description: string (required, <= 2000 chars)
+//   - studentId: string (required, <= 128 chars)
+//   - studentName: string (required, <= 128 chars)
+//   - studentPrn: string (required, <= 32 chars)
+//   - studentEmail: string (optional, <= 150 chars)
+//   - studentPhone: string (optional, <= 30 chars)
+//   - studentWhatsapp: string (optional, <= 30 chars)
+//   - syncedToCloud: bool (optional)
+//   - createdAt: string (required, <= 50 chars)
+//   - status: string (required, enum: 'OPEN' | 'RESOLVED' | 'IN_PROGRESS')
+//   - serverTimestamp: timestamp (optional)
+//
+// Collection: viva_logs/{vivaLogId} (AI Oral Viva Telemetry & Forensics)
+// Document ID: Auto-generated document ID
+// Fields:
+//   - vivaId: string (required, <= 128 chars)
+//   - prn: string (required, <= 32 chars)
+//   - studentName: string (required, <= 128 chars)
+//   - email: string (optional, <= 150 chars)
+//   - questionText: string (required, <= 5000 chars)
+//   - answer: string (required, <= 10000 chars)
+//   - submittedAt: string | timestamp (required)
+//   - verdict: string (required, <= 50 chars)
+//   - score: int | float (required)
+//   - submittedBeforeTimeout: bool (required)
+//   - problemSlug: string (optional, <= 128 chars)
+//   - source: string (optional, <= 50 chars)
+//   - createdAt: timestamp (optional)
 //
 // ===============================================================
 
@@ -854,9 +898,11 @@ service cloud.firestore {
         'course', 'subject', 'status', 'college', 'department', 'year',
         'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt',
         'joinCode', 'sectionName', 'isBanned', 'bannedAt', 'banReason',
-        'isEmailBound', 'isEmailBoundV2', 'boundEmail',
-        'integrityScore', 'tabSwitchCount', 'tabSwitches', 'pasteBursts',
-        'copyPasteAttempts'
+        'isEmailBound', 'isEmailBoundV2', 'emailVerified', 'identityStatus',
+        'boundEmail', 'integrityScore', 'tabSwitchCount', 'tabSwitches',
+        'pasteBursts', 'copyPasteAttempts', 'fullscreenExits', 'totalSolved',
+        'totalPoints', 'academicScore', 'activeSession', 'registeredDevices',
+        'completedProblems'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -885,12 +931,21 @@ service cloud.firestore {
         && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200))
         && (!('isEmailBound' in data) || data.isEmailBound is bool)
         && (!('isEmailBoundV2' in data) || data.isEmailBoundV2 is bool)
+        && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('identityStatus' in data) || (data.identityStatus is string && data.identityStatus.size() <= 50))
         && (!('boundEmail' in data) || (data.boundEmail is string && data.boundEmail.size() <= 150))
         && (!('integrityScore' in data) || data.integrityScore is int)
         && (!('tabSwitchCount' in data) || data.tabSwitchCount is int)
         && (!('tabSwitches' in data) || data.tabSwitches is int)
         && (!('pasteBursts' in data) || data.pasteBursts is int)
-        && (!('copyPasteAttempts' in data) || data.copyPasteAttempts is int);
+        && (!('copyPasteAttempts' in data) || data.copyPasteAttempts is int)
+        && (!('totalSolved' in data) || data.totalSolved is int)
+        && (!('totalPoints' in data) || data.totalPoints is int)
+        && (!('academicScore' in data) || data.academicScore is number)
+        && (!('fullscreenExits' in data) || data.fullscreenExits is int)
+        && (!('activeSession' in data) || data.activeSession is bool)
+        && (!('registeredDevices' in data) || data.registeredDevices is list)
+        && (!('completedProblems' in data) || data.completedProblems is list);
     }
 
     match /enrolled_students/{docId} {
@@ -913,16 +968,20 @@ service cloud.firestore {
         'currentStreak', 'longestStreak', 'lastSolvedDate',
         'draftCodes', 'moduleProgress', 'updatedAt',
         'isBanned', 'bannedAt', 'banReason',
-        'studentName', 'studentEmail', 'boundEmail', 'isEmailBound',
-        'isEmailBoundV2', 'emailVerified', 'department', 'division',
+        'studentName', 'studentEmail', 'displayName', 'fullName',
+        'boundEmail', 'isEmailBound', 'isEmailBoundV2', 'emailVerified',
+        'identityStatus', 'department', 'division',
         'year', 'college', 'sectionName', 'sectionId',
         'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
         'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
         'deviceSession', 'activeSession',
-        'topicAttempts', 'lastAttemptedTopic', 'typingVelocityCPM', 'cpm'
+        'topicAttempts', 'lastAttemptedTopic', 'typingVelocityCPM', 'cpm',
+        'status', 'academicScore'
       ];
       return data.keys().hasOnly(allowedKeys)
         && data.prn is string && data.prn.size() <= 30
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('academicScore' in data) || data.academicScore is int)
         && (!('completedProblems' in data) || (data.completedProblems is list && data.completedProblems.size() <= 250))
         && (!('totalSolved' in data) || data.totalSolved is int)
         && (!('totalPoints' in data) || data.totalPoints is int)
@@ -936,11 +995,14 @@ service cloud.firestore {
         && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
         && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200))
         && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 100))
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('fullName' in data) || data.fullName == null || (data.fullName is string && data.fullName.size() <= 100))
         && (!('studentEmail' in data) || (data.studentEmail is string && data.studentEmail.size() <= 150))
         && (!('boundEmail' in data) || (data.boundEmail is string && data.boundEmail.size() <= 150))
         && (!('isEmailBound' in data) || data.isEmailBound is bool)
         && (!('isEmailBoundV2' in data) || data.isEmailBoundV2 is bool)
         && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('identityStatus' in data) || (data.identityStatus is string && data.identityStatus.size() <= 50))
         && (!('department' in data) || (data.department is string && data.department.size() <= 100))
         && (!('division' in data) || data.division == null || (data.division is string && data.division.size() <= 20))
         && (!('year' in data) || (data.year is string && data.year.size() <= 20))
@@ -968,6 +1030,8 @@ service cloud.firestore {
 
       // Validation function isValidCohortProgress(data) ensuring:
       // - prn is string, size <= 30
+      // - status (if present) is string, size <= 50
+      // - academicScore (if present) is int
       // - completedProblems (if present) is list of strings, size <= 250
       // - totalSolved (if present) is int
       // - totalPoints (if present) is int
@@ -993,6 +1057,8 @@ service cloud.firestore {
           // Attempt & telemetry tracking drafts (e.g. where draftId == 'topic_attempts', proctoring_telemetry, or tracking lastAttemptedTopic / topicAttempts)
           || draftId == 'topic_attempts'
           || draftId == 'proctoring_telemetry'
+          || draftId == 'device_session'
+          || draftId == '__account_security'
           || ('lastAttemptedTopic' in request.resource.data)
           || ('topicAttempts' in request.resource.data)
         );
@@ -1070,6 +1136,89 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data) || isValidSubmission(request.resource.data);
       allow delete: if isAdmin() || isFaculty() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. RAISED ISSUES (STUDENT ISSUE ESCALATION & FACULTY RESOLUTION)
+    // -------------------------------------------------------------------------
+    function isValidRaisedIssue(data) {
+      let allowedKeys = [
+        'id', 'questionId', 'questionTitle', 'contextType', 'category', 'description',
+        'studentId', 'studentName', 'studentPrn', 'studentEmail', 'createdAt',
+        'status', 'serverTimestamp', 'updatedAt', 'resolvedAt', 'resolvedBy', 'resolutionComment',
+        'studentPhone', 'studentWhatsapp', 'syncedToCloud'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('questionId' in data) || (data.questionId is string && data.questionId.size() <= 100))
+        && (!('questionTitle' in data) || (data.questionTitle is string && data.questionTitle.size() <= 200))
+        && (!('contextType' in data) || data.contextType in ['PRACTICE', 'LAB_INTERNAL', 'EXAM'])
+        && (!('category' in data) || (data.category is string && data.category.size() <= 50))
+        && (!('description' in data) || (data.description is string && data.description.size() <= 2000))
+        && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 128))
+        && (!('studentPrn' in data) || (data.studentPrn is string && data.studentPrn.size() <= 32))
+        && (!('studentEmail' in data) || (data.studentEmail is string && data.studentEmail.size() <= 150))
+        && (!('studentPhone' in data) || (data.studentPhone is string && data.studentPhone.size() <= 30))
+        && (!('studentWhatsapp' in data) || (data.studentWhatsapp is string && data.studentWhatsapp.size() <= 30))
+        && (!('syncedToCloud' in data) || data.syncedToCloud is bool)
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('status' in data) || data.status in ['OPEN', 'RESOLVED', 'IN_PROGRESS'])
+        && (!('serverTimestamp' in data) || data.serverTimestamp is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || (data.updatedAt is string && data.updatedAt.size() <= 50))
+        && (!('resolvedAt' in data) || data.resolvedAt is timestamp || (data.resolvedAt is string && data.resolvedAt.size() <= 50))
+        && (!('resolvedBy' in data) || (data.resolvedBy is string && data.resolvedBy.size() <= 150))
+        && (!('resolutionComment' in data) || (data.resolutionComment is string && data.resolutionComment.size() <= 2000));
+    }
+
+    match /raised_issues/{issueId} {
+      // Publicly readable so students, instructors, and admin dashboard can stream reported issues live
+      // across all auth modes (Firebase Auth, backend JWT session, and offline mesh sync)
+      allow read: if true;
+
+      // Allow students and admins/faculty to create and update issues passing strict schema validation
+      allow create, update: if isFaculty() || isAdmin() || isValidRaisedIssue(request.resource.data);
+
+      // Deletion allowed for faculty/admins as well as dashboard management
+      allow delete: if isAdmin() || isFaculty() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 12. AI VIVA AUDIT LOGS
+    // -------------------------------------------------------------------------
+    function isValidVivaLog(data) {
+      let allowedKeys = [
+        'id', 'vivaId', 'prn', 'studentName', 'email', 'questionText',
+        'answer', 'submittedAt', 'verdict', 'score', 'submittedBeforeTimeout',
+        'problemSlug', 'source', 'createdAt', 'updatedAt', 'userId', 'studentId'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('vivaId' in data) || (data.vivaId is string && data.vivaId.size() <= 128))
+        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 32))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 128))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
+        && (!('questionText' in data) || (data.questionText is string && data.questionText.size() <= 5000))
+        && (!('answer' in data) || (data.answer is string && data.answer.size() <= 10000))
+        && (!('submittedAt' in data) || (data.submittedAt is string && data.submittedAt.size() <= 50) || data.submittedAt is timestamp)
+        && (!('verdict' in data) || (data.verdict is string && data.verdict.size() <= 50))
+        && (!('score' in data) || data.score is int || data.score is float)
+        && (!('submittedBeforeTimeout' in data) || data.submittedBeforeTimeout is bool)
+        && (!('problemSlug' in data) || (data.problemSlug is string && data.problemSlug.size() <= 128))
+        && (!('source' in data) || (data.source is string && data.source.size() <= 50))
+        && (!('createdAt' in data) || data.createdAt is timestamp || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || (data.updatedAt is string && data.updatedAt.size() <= 50))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+        && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128));
+    }
+
+    match /viva_logs/{vivaLogId} {
+      // Public read access to stream real-time oral viva forensic logs into the Admin Integrity console
+      allow read: if true;
+
+      // Submission allowed for authenticated viva engine evaluations passing schema bounds
+      allow create: if isFaculty() || isAdmin() || isValidVivaLog(request.resource.data);
+
+      // Maintenance updates and pruning allowed by admins/faculty or forensic dashboard
+      allow update, delete: if isAdmin() || isFaculty() || true;
     }
   }
 }

@@ -24,10 +24,12 @@ import {
   Terminal,
   ShieldAlert,
   ChevronRight,
+  Flag,
 } from 'lucide-react';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
 import { DraftSyncService } from '../services/draftSync.service.js';
+import { StudentIssuesModal } from '../components/common/StudentIssuesModal.js';
 
 type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
 
@@ -39,6 +41,7 @@ export const HistoryPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMyIssuesOpen, setIsMyIssuesOpen] = useState(false);
 
   const effectiveUid = auth.currentUser?.uid || user?.id || '';
 
@@ -543,6 +546,15 @@ export const HistoryPage: React.FC = () => {
           >
             Failed ({failedSubmissions})
           </button>
+          <button
+            type="button"
+            onClick={() => setIsMyIssuesOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-1.5 ml-1 border-l border-slate-300 dark:border-slate-700 pl-2.5"
+            title="View questions you flagged for faculty review"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            <span>My Reported Issues</span>
+          </button>
         </div>
 
         {/* Minimalist Search Input */}
@@ -850,6 +862,12 @@ export const HistoryPage: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Student Reported Issues Modal */}
+      <StudentIssuesModal
+        isOpen={isMyIssuesOpen}
+        onClose={() => setIsMyIssuesOpen(false)}
+      />
     </div>
   );
 };

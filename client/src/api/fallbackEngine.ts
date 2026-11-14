@@ -292,6 +292,17 @@ export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
 ];
 
+// Institutional Admin (Dean / HOD / VC level - read-only governance)
+export const INSTITUTIONAL_ADMIN_EMAILS = [
+  'hod.sanjivani@gmail.com',
+];
+
+// Faculty / Course Ownership (can solve, no proctor restrictions)
+export const FACULTY_EMAILS = [
+  'faculty.mtech@gmail.com',
+  'hariprasad.logicq@gmail.com',
+];
+
 export const PURGED_EMAILS = [
   'faculty@logicq.io',
   'student@logicq.io',
@@ -345,6 +356,22 @@ export function isExplicitAdminEmail(email?: string | null): boolean {
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
+export function isInstitutionalAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return INSTITUTIONAL_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isFacultyEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return FACULTY_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isAnyStaffEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(e) || INSTITUTIONAL_ADMIN_EMAILS.includes(e) || FACULTY_EMAILS.includes(e);
+}
+
 function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> {
   const arenaAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
     id: 'admin-super-1',
@@ -365,15 +392,79 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
+  const hodAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'admin-hod-1',
+    username: 'hod_sanjivani',
+    email: 'hod.sanjivani@gmail.com',
+    fullName: 'HOD / Dean',
+    displayName: 'HOD (Institutional Admin)',
+    role: 'INSTITUTIONAL_ADMIN' as any,
+    college: 'Sanjivani University',
+    department: 'Integrated M.Tech',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: 'LogicQ@HOD2026',
+    isBanned: false,
+    shortId: 'HOD01',
+    createdAt: new Date().toISOString(),
+  };
+
+  const faculty1: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'faculty-mtech-1',
+    username: 'faculty_mtech',
+    email: 'faculty.mtech@gmail.com',
+    fullName: 'Faculty Instructor',
+    displayName: 'Faculty (M.Tech)',
+    role: 'FACULTY',
+    college: 'Sanjivani University',
+    department: 'Integrated M.Tech',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: 'LogicQ@Faculty2026',
+    isBanned: false,
+    shortId: 'FAC01',
+    createdAt: new Date().toISOString(),
+  };
+
+  const faculty2: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'faculty-hariprasad-1',
+    username: 'hariprasad_logicq',
+    email: 'hariprasad.logicq@gmail.com',
+    fullName: 'Hariprasad Sir',
+    displayName: 'Hariprasad Sir (Faculty)',
+    role: 'FACULTY',
+    college: 'Sanjivani University',
+    department: 'Integrated M.Tech',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: 'LogicQ@Hariprasad2026',
+    isBanned: false,
+    shortId: 'FAC02',
+    createdAt: new Date().toISOString(),
+  };
+
+  const allStaff = [arenaAdmin, hodAdmin, faculty1, faculty2];
+
   try {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([arenaAdmin]));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));
   } catch {}
 
-  return [arenaAdmin];
+  return allStaff;
 }
 
 function saveStoredUsers(users: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }>) {
-  const filtered = (users || []).filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
+  const allowedEmails = [
+    ...ADMIN_EMAILS,
+    ...INSTITUTIONAL_ADMIN_EMAILS,
+    ...FACULTY_EMAILS,
+  ];
+  const filtered = (users || []).filter((u) => allowedEmails.includes((u.email || '').toLowerCase().trim()));
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
   } catch {}
@@ -1553,7 +1644,11 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   // Match against structured TOPIC_PRACTICE_DATA (Open & Hidden test cases)
   if (problemId) {
-    const topic = TOPIC_PRACTICE_DATA.find((t) => t.id === problemId || t.problem?.title === problemId);
+    const topic = TOPIC_PRACTICE_DATA.find((t) =>
+      t.id === problemId ||
+      t.problem?.title?.toLowerCase() === problemId.toLowerCase() ||
+      t.topicTitle?.toLowerCase() === problemId.toLowerCase()
+    );
     if (topic?.problem) {
       if (cleanStdin === (topic.problem.openTestCase.input || '').trim()) {
         expectedOut = topic.problem.openTestCase.expectedOutput;
@@ -1563,8 +1658,9 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     }
   }
 
-  // Fallback search across TOPIC_PRACTICE_DATA if not matched by problemId
-  if (!expectedOut && cleanStdin) {
+  // Fallback search across TOPIC_PRACTICE_DATA if not matched by problemId:
+  // Only search if cleanStdin has substantial context (avoid single-digit numbers like 7 or 10 colliding across topics)
+  if (!expectedOut && cleanStdin && cleanStdin.length > 3) {
     for (const t of TOPIC_PRACTICE_DATA) {
       if (t.problem) {
         if (cleanStdin === (t.problem.openTestCase.input || '').trim()) {
@@ -1619,9 +1715,10 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   // SUBMISSIONS ROUTES — RESILIENT GCC FALLBACK EVALUATION
   if ((path === '/submissions/run' || path === '/problems/run') && method === 'POST') {
-    const { code, stdin, input, problemId } = body || {};
+    const { code, stdin, input, problemId, topicId, problemSlug, slug } = body || {};
     const effectiveStdin = stdin !== undefined ? stdin : (input || '');
-    const result = evaluateFallbackCCode(code, effectiveStdin, problemId);
+    const effectiveProblemId = problemId || topicId || problemSlug || slug;
+    const result = evaluateFallbackCCode(code, effectiveStdin, effectiveProblemId);
     return {
       success: true,
       data: result,
@@ -3137,6 +3234,58 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     };
     localStorage.setItem(STORAGE_KEYS.PRACTICE_PROGRESS, JSON.stringify(storedProgress));
 
+    // ---- AI VIVA TRIGGER LOGIC ----
+    // Every 2nd ACCEPTED submission in this session triggers a viva
+    let vivaTriggered = false;
+    let vivaId: string | undefined;
+    let vivaQuestionText: string | undefined;
+
+    if (isAccepted) {
+      const vivaCounterKey = `logicq_viva_accepted_count_${current?.id || 'anon'}`;
+      let acceptedCount = 0;
+      try {
+        acceptedCount = parseInt(sessionStorage.getItem(vivaCounterKey) || '0', 10);
+      } catch {}
+      acceptedCount += 1;
+      try {
+        sessionStorage.setItem(vivaCounterKey, String(acceptedCount));
+      } catch {}
+
+      // Trigger on every 2nd correct submission
+      if (acceptedCount % 2 === 0) {
+        vivaTriggered = true;
+        vivaId = `viva_prac_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+        // Deterministic viva question based on code keywords
+        const codeStr = (body?.code || '').toLowerCase();
+        if (codeStr.includes('for') || codeStr.includes('while') || codeStr.includes('do {')) {
+          vivaQuestionText = `Your solution uses a loop — explain what happens if the loop condition never becomes false. How would you prevent an infinite loop in this case?`;
+        } else if (codeStr.includes('if') && codeStr.includes('else')) {
+          vivaQuestionText = `Your solution has if-else branching — what is the difference between if-else if and nested if? In your code, which condition is checked first?`;
+        } else if (codeStr.includes('scanf') || codeStr.includes('printf')) {
+          vivaQuestionText = `You used scanf/printf in your program — what is the difference between %d and %f format specifiers? What happens if you use the wrong specifier?`;
+        } else if (codeStr.includes('function') || (codeStr.match(/\w+\s*\(/) && !codeStr.match(/main\s*\(/))) {
+          vivaQuestionText = `Your code defines a function — explain the difference between call by value and call by reference in C with an example from your solution.`;
+        } else if (codeStr.includes('array') || codeStr.includes('[')) {
+          vivaQuestionText = `Your solution uses an array — what happens if you access an index beyond the array size in C? How would you prevent buffer overflow?`;
+        } else if (codeStr.includes('pointer') || codeStr.includes('*') && codeStr.includes('&')) {
+          vivaQuestionText = `You used pointers in your solution — explain the difference between * (dereference) and & (address-of) operators with an example.`;
+        } else {
+          vivaQuestionText = `Explain the logic of your solution. What is the time complexity of your approach and how could it be optimized further?`;
+        }
+
+        // Save pending viva to sessionStorage so PracticeWorkspace can persist it to Firestore
+        try {
+          sessionStorage.setItem(`logicq_pending_viva_${vivaId}`, JSON.stringify({
+            vivaId,
+            questionText: vivaQuestionText,
+            problemSlug,
+            triggeredAt: new Date().toISOString(),
+          }));
+        } catch {}
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -3153,12 +3302,105 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
           })),
         },
       },
+      // Top-level viva fields so PracticeWorkspacePage can read them directly
+      vivaTriggered,
+      vivaId,
+      vivaQuestionText,
+    };
+  }
+
+  // ==========================================
+  // RAISE ISSUE SUBMISSION HANDLER
+  // ==========================================
+  if (path === '/problems/raise-issue' && method === 'POST') {
+    const issuePayload = body || {};
+    try {
+      const { collection, addDoc, serverTimestamp: sTs } = await import('firebase/firestore');
+      const { db: fdb } = await import('../config/firebase.js');
+      await addDoc(collection(fdb, 'raised_issues'), {
+        ...issuePayload,
+        serverTimestamp: sTs(),
+      });
+    } catch (e) {
+      console.warn('[fallbackEngine] raised_issues Firestore write failed:', e);
+    }
+    try {
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      existing.unshift(issuePayload);
+      localStorage.setItem(storedKey, JSON.stringify(existing.slice(0, 100)));
+    } catch {}
+    return {
+      success: true,
+      message: 'Issue flagged for Faculty review!',
+      data: issuePayload,
     };
   }
 
   // ==========================================
   // TOPIC PRACTICE CLOUD & LOCAL SYNCHRONIZATION
   // ==========================================
+  // ==========================================
+  // AI VIVA SUBMIT HANDLER (Practice Mode)
+  // ==========================================
+  if (path === '/exam/viva/submit' && method === 'POST') {
+    const { vivaId, answer } = body || {};
+    if (!vivaId) return { success: false, message: 'vivaId missing' };
+
+    // Retrieve pending viva info from sessionStorage
+    let vivaInfo: any = {};
+    try {
+      const raw = sessionStorage.getItem(`logicq_pending_viva_${vivaId}`);
+      if (raw) vivaInfo = JSON.parse(raw);
+    } catch {}
+
+    const submittedAt = new Date().toISOString();
+    const trimmedAnswer = (answer || '').trim();
+    // Simple scoring: if answer >= 10 chars = PASS, else FAIL
+    const verdict = trimmedAnswer.length >= 10 ? 'PASS' : 'FAIL';
+    const score = verdict === 'PASS' ? 1.0 : 0.0;
+
+    // Save to Firestore viva_logs collection
+    try {
+      const { collection, addDoc, serverTimestamp: sTs } = await import('firebase/firestore');
+      const { db: fdb } = await import('../config/firebase.js');
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'null');
+      const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+      const currentUser = users.find((u: any) => u.id === current);
+
+      await addDoc(collection(fdb, 'viva_logs'), {
+        vivaId,
+        prn: currentUser?.prn || '',
+        studentName: currentUser?.fullName || currentUser?.displayName || '',
+        email: currentUser?.email || '',
+        questionText: vivaInfo?.questionText || '',
+        answer: trimmedAnswer,
+        submittedAt,
+        verdict,
+        score,
+        submittedBeforeTimeout: true,
+        problemSlug: vivaInfo?.problemSlug || '',
+        source: 'PRACTICE',
+        createdAt: sTs(),
+      });
+
+      // Clean up pending viva from sessionStorage
+      try { sessionStorage.removeItem(`logicq_pending_viva_${vivaId}`); } catch {}
+    } catch (e) {
+      console.warn('[fallbackEngine] viva_logs Firestore write failed:', e);
+    }
+
+    return {
+      success: true,
+      vivaId,
+      verdict,
+      score,
+      message: verdict === 'PASS' ? 'Viva defense accepted!' : 'Short response — please elaborate next time.',
+      submittedAt,
+      submittedBeforeTimeout: true,
+    };
+  }
+
   if (path === '/practice/topics/track-open' && method === 'POST') {
     return { success: true, message: 'Tracked successfully' };
   }

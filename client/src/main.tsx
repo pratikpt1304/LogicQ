@@ -13,7 +13,7 @@ import './index.css';
 import { RealtimeSyncService } from './services/realtimeSync.service.js';
 
 // Global System Launch Epoch: Reset all cached browser sessions & student local data across all devices
-const SYSTEM_LAUNCH_EPOCH = 'logicq_clean_launch_2026_11_10_v2';
+const SYSTEM_LAUNCH_EPOCH = 'logicq_clean_launch_2026_11_12_v5';
 if (typeof window !== 'undefined') {
   try {
     const currentEpoch = localStorage.getItem('logicq_system_launch_epoch');

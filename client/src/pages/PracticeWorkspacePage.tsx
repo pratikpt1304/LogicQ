@@ -63,6 +63,9 @@ import { Flag } from 'lucide-react';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { useAntiScreenshot } from '../hooks/useAntiScreenshot.js';
+import { ScreenSecurityShield } from '../components/common/ScreenSecurityShield.js';
+import { AiVivaModal } from '../components/exam/AiVivaModal.js';
 
 interface ExecutionErrorState {
   message: string;
@@ -194,6 +197,15 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [executionError, setExecutionError] = useState<ExecutionErrorState | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output'>('cases');
+
+  const monacoEditorRef = useRef<any>(null);
+  const handleJumpToLine = (line: number) => {
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.revealLineInCenter(line);
+      monacoEditorRef.current.setPosition({ lineNumber: line, column: 1 });
+      monacoEditorRef.current.focus();
+    }
+  };
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0);
   const [isProblemPickerOpen, setIsProblemPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -231,6 +243,14 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [showInactivityWarning, setShowInactivityWarning] = useState<boolean>(false);
   const inactivityPromptTimeoutRef = useRef<any>(null);
 
+  // Anti-Screenshot & Screen Capture Shield (Practice Proctoring Layer)
+  const { isBlurred, setIsBlurred } = useAntiScreenshot({
+    enabled: true,
+    blackoutOnBlur: true,
+    wipeClipboard: true,
+    blockPrint: true,
+  });
+
   // Keystroke Cadence & Velocity Detection (Step 5: Phone/ChatGPT Manual Transcription Detector)
   const keyStrokeTimesRef = useRef<number[]>([]);
   const backspaceCountRef = useRef<number>(0);
@@ -244,6 +264,9 @@ export const PracticeWorkspacePage: React.FC = () => {
   const warningBannerTimerRef = useRef<any>(null);
   const prevCodeLengthRef = useRef<number>(0);
   const lastCodeChangeTimeRef = useRef<number>(Date.now());
+
+  // AI Viva State (Practice Mode)
+  const [activeViva, setActiveViva] = useState<{ vivaId: string; questionText: string } | null>(null);
 
   const playProctorAlertSound = useCallback(() => {
     try {
@@ -696,7 +719,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   // Practice completion guard: Student must complete practice questions for this module before attempting the Lab Internal Test
   useEffect(() => {
-    if (user?.role === 'ADMIN' || !moduleSlug) return;
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY' || user?.role === 'INSTITUTIONAL_ADMIN' || !moduleSlug) return;
     const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
       (t) => t.moduleSlug === moduleSlug || t.moduleIndex === moduleConfig.order
     );
@@ -912,7 +935,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved OR quarantined
   const isProblemUnlocked = (idx: number): boolean => {
-    if (user?.role === 'ADMIN') return true;
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY' || user?.role === 'INSTITUTIONAL_ADMIN') return true;
     if (idx <= 0) return true;
     for (let i = 0; i < idx; i++) {
       const p = moduleProblems[i];
@@ -930,7 +953,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       toast.error(`🔒 Question #${targetIdx + 1} is locked! Solve previous questions first.`);
       return;
     }
-    if (quarantinedSlugs.has(targetSlug) && !secondChanceSlugs.has(targetSlug) && user?.role !== 'ADMIN') {
+    if (quarantinedSlugs.has(targetSlug) && !secondChanceSlugs.has(targetSlug) && user?.role !== 'ADMIN' && user?.role !== 'FACULTY' && user?.role !== 'INSTITUTIONAL_ADMIN') {
       toast.error(`🔒 Question #${targetIdx + 1} is quarantined! Finish other questions to unlock your 1 final chance.`);
       return;
     }
@@ -1354,9 +1377,10 @@ export const PracticeWorkspacePage: React.FC = () => {
       const currentCase = sampleCases[selectedCaseIndex] || sampleCases[0];
       const stdinInput = currentCase?.input ?? customInput ?? '';
       const rawProbId = problem?.id || problem?.slug || problemSlug;
-      const validUuid = Boolean(rawProbId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawProbId)));
       return api.post('/submissions/run', {
-        ...(validUuid ? { problemId: rawProbId } : {}),
+        problemId: rawProbId,
+        problemSlug: rawProbId,
+        topicId: rawProbId,
         code,
         stdin: stdinInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
@@ -1462,6 +1486,9 @@ export const PracticeWorkspacePage: React.FC = () => {
         totalKeystrokes: keystrokesCount,
         typingVelocityCPM: computedCpm,
         submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
+        tabSwitchCount: questionTabSwitchCount || 0,
+        copyPasteAttempts: questionPasteCount || 0,
+        fullscreenExits: fullscreenExits || 0,
         prn: user?.prn || '',
         studentPrn: user?.prn || '',
         email: user?.email || '',
@@ -1609,6 +1636,9 @@ export const PracticeWorkspacePage: React.FC = () => {
           totalKeystrokes: keystrokesCount,
           typingVelocityCPM: computedCpm,
           submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
+          tabSwitchCount: questionTabSwitchCount || 0,
+          copyPasteAttempts: questionPasteCount || 0,
+          fullscreenExits: fullscreenExits || 0,
           prn: user?.prn || '',
           studentPrn: user?.prn || '',
           email: user?.email || '',
@@ -1618,6 +1648,13 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         if (immediateSub.verdict === 'ACCEPTED') {
           triggerAcceptedCelebration(nextProblem);
+          // Only trigger AI Viva in Continuous Lab Internal (Never in practice)
+          const isLabInternal = location.pathname.startsWith('/lab-internal');
+          if (isLabInternal && res?.vivaTriggered && res?.vivaId && res?.vivaQuestionText) {
+            setTimeout(() => {
+              setActiveViva({ vivaId: res.vivaId, questionText: res.vivaQuestionText });
+            }, 1500);
+          }
         } else {
           toast.error(`Verdict: ${immediateSub.verdict.replace(/_/g, ' ')}`);
         }
@@ -1654,6 +1691,13 @@ export const PracticeWorkspacePage: React.FC = () => {
               });
               if (currentSub.verdict === 'ACCEPTED') {
                 triggerAcceptedCelebration(nextProblem);
+                // Only trigger AI Viva in Continuous Lab Internal (Never in practice)
+                const isLabInternal = location.pathname.startsWith('/lab-internal');
+                if (isLabInternal && (currentSub as any).vivaTriggered && (currentSub as any).vivaId) {
+                  setTimeout(() => {
+                    setActiveViva({ vivaId: (currentSub as any).vivaId, questionText: (currentSub as any).vivaQuestionText || 'Explain your approach.' });
+                  }, 1500);
+                }
               } else {
                 toast.error(`Verdict: ${currentSub.verdict.replace(/_/g, ' ')}`);
               }
@@ -1719,7 +1763,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     problemSlug &&
     quarantinedSlugs.has(problemSlug) &&
     !secondChanceSlugs.has(problemSlug) &&
-    user?.role !== 'ADMIN'
+    user?.role !== 'ADMIN' && user?.role !== 'FACULTY' && user?.role !== 'INSTITUTIONAL_ADMIN'
   );
 
   if (isCurrentQuarantined) {
@@ -1795,6 +1839,11 @@ export const PracticeWorkspacePage: React.FC = () => {
         isFullscreen ? 'z-50' : ''
       }`}
     >
+      {/* Screen Security Blackout Shield - activates when window loses focus (Snipping Tool / screen recorder detected) */}
+      <ScreenSecurityShield
+        isVisible={isBlurred}
+        onRestore={() => setIsBlurred(false)}
+      />
       {/* 1 Final Chance Mercy Mode Active Banner */}
       {problemSlug && secondChanceSlugs.has(problemSlug) && (
         <div className="bg-rose-500/15 border-b border-rose-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-rose-300 shrink-0">
@@ -2312,6 +2361,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                       totalUseCases={sampleCases.length}
                       testCases={submissionResult?.testCaseResults}
                       isLoading={runMutation.isPending || submitMutation.isPending}
+                      disableHints={true}
                       onRetry={() => {
                         if (submissionResult) submitMutation.mutate();
                         else runMutation.mutate();
@@ -2786,6 +2836,23 @@ export const PracticeWorkspacePage: React.FC = () => {
           questionTitle={problem?.title || 'Coding Problem'}
           questionId={problem?.id || problemSlug || ''}
           contextType={location.pathname.startsWith('/lab-internal') ? 'LAB_INTERNAL' : 'PRACTICE'}
+        />
+      )}
+
+      {/* AI Viva Modal (Practice Mode) */}
+      {activeViva && (
+        <AiVivaModal
+          vivaId={activeViva.vivaId}
+          questionText={activeViva.questionText}
+          initialRemainingSec={120}
+          onCompleted={(result) => {
+            setActiveViva(null);
+            if (result?.verdict === 'PASS') {
+              toast.success('🎓 Viva Passed! Great explanation!', { duration: 4000 });
+            } else {
+              toast.info('Viva completed. Practice explaining your code clearly next time.', { duration: 4000 });
+            }
+          }}
         />
       )}
     </div>

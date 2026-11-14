@@ -34,6 +34,9 @@ import {
   Trash2,
   ShieldAlert,
   KeyRound,
+  Eye,
+  Maximize2,
+  AlertTriangle,
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
@@ -758,7 +761,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     Number(mod.totalKeystrokes) || 0,
     Number(telemetryDraft?.totalKeystrokes) || 0,
     Number(student.totalKeystrokes) || 0,
-    ...testSubmissions.map((s) => Number(s.totalKeystrokes) || 0)
+    ...testSubmissions.map((s) => Number(s.totalKeystrokes) || 0),
+    ...practiceSubmissions.map((s) => Number(s.totalKeystrokes || s.charsTyped || s.code?.length) || 0)
   );
 
   const fullscreenExits = Math.max(
@@ -768,13 +772,28 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     ...testSubmissions.map((s) => Number(s.fullscreenExits || s.fullScreenExitCount) || 0)
   );
 
-  // Dynamic Integrity Score: Starts at 100%, deducts 5% per tab switch, 10% per paste burst
-  const integrityScore = Math.max(
-    0,
-    Math.min(100, 100 - tabSwitchCount * 5 - clipboardAttempts * 10)
-  );
+  // Hariprasad Sir Sacred Mandate: "Sirf Lab Internal mein hi integrity kam hogi, Practice mein nahi"
+  // Practice mode tab switches & pastes = 0 deduction. Deductions ONLY apply during Lab Internal / Official Tests:
+  const labInternalTabSwitches = testSubmissions.reduce((acc, s) => acc + (Number(s.tabSwitchCount) || 0), 0);
+  const labInternalPasteBursts = testSubmissions.reduce((acc, s) => acc + (Number(s.copyPasteAttempts || s.pasteBursts) || 0), 0);
 
-  const cpm = Number(mod.typingVelocityCPM) || (totalKeystrokes > 0 ? Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7))) : 0);
+  const integrityScore = (labInternalTabSwitches === 0 && labInternalPasteBursts === 0 && testSubmissions.length === 0)
+    ? 100
+    : Math.max(
+        0,
+        Math.min(100, 100 - (labInternalTabSwitches * 5) - (labInternalPasteBursts * 10))
+      );
+
+  const cpm = Math.max(
+    Number(mod.typingVelocityCPM) || 0,
+    Number(mod.cpm) || 0,
+    Number(telemetryDraft?.typingVelocityCPM) || 0,
+    Number(student.typingVelocityCPM) || 0,
+    Number(student.cpm) || 0,
+    ...testSubmissions.map((s) => Number(s.typingVelocityCPM || s.cpm) || 0),
+    ...practiceSubmissions.map((s) => Number(s.typingVelocityCPM || s.cpm) || 0),
+    totalKeystrokes > 0 ? Math.min(360, Math.max(90, Math.round(totalKeystrokes * 0.7))) : 0
+  );
   const wpm = Math.round(cpm / 5);
 
   const isMiniProjectActive =
@@ -1053,8 +1072,18 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 <span>PRN: <strong className="text-slate-700 dark:text-slate-200">{prn}</strong></span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <span>{email || '—'}</span>
-                  {email && (
+                  {email && email !== '—' ? (
+                    <a
+                      href={`mailto:${email}`}
+                      className="hover:text-blue-500 hover:underline cursor-pointer"
+                      title={`Click to email ${email}`}
+                    >
+                      {email}
+                    </a>
+                  ) : (
+                    <span>—</span>
+                  )}
+                  {email && email !== '—' && (
                     <button
                       type="button"
                       onClick={handleCopyEmail}
@@ -1100,6 +1129,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 testSubmissions,
                 practiceSubmissions,
                 submissions: allSubmissions,
+                labSolvedCount: testSubmissions.filter((s: any) => s.verdict === 'ACCEPTED' || (Number(s.academicScore) || 0) > 0).length,
+                practiceSolvedCount: practiceSubmissions.filter((s: any) => s.verdict === 'ACCEPTED' || s.status === 'PASSED' || (Number(s.score) || 0) > 0).length,
+                cieMarks: testSubmissions.filter((s: any) => s.verdict === 'ACCEPTED' || (Number(s.academicScore) || 0) > 0).length > 0 ? undefined : 0,
               })}
               className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
               title="Download Student Transcript PDF"
@@ -1231,6 +1263,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                     (sub.timeLimitMinutes && sub.timeTakenSeconds > sub.timeLimitMinutes * 60) ||
                     (sub.timeLimitSeconds && sub.timeTakenSeconds > sub.timeLimitSeconds)
                   );
+                  const subTabs = Number(sub.tabSwitchCount) || 0;
+                  const subPastes = Number(sub.copyPasteAttempts || sub.pasteBursts) || 0;
+                  const subExits = Number(sub.fullscreenExits || sub.fullScreenExitCount) || 0;
+                  const subHasViolations = subTabs > 0 || subPastes > 0 || subExits > 0;
 
                   return (
                     <div
@@ -1275,6 +1311,38 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   LATE SUBMISSION
                                 </span>
                               )}
+
+                              {/* PROCTORING & ANTI-CHEAT BADGES */}
+                              {subHasViolations ? (
+                                <>
+                                  {subTabs > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                      <Eye className="w-3 h-3 text-amber-500" />
+                                      <span>{subTabs} {subTabs === 1 ? 'Tab Switch' : 'Tab Switches'}</span>
+                                    </span>
+                                  )}
+                                  {subExits > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                      <Maximize2 className="w-3 h-3 text-purple-500" />
+                                      <span>{subExits} Fullscreen Exit{subExits > 1 ? 's' : ''}</span>
+                                    </span>
+                                  )}
+                                  {subPastes > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                      <span>{subPastes} Pastes Blocked</span>
+                                    </span>
+                                  )}
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                    ⚠️ Cheating Detected
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                                  <span>Clean Proctoring</span>
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
                               <span>
@@ -1301,7 +1369,17 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   <span>•</span>
                                 </>
                               )}
-                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes • {sub.fullscreenExits || sub.fullScreenExitCount || 0} Fullscreen Exits</span>
+                              {subHasViolations ? (
+                                <span className="font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-rose-500 inline" />
+                                  Cheating Audit: {subTabs} Tabs • {subPastes} Pastes • {subExits} Fullscreen Exits
+                                </span>
+                              ) : (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-500 inline" />
+                                  0 Cheating Violations (Clean)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1386,31 +1464,73 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                             {codeSnippet}
                           </pre>
 
-                          {/* Proctoring mini-bar */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
-                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block">Clipboard Pastes</span>
-                              <span className={`font-bold text-sm block mt-0.5 ${(sub.copyPasteAttempts || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                {sub.copyPasteAttempts || 0}
-                              </span>
+                          {/* Dedicated Question Anti-Cheat & Telemetry Audit Card */}
+                          <div className={`p-3.5 rounded-xl border text-xs font-sans ${
+                            subHasViolations
+                              ? 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                              : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
+                          }`}>
+                            <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
+                              <div className="flex items-center gap-2">
+                                {subHasViolations ? (
+                                  <>
+                                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                                    <span className="font-bold text-rose-300">
+                                      Anti-Cheat & Proctoring Flags Detected on this Question
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span className="font-bold text-emerald-300">
+                                      Verified 100% Clean Attempt · Zero Cheating Violations
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400">Question Telemetry Audit</span>
                             </div>
-                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block">Tab Switches</span>
-                              <span className={`font-bold text-sm block mt-0.5 ${(sub.tabSwitchCount || 0) > 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                {sub.tabSwitchCount || 0}
-                              </span>
-                            </div>
-                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block">Fullscreen Exits</span>
-                              <span className={`font-bold text-sm block mt-0.5 ${(sub.fullscreenExits || sub.fullScreenExitCount || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                {sub.fullscreenExits || sub.fullScreenExitCount || 0}
-                              </span>
-                            </div>
-                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block">Typing Speed</span>
-                              <span className="font-bold text-sm text-amber-400 block mt-0.5">
-                                {sub.cpm || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : sub.totalKeystrokes ? Math.min(320, Math.round(sub.totalKeystrokes * 0.7)) : 0)} CPM
-                              </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 font-mono text-center">
+                              <div className={`p-2.5 rounded-lg border ${subTabs > 0 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Tab Switches</span>
+                                <span className={`text-base font-bold block mt-0.5 ${subTabs > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  {subTabs} {subTabs === 1 ? 'event' : 'events'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {subTabs > 0 ? 'Window focus lost' : 'No tab switching'}
+                                </span>
+                              </div>
+
+                              <div className={`p-2.5 rounded-lg border ${subExits > 0 ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Fullscreen Exits</span>
+                                <span className={`text-base font-bold block mt-0.5 ${subExits > 0 ? 'text-purple-400' : 'text-emerald-400'}`}>
+                                  {subExits} {subExits === 1 ? 'exit' : 'exits'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {subExits > 0 ? 'Exited fullscreen modal' : 'Fullscreen locked'}
+                                </span>
+                              </div>
+
+                              <div className={`p-2.5 rounded-lg border ${subPastes > 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Clipboard Pastes</span>
+                                <span className={`text-base font-bold block mt-0.5 ${subPastes > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                  {subPastes} blocked
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {subPastes > 0 ? 'External code paste intercepted' : '0 clipboard attempts'}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 rounded-lg border bg-white/5 border-white/10 text-slate-300">
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Typing Velocity</span>
+                                <span className="text-base font-bold block mt-0.5 text-amber-400">
+                                  {sub.cpm || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : sub.totalKeystrokes ? Math.min(320, Math.round(sub.totalKeystrokes * 0.7)) : 0)} CPM
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  Human cadence
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1440,7 +1560,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   No practice submissions yet.
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Once the student solves a practice problem, their submitted C code will appear here with verdict and points.
+                  Once the student solves a practice problem, their submitted C code will appear here with verification verdict and telemetry.
                 </p>
               </div>
             ) : (
@@ -1451,6 +1571,10 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   const isAccepted = sub.verdict === 'ACCEPTED' || sub.status === 'PASSED' || sub.score > 0;
                   const codeSnippet = sub.code || sub.submittedCode || '// No code body saved';
                   const pts = sub.points || sub.score || 0;
+                  const qTabs = Number(sub.tabSwitchCount) || 0;
+                  const qPastes = Number(sub.copyPasteAttempts || sub.pasteBursts) || 0;
+                  const qExits = Number(sub.fullscreenExits || sub.fullScreenExitCount) || 0;
+                  const qHasViolations = qTabs > 0 || qPastes > 0 || qExits > 0;
 
                   return (
                     <div
@@ -1493,6 +1617,38 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 Practice
                               </span>
+
+                              {/* PROCTORING & ANTI-CHEAT BADGES */}
+                              {qHasViolations ? (
+                                <>
+                                  {qTabs > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                      <Eye className="w-3 h-3 text-amber-500" />
+                                      <span>{qTabs} {qTabs === 1 ? 'Tab Switch' : 'Tab Switches'}</span>
+                                    </span>
+                                  )}
+                                  {qExits > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                      <Maximize2 className="w-3 h-3 text-purple-500" />
+                                      <span>{qExits} Fullscreen Exit{qExits > 1 ? 's' : ''}</span>
+                                    </span>
+                                  )}
+                                  {qPastes > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                      <span>{qPastes} Pastes Blocked</span>
+                                    </span>
+                                  )}
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                    ⚠️ Cheating Detected
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                                  <span>Clean Proctoring</span>
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
                               <span>
@@ -1512,11 +1668,17 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span>•</span>
                               <span>{sub.difficulty || 'EASY'}</span>
                               <span>•</span>
-                              <span>{sub.tabSwitchCount || 0} Tabs</span>
-                              <span>•</span>
-                              <span>{sub.copyPasteAttempts || sub.pasteBursts || 0} Pastes</span>
-                              <span>•</span>
-                              <span>{sub.fullscreenExits || 0} Fullscreen Exits</span>
+                              {qHasViolations ? (
+                                <span className="font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-rose-500 inline" />
+                                  Cheating Audit: {qTabs} Tabs • {qPastes} Pastes • {qExits} Fullscreen Exits
+                                </span>
+                              ) : (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-500 inline" />
+                                  0 Cheating Violations (Clean)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1524,6 +1686,76 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
                       {isExpanded && (
                         <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
+                          {/* Dedicated Question Anti-Cheat & Telemetry Audit Card */}
+                          <div className={`p-3.5 rounded-xl border text-xs font-sans ${
+                            qHasViolations
+                              ? 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                              : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
+                          }`}>
+                            <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
+                              <div className="flex items-center gap-2">
+                                {qHasViolations ? (
+                                  <>
+                                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                                    <span className="font-bold text-rose-300">
+                                      Anti-Cheat & Proctoring Flags Detected on this Question
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span className="font-bold text-emerald-300">
+                                      Verified 100% Clean Attempt · Zero Cheating Violations
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400">Practice Problem Telemetry</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 font-mono text-center">
+                              <div className={`p-2.5 rounded-lg border ${qTabs > 0 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Tab Switches</span>
+                                <span className={`text-base font-bold block mt-0.5 ${qTabs > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  {qTabs} {qTabs === 1 ? 'event' : 'events'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {qTabs > 0 ? 'Window focus lost' : 'No tab switching'}
+                                </span>
+                              </div>
+
+                              <div className={`p-2.5 rounded-lg border ${qExits > 0 ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Fullscreen Exits</span>
+                                <span className={`text-base font-bold block mt-0.5 ${qExits > 0 ? 'text-purple-400' : 'text-emerald-400'}`}>
+                                  {qExits} {qExits === 1 ? 'exit' : 'exits'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {qExits > 0 ? 'Exited fullscreen modal' : 'Fullscreen maintained'}
+                                </span>
+                              </div>
+
+                              <div className={`p-2.5 rounded-lg border ${qPastes > 0 ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Clipboard Pastes</span>
+                                <span className={`text-base font-bold block mt-0.5 ${qPastes > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                  {qPastes} blocked
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  {qPastes > 0 ? 'External code paste intercepted' : '0 clipboard attempts'}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 rounded-lg border bg-white/5 border-white/10 text-slate-300">
+                                <span className="text-[10px] uppercase block tracking-wider text-slate-400 font-sans">Typing Velocity</span>
+                                <span className="text-base font-bold block mt-0.5 text-amber-400">
+                                  {sub.cpm || sub.typingVelocityCPM || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : 0)} CPM
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-sans block mt-0.5">
+                                  Human cadence
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Solve Metrics & Telemetry Bar */}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
                             <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
@@ -1534,15 +1766,16 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               </span>
                             </div>
                             <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Marks / Points</span>
-                              <span className="font-bold text-sm text-emerald-400 block mt-1">
-                                {sub.points || sub.academicScore || 20} / 20 pts
+                              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Evaluation Mode</span>
+                              <span className="font-bold text-sm text-emerald-400 block mt-1 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                Ungraded Practice
                               </span>
                             </div>
                             <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
                               <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Proctoring Telemetry</span>
-                              <span className={`font-bold text-sm block mt-1 ${(sub.tabSwitchCount || 0) > 0 || (sub.copyPasteAttempts || 0) > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
-                                {sub.tabSwitchCount || 0} tabs · {sub.copyPasteAttempts || sub.pasteBursts || 0} pastes
+                              <span className={`font-bold text-sm block mt-1 ${qHasViolations ? 'text-amber-400' : 'text-slate-300'}`}>
+                                {qTabs} tabs · {qPastes} pastes · {qExits} exits
                               </span>
                             </div>
                             <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
@@ -1550,38 +1783,6 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="font-bold text-sm text-amber-400 block mt-1">
                                 {sub.cpm || sub.typingVelocityCPM || (sub.totalKeystrokes && sub.timeTakenSeconds ? Math.round((sub.totalKeystrokes / sub.timeTakenSeconds) * 60) : 0)} CPM
                               </span>
-                            </div>
-                          </div>
-
-                          {/* Faculty Manual Marks Award bar */}
-                          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2">
-                              <Award className="w-4 h-4 text-indigo-400 shrink-0" />
-                              <span className="font-semibold text-slate-200">Faculty Marks Award:</span>
-                              <span className="text-slate-400 text-[11px] font-mono">
-                                (Current: {editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20)} / {sub.maxMarks || sub.points || 20})
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                step="1"
-                                min={0}
-                                max={sub.maxMarks || sub.points || 20}
-                                value={editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20)}
-                                onChange={(e) => setEditingMarksMap({ ...editingMarksMap, [subId]: Number(e.target.value) })}
-                                className="w-16 px-2.5 py-1 rounded-lg bg-black/80 border border-white/20 text-white font-mono text-xs text-center focus:outline-hidden focus:border-indigo-500"
-                              />
-                              <span className="text-slate-400 text-xs font-mono">/ {sub.maxMarks || sub.points || 20}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveManualMarks(sub, editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.points ?? 20))}
-                                disabled={isSavingMarks}
-                                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                              >
-                                <Check className="w-3 h-3" />
-                                <span>Save Marks</span>
-                              </button>
                             </div>
                           </div>
 
