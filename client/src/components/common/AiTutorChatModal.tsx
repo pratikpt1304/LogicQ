@@ -80,9 +80,9 @@ const LogicQLogoIcon: React.FC<{ size?: number; className?: string }> = ({ size 
 
 const STARTER_PROMPTS = [
   'Explain Pointers vs Arrays in C',
-  'How does the 20-Mark CIE Score work?',
+  'Visualize Stack vs Heap Memory',
   'What causes a Segmentation Fault (Core Dumped)?',
-  'How does the assessment integrity score work?',
+  'How does the 20-Mark CIE Score work?',
 ];
 
 // Built-in intelligent Socratic Knowledge Base & Policy Engine
@@ -372,23 +372,42 @@ Your current live marks are always visible under the **Lab Internal** card on yo
 
   // 9. Pointers vs Arrays
   if (q.includes('pointer') || q.includes('array') || q.includes('dereference')) {
-    return `💡 **Pointers vs. Arrays in C:**
+    return `💡 **Pointers vs. Arrays in C (C11 Memory Architecture):**
 
 1. **Memory Allocation:**
-   - An array has a **fixed block of contiguous memory** allocated at compile time (or stack frame).
-   - A pointer is simply an 8-byte variable (on 64-bit systems) that stores the **memory address** of another variable.
+   - An array is a **fixed, contiguous block of memory** allocated on the stack (or data segment).
+   - A pointer is a variable that stores the **virtual memory address** of another variable (8 bytes on 64-bit architectures).
 
 2. **Decay to Pointer:**
-   - In most expressions, an array's name decays into a pointer to its first element:
-     \`int arr[5]; int *p = arr;\` means \`p == &arr[0]\`.
+   - In expressions, an array's name decays into a pointer to its first element:
+     \`int arr[3] = {10, 20, 30}; int *ptr = arr;\` means \`ptr == &arr[0]\`.
 
-3. **Reassignment:**
-   - Pointers can be reassigned: \`p = p + 1;\` (valid, advances by \`sizeof(int)\` bytes).
-   - Array names are **constant references**: \`arr = arr + 1;\` causes a GCC compilation error!
+\`\`\`memory
++---------------------------------------------------------------+
+|                 STACK MEMORY FRAME (main)                     |
++------------+--------------------+-----------------------------+
+| Identifier | Virtual Address    | Value / Contents            |
++------------+--------------------+-----------------------------+
+| arr[0]     | 0x7ffd5820         | 10   (4 bytes)              |
+| arr[1]     | 0x7ffd5824         | 20   (4 bytes, +4 offset)   |
+| arr[2]     | 0x7ffd5828         | 30   (4 bytes, +8 offset)   |
++------------+--------------------+-----------------------------+
+| ptr        | 0x7ffd5830         | 0x7ffd5820 (8-byte pointer) |
++------------+--------------------+-----------------------------+
+      |
+      +==========================> [Points directly to arr[0]]
+
+Pointer Arithmetic Formula:
+ptr + 1 ===> 0x7ffd5820 + (1 * sizeof(int)) ===> 0x7ffd5824 (&arr[1])
+\`\`\`
+
+3. **Reassignment Difference:**
+   - \`ptr = ptr + 1;\` is **VALID** (advances pointer to next element).
+   - \`arr = arr + 1;\` is a **COMPILATION ERROR** (array base address is an immutable rvalue reference).
 
 4. **Size Difference:**
-   - \`sizeof(arr)\` gives total bytes: \`5 * sizeof(int) = 20\`.
-   - \`sizeof(p)\` gives pointer size: \`8\` bytes.`;
+   - \`sizeof(arr)\` = $3 \\times \\text{sizeof}(int) = 12\\text{ bytes}$.
+   - \`sizeof(ptr)\` = $8\\text{ bytes}$ (standard 64-bit memory pointer).`;
   }
 
   // 10. Segmentation Fault
@@ -399,29 +418,46 @@ Your current live marks are always visible under the **Lab Internal** card on yo
     q.includes('crash') ||
     q.includes('sigsegv')
   ) {
-    return `⚡ **What Causes a Segmentation Fault in C?**
+    return `⚡ **What Causes a Segmentation Fault (SIGSEGV) in C?**
 
-A Segmentation Fault (SIGSEGV) happens when your compiled binary attempts to read or write to a memory address that the OS has not mapped for your process.
+A Segmentation Fault occurs when a compiled binary attempts to access a virtual memory address that is not mapped to its process address space or violates memory page protection permissions (e.g., writing to read-only memory).
 
-**Top 4 Causes in LogicQ:**
+\`\`\`memory
++---------------------------------------------------------------+
+|               SEGMENTATION FAULT (SIGSEGV) TRAP               |
++---------------------------------------------------------------+
+| STACK FRAME:                                                  |
+|   int *ptr = NULL;                                            |
+|   [ Address: 0x7ffd5810 | Stored Value: 0x00000000 (NULL) ]   |
++---------------------------------------------------------------+
+             |
+             | Dereferencing: *ptr = 10;
+             v
+   💥 0x00000000 (Protected Kernel Memory Boundary)
+   ==> [Hardware Memory Management Unit (MMU) Page Fault Trap]
+   ==> OS signals SIGSEGV -> Process Terminated (Core Dumped)
++---------------------------------------------------------------+
+\`\`\`
+
+**Top 4 Causes on LogicQ:**
 1. **Dereferencing a NULL or Uninitialized Pointer:**
    \`\`\`c
    int *ptr = NULL;
-   *ptr = 10; // 💥 CRASH: Operating system prohibits accessing address 0x0
+   *ptr = 10; // 💥 CRASH: Accessing address 0x0 is strictly prohibited
    \`\`\`
 2. **Buffer Overflow / Out-of-Bounds Indexing:**
    \`\`\`c
    int arr[10];
-   arr[100] = 5; // 💥 Accessing outside stack boundary
+   arr[100] = 5; // 💥 Accessing unmapped memory outside stack boundary
    \`\`\`
 3. **Missing \`&\` in \`scanf\`:**
    \`\`\`c
    int n;
-   scanf("%d", n);  // 💥 WRONG! Passes garbage value of n as an address
-   scanf("%d", &n); // ✅ CORRECT! Passes memory address
+   scanf("%d", n);  // 💥 Passes garbage uninitialized integer as an address
+   scanf("%d", &n); // ✅ Passes actual stack memory address
    \`\`\`
 4. **Stack Overflow from Infinite Recursion:**
-   Recursion without a proper base condition exhausts the process call stack.`;
+   Recursion without a proper base condition exhausts the process call stack limit (~8MB on Linux).`;
   }
 
   // 11. Memory Management / malloc / free
@@ -436,21 +472,37 @@ A Segmentation Fault (SIGSEGV) happens when your compiled binary attempts to rea
     return `🧠 **Dynamic Memory Management in C (<stdlib.h>):**
 
 • \`malloc(size)\`: Allocates uninitialized memory on the **Heap**.
-• \`calloc(n, size)\`: Allocates heap memory and initializes every byte to **0**.
-• \`free(ptr)\`: Returns memory back to the operating system.
+• \`calloc(n, size)\`: Allocates heap memory and initializes all bytes to **0**.
+• \`free(ptr)\`: Returns memory back to the operating system's heap pool.
 
-**Best Practice Rule:**
-Always check if \`malloc\` returned \`NULL\` before dereferencing:
-\`\`\`c
-int *arr = (int *)malloc(n * sizeof(int));
-if (arr == NULL) {
-    fprintf(stderr, "Out of memory\\n");
-    return 1;
-}
-// Use arr...
-free(arr);
-arr = NULL; // Prevent dangling pointer!
-\`\`\``;
+\`\`\`memory
++-----------------------------+         +-------------------------------+
+|         STACK FRAME         |         |         HEAP SEGMENT          |
+|    (Local 8-byte pointer)   |         |    (Dynamically Allocated)    |
++-----------------------------+         +-------------------------------+
+| ptr: [ 0x55a120 ] (8 bytes) | ------> | 0x55a120: [ value = 42 ]      |
++-----------------------------+         | 0x55a124: [ value = 99 ]      |
+                                        +-------------------------------+
+
+  * After free(ptr); ptr = NULL; (Clean Deallocation)
++-----------------------------+         +-------------------------------+
+| ptr: [ 0x000000 ] (NULL)    |   x--x  | [ Returned to OS Free List ]  |
++-----------------------------+         +-------------------------------+
+\`\`\`
+
+**Essential Safety Rules:**
+1. **Always check for allocation failure:**
+   \`\`\`c
+   int *arr = (int *)malloc(n * sizeof(int));
+   if (arr == NULL) {
+       fprintf(stderr, "Heap memory allocation failed\\n");
+       return 1;
+   }
+   // Process data...
+   free(arr);
+   arr = NULL; // Crucial: Prevents dangling pointer!
+   \`\`\`
+2. **Prevent Memory Leaks:** Every \`malloc\` must be paired with exactly one \`free\`.`;
   }
 
   // 12. Mini-Project & Faculty Viva
@@ -579,13 +631,33 @@ In C, a string is simply a **1D array of characters terminated by the null chara
     q.includes('struct') ||
     q.includes('union') ||
     q.includes('typedef struct') ||
-    q.includes('structure padding')
+    q.includes('structure padding') ||
+    q.includes('padding')
   ) {
-    return `📦 **Structures (\`struct\`) vs. Unions (\`union\`):**
+    return `📦 **Structures (\`struct\`) vs. Unions (\`union\`) & Structure Padding:**
 
 1. **Memory Allocation:**
-   • **\`struct\`:** Every member has its **own independent memory space**. Total size is at least the sum of members (+ padding bytes for alignment).
+   • **\`struct\`:** Every member has its **own independent memory space**. Total size is at least the sum of member sizes (+ padding bytes inserted for CPU word alignment).
    • **\`union\`:** All members **share the same memory location**. Total size equals the size of its **largest member**.
+
+\`\`\`memory
++---------------------------------------------------------------+
+|         STRUCT MEMORY PADDING (64-bit GCC Alignment)          |
++---------------------------------------------------------------+
+  struct Sample { char a; int b; short c; };
+  
+  [Byte 0] [Byte 1] [Byte 2] [Byte 3]  --> 4 Bytes
+  | char a |  PAD   |  PAD   |  PAD   | (char at offset 0, padded to 4)
+  
+  [Byte 4] [Byte 5] [Byte 6] [Byte 7]  --> 4 Bytes
+  |          int b (4 bytes)          | (int must align to 4-byte boundary)
+  
+  [Byte 8] [Byte 9] [Byte 10] [Byte 11]--> 4 Bytes
+  |    short c (2B) |  PAD   |  PAD   | (struct total aligned to max alignment = 4)
++---------------------------------------------------------------+
+  Total Allocated: 12 Bytes  (Actual Data: 1 + 4 + 2 = 7 Bytes)
++---------------------------------------------------------------+
+\`\`\`
 
 2. **Syntax Example:**
    \`\`\`c
@@ -795,18 +867,54 @@ You can download your official student transcript at any time:
     q.includes('memory layout') ||
     q.includes('stack vs heap') ||
     q.includes('heap vs stack') ||
+    q.includes('visualize memory') ||
+    q.includes('visualize stack') ||
+    q.includes('memory diagram') ||
     q.includes('bss') ||
     q.includes('data segment') ||
     q.includes('text segment')
   ) {
-    return `🧠 **Memory Architecture of a Compiled C Process:**
+    return `🧠 **Memory Architecture of a Compiled C Process (Virtual Memory Layout):**
 
-From lowest to highest virtual address:
-1. **Text Segment (Code):** Read-only machine instructions generated by GCC. Prohibits runtime modification.
-2. **Initialized Data (\`.data\`):** Global & static variables with explicit initial values (e.g. \`int count = 10;\`).
-3. **Uninitialized Data (\`.bss\`):** Global & static variables initialized to zero automatically by the OS.
-4. **Heap (Grows UPWARD):** Dynamic allocations via \`malloc()\`, \`calloc()\`. Persists until explicitly freed.
-5. **Stack (Grows DOWNWARD):** Function stack frames, local variables, return addresses, and register saves. Fast automatic allocation/deallocation.`;
+In standard Linux/GCC 64-bit systems, process memory is organized into distinct segments arranged from lowest to highest virtual addresses:
+
+\`\`\`memory
++---------------------------------------------------------------+
+|               VIRTUAL ADDRESS SPACE OF C PROCESS              |
++---------------------------------------------------------------+
+  High Memory Address (0x7fffffffffff)
+  +-------------------------------------------------------------+
+  | [ STACK SEGMENT ] (Grows DOWNWARD v)                        |
+  | • Local variables, function call frames, return pointers    |
+  | • Automatically managed by CPU SP (Stack Pointer) register  |
+  +-------------------------------------------------------------+
+  |                              |                              |
+  |                              v (Downward Growth)            |
+  |                                                             |
+  |                              ^ (Upward Growth)              |
+  |                              |                              |
+  +-------------------------------------------------------------+
+  | [ HEAP SEGMENT ] (Grows UPWARD ^)                           |
+  | • Dynamic allocations via malloc(), calloc(), realloc()     |
+  | • Managed by programmer via free(); subject to leaks        |
+  +-------------------------------------------------------------+
+  | [ BSS SEGMENT ]                                             |
+  | • Uninitialized global & static variables (zeroed by OS)    |
+  +-------------------------------------------------------------+
+  | [ INITIALIZED DATA SEGMENT (.data) ]                        |
+  | • Explicitly initialized global & static variables          |
+  +-------------------------------------------------------------+
+  | [ TEXT / CODE SEGMENT (.text) ]                             |
+  | • Read-only compiled binary instructions (prohibits writes) |
+  +-------------------------------------------------------------+
+  Low Memory Address (0x000000000000 - Protected NULL Page Trap)
++---------------------------------------------------------------+
+\`\`\`
+
+**Stack vs. Heap Comparison Summary:**
+• **Lifetime:** Stack variables die when their enclosing function returns; Heap variables persist until explicitly freed with \`free()\`.
+• **Speed:** Stack is near instantaneous (adjusts CPU stack pointer); Heap requires OS memory pool management and bookkeeping.
+• **Size:** Stack is limited (~8 MB default stack limit); Heap is bounded only by available physical RAM and swap space.`;
   }
 
   // 29. Sorting Algorithms in C (Complexities & Implementation)
@@ -1128,8 +1236,42 @@ function renderFormattedChatMessage(rawText: string, isUser: boolean): React.Rea
     if (part.startsWith('```') && part.endsWith('```')) {
       const lines = part.slice(3, -3).trim().split('\n');
       const firstLine = lines[0]?.trim().toLowerCase();
-      const isLang = ['c', 'cpp', 'bash', 'sql', 'python', 'text'].includes(firstLine);
+      const isLang = ['c', 'cpp', 'bash', 'sql', 'python', 'text', 'memory'].includes(firstLine);
       const code = (isLang ? lines.slice(1) : lines).join('\n');
+
+      const isMemoryDiagram =
+        firstLine === 'memory' ||
+        code.includes('STACK') ||
+        code.includes('HEAP') ||
+        code.includes('VIRTUAL ADDRESS') ||
+        code.includes('MEMORY PADDING') ||
+        code.includes('SIGSEGV') ||
+        code.includes('SEGMENTATION FAULT') ||
+        code.includes('0x7ff') ||
+        code.includes('0x55a') ||
+        code.includes('+-----------------');
+
+      if (isMemoryDiagram) {
+        return (
+          <div
+            key={pIdx}
+            className="my-3 rounded-xl border border-indigo-500/40 bg-slate-950 overflow-hidden shadow-md select-text"
+          >
+            <div className="flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-slate-900 via-indigo-950/50 to-slate-900 border-b border-indigo-500/20 text-[10px] text-indigo-300 font-mono">
+              <span className="flex items-center gap-1.5 font-bold">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                C11 Memory Layout Visualizer
+              </span>
+              <span className="text-slate-400 text-[9px] uppercase tracking-wider font-medium">
+                Stack &bull; Heap &bull; Addresses
+              </span>
+            </div>
+            <pre className="p-3 text-[11px] leading-relaxed font-mono text-cyan-300 overflow-x-auto whitespace-pre bg-slate-950/95 selection:bg-cyan-900 selection:text-white">
+              <code>{code}</code>
+            </pre>
+          </div>
+        );
+      }
 
       return (
         <pre
@@ -1270,6 +1412,11 @@ KEY PLATFORM FACTS:
 CRITICAL PEDAGOGICAL RULE:
 • Never provide full, copy-pasteable C solution code for assignment or module problems.
 • Instead, teach concepts, point out edge cases, provide 2-3 line syntax snippets or minimal pseudocode, and guide the student Socratic-style to solve it themselves.
+
+AUTOMATIC VISUAL MEMORY LAYOUT VISUALIZER (STACK VS HEAP DIAGRAMS):
+• Whenever the student's query concerns memory concepts, pointers, pointer arithmetic, dereferencing, dynamic memory (malloc/calloc/realloc/free), structs/unions (padding and byte alignment), array memory layout, dangling pointers, memory leaks, or Segmentation Faults (SIGSEGV), you MUST ALWAYS format and include a clean, intuitive ASCII/Unicode memory layout diagram enclosed in a \`\`\`memory or \`\`\`text code block.
+• Include virtual addresses (e.g. 0x7ffd... for Stack, 0x55a0... for Heap), byte sizes, boundary lines (+---+ or |), pointer direction arrows (--> or ===>), and variable labels.
+• This visual diagram helps students deeply comprehend low-level memory geometry and avoid common pointer and memory corruption bugs.
 
 STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
 • Input Flexibility: You must thoroughly understand queries submitted in ANY input language, dialect, or format (English, Hindi, Hinglish, Marathi, informal slang, shorthand, or code snippets).
