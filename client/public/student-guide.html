@@ -422,7 +422,8 @@
         Platform: <a href="https://logicq-clanguage.web.app" target="_blank">logicq-clanguage.web.app</a>
       </div>
       <div>
-        Developed by <strong>Bitwise Club</strong>
+        Envisioned &amp; Engineered by <strong>Pratik Thorat</strong><br>
+        Lead Architect, LogicQ Ecosystem &bull; Sanjivani University
       </div>
     </div>
   </div>
@@ -436,7 +437,7 @@
       </svg>
       Print / Save as PDF
     </button>
-    <input type="text" id="guideSearch" class="search-input" placeholder="Search guide (e.g. OTP, viva, locked)..." oninput="filterGuide()">
+    <input type="text" id="guideSearch" class="search-input" placeholder="Search guide (e.g. AI Mentor, Memory, CIE, OTP, viva)..." oninput="filterGuide()">
   </div>
 
   <!-- Guide Body -->
@@ -446,10 +447,12 @@
     <div class="at-a-glance section-card">
       <h2>📌 At a glance</h2>
       <ul>
-        <li><strong>100 marks per module:</strong> 4 sections &times; 20 questions (80 marks) + 1 integrated mini-project (20 marks).</li>
-        <li><strong>3 test cases per question:</strong> 2 visible and 1 hidden.</li>
-        <li><strong>Time matters:</strong> a correct answer within the prescribed time earns the full mark.</li>
-        <li><strong>One submission per question:</strong> once you submit a correct solution, it is locked.</li>
+        <li><strong>20.0 Marks Official CIE Coursework:</strong> 4 lab modules &times; 20 practical questions = 80 questions (0.25 Mark each) continuously evaluated for college practical term work.</li>
+        <li><strong>100 Open Practice Problems:</strong> Unlimited conceptual practice across all 4 modules with instant GCC 14 sandbox test case validation.</li>
+        <li><strong>Socratic AI C Mentor:</strong> 24/7 intelligent conceptual assistant with automatic ASCII memory diagrams (Stack vs Heap, pointer arithmetic, struct padding).</li>
+        <li><strong>Floating Quick Action Hub:</strong> Bottom-right floating menu for instant access to AI Mentor, C Scratchpad, Issue Reporting, Faculty WhatsApp, and this Manual.</li>
+        <li><strong>3 test cases per question:</strong> 2 visible sample tests and 1 hidden boundary test case.</li>
+        <li><strong>One submission per question:</strong> once you submit a correct solution, it is permanently locked and credited.</li>
         <li><strong>Two separate scores:</strong> your Academic Score and your Integrity Score are never merged.</li>
       </ul>
     </div>
@@ -513,6 +516,54 @@
       <p><em>Open Profile from your avatar to see your PRN, division, bound email, mobile and registered devices.</em></p>
     </div>
 
+    <!-- Section 4A -->
+    <div class="section-card">
+      <h2>4A. Floating Quick Action Hub (Bottom-Right Menu)</h2>
+      <p>LogicQ features a floating circular Quick Action Hub at the bottom-right of your screen (marked with a <strong>+</strong> icon). Clicking it smoothly unfolds essential student tools in a radial arc:</p>
+      
+      <ul>
+        <li><strong>✨ AI C Mentor:</strong> Opens the 24/7 Socratic C11 tutor modal for conceptual hints, compiler warning explanations, and visual memory diagrams.</li>
+        <li><strong>💻 C Scratchpad:</strong> Navigates directly to the online GCC 14 sandbox compiler (<code>/compiler</code>) to test arbitrary C code snippets without submission pressure.</li>
+        <li><strong>🚩 Report Problem:</strong> Launches a 1-click modal to report ambiguous test cases, platform errors, or question doubts directly to the academic team with your current question ID pre-filled.</li>
+        <li><strong>💬 Faculty WhatsApp:</strong> Initiates a direct 1-tap WhatsApp chat with Sanjivani course faculty at <strong>+91 9834620537</strong> with your verified PRN, name, and department automatically formatted.</li>
+        <li><strong>✉️ Faculty Email:</strong> Opens your email client pre-addressed to <strong>logicqarena@gmail.com</strong> for formal academic requests.</li>
+        <li><strong>📖 Student Manual:</strong> 1-click shortcut to open this comprehensive user guide anytime.</li>
+      </ul>
+      <p><em>Note: For exam integrity, the floating radial menu is automatically disabled during proctored lab examinations.</em></p>
+    </div>
+
+    <!-- Section 4B -->
+    <div class="section-card">
+      <h2>4B. LogicQ Socratic AI Mentor &amp; Visual Memory Visualizer</h2>
+      <p>The built-in Socratic AI Mentor helps you truly master low-level C programming (C11 standard, GCC 14) and navigate platform policies.</p>
+
+      <h3>1. Socratic Academic Guidance (Integrity Guard)</h3>
+      <p>To preserve your evaluation scores and foster authentic systems problem-solving, the AI Mentor will <strong>never output copy-paste solution code</strong> for graded questions. Instead, it provides step-by-step conceptual hints, identifies logical edge cases, and guides you to write the code yourself.</p>
+
+      <h3>2. C11 Visual Memory Layout Visualizer (Stack vs. Heap Diagrams)</h3>
+      <p>Whenever you ask about pointers, pointer arithmetic, struct alignment, array indexing, or segmentation faults, the AI Mentor automatically renders high-contrast <strong>ASCII &amp; Box-Drawing Memory Architecture Diagrams</strong>:</p>
+
+      <div class="callout callout-info" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4; overflow-x: auto; white-space: pre; background: #0f172a; color: #38bdf8; border: 1px solid #334155;">+---------------------------------------------------------------+
+|                 STACK MEMORY FRAME (main)                     |
++------------+--------------------+-----------------------------+
+| Identifier | Virtual Address    | Value / Contents            |
++------------+--------------------+-----------------------------+
+| arr[0]     | 0x7ffd5820         | 10   (4 bytes)              |
+| arr[1]     | 0x7ffd5824         | 20   (4 bytes, +4 offset)   |
+| arr[2]     | 0x7ffd5828         | 30   (4 bytes, +8 offset)   |
++------------+--------------------+-----------------------------+
+| ptr        | 0x7ffd5830         | 0x7ffd5820 (8-byte pointer) |
++------------+--------------------+-----------------------------+
+      |
+      +==========================> [Points directly to arr[0]]</div>
+
+      <h3>3. Multilingual Understanding &amp; Strict Professional English</h3>
+      <p>You can ask questions in <strong>English, Hindi, Marathi, or Hinglish</strong> (e.g. <em>"Pointers aur arrays me memory kaise allocate hoti hai?"</em>). The AI will comprehend your exact query and formulate its response in <strong>clear, polished, professional academic English</strong> without any raw markdown symbols or hashtags.</p>
+
+      <h3>4. Instant Response Speed (~1.2s)</h3>
+      <p>Powered by Google's specialized low-latency Gemini Flash Lite models, the mentor responds with sub-second latency.</p>
+    </div>
+
     <!-- Section 5 -->
     <div class="section-card">
       <h2>5. How a module is scored (100 marks)</h2>
@@ -557,6 +608,52 @@
           </tr>
         </tbody>
       </table>
+
+      <h3>Official 20-Mark Continuous Internal Evaluation (CIE) Scale</h3>
+      <p>For your university lab internal assessment, coursework is officially evaluated on a <strong>20.0 Marks Scale</strong>:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th>Scope</th>
+            <th>Weightage per Question</th>
+            <th>CIE Marks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Module 1: Control Structures</td>
+            <td>20 Lab Questions</td>
+            <td>0.25 Mark</td>
+            <td>5.0 Marks</td>
+          </tr>
+          <tr>
+            <td>Module 2: Arrays &amp; Matrices</td>
+            <td>20 Lab Questions</td>
+            <td>0.25 Mark</td>
+            <td>5.0 Marks</td>
+          </tr>
+          <tr>
+            <td>Module 3: Strings &amp; Buffers</td>
+            <td>20 Lab Questions</td>
+            <td>0.25 Mark</td>
+            <td>5.0 Marks</td>
+          </tr>
+          <tr>
+            <td>Module 4: Functions &amp; Pointers</td>
+            <td>20 Lab Questions</td>
+            <td>0.25 Mark</td>
+            <td>5.0 Marks</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total CIE Practical Coursework</td>
+            <td>80 Questions</td>
+            <td>All 3 GCC Tests Pass</td>
+            <td><strong>20.0 Marks Total</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Your live score is displayed directly on your Dashboard as <code>CIE Score: [Solved &times; 0.25] / 20.0 M</code> and submitted directly to your practical exam faculty.</p>
 
       <h3>Time-based marking</h3>
       <table>
@@ -657,9 +754,21 @@
       <h2>8. Practice Mode</h2>
       <p>Practice Mode is for learning without pressure.</p>
       <ul>
-        <li>Unlimited time per problem.</li>
+        <li>Unlimited time per problem across 100 open curriculum questions.</li>
         <li>Switching tabs or looking up syntax never affects your Integrity Score.</li>
         <li>Every keystroke is auto-saved to the cloud, so a dropped connection costs you nothing.</li>
+      </ul>
+    </div>
+
+    <!-- Section 8A -->
+    <div class="section-card">
+      <h2>8A. Online C Scratchpad &amp; Sandbox Compiler (<code>/compiler</code>)</h2>
+      <p>Need to test a quick C code snippet, pointer experiment, or bitwise logic before applying it to an assessment? LogicQ provides a built-in online GCC 14 C11 compiler arena accessible via the top navigation bar or the floating Action Hub:</p>
+      <ul>
+        <li><strong>Standard C11 Support:</strong> Compiled with standard GCC 14 flags (<code>-std=c11 -Wall -Wextra</code>).</li>
+        <li><strong>Custom Standard Input (stdin):</strong> Provide arbitrary input strings and numbers into a dedicated input console to simulate user interaction.</li>
+        <li><strong>Execution Telemetry:</strong> Live execution timer displaying execution duration in milliseconds (e.g. <code>14ms runtime</code>).</li>
+        <li><strong>Instant Error Diagnostics:</strong> Clear compile-time error messages, warning descriptions, and runtime segmentation fault alerts.</li>
       </ul>
     </div>
 
@@ -795,6 +904,14 @@
         <li><strong>Part A, Submitted Solutions:</strong> question ID and statement, difficulty, your code, submission time, all three test results and marks.</li>
         <li><strong>Part B, Performance and Integrity:</strong> timing and deviation, marks, Integrity Score, recorded behaviour metrics, and viva details if triggered.</li>
       </ul>
+
+      <h3>Submissions History &amp; Real-Time Topic Resolution (<code>/history</code>)</h3>
+      <p>The <strong>Submissions History</strong> page (<code>/history</code>) provides a verified chronological ledger of every problem you have solved:</p>
+      <ul>
+        <li><strong>Curriculum Topic Resolution:</strong> Submissions dynamically display the exact curriculum topic title (e.g., <em>"Basic Input / Output &amp; Format Specifiers"</em>, <em>"Conditional Branching"</em>) instead of generic placeholders.</li>
+        <li><strong>Code Viewer Modal:</strong> Click <strong>View Code</strong> on any historical submission to inspect your accepted source code, execution runtime, test harness status, and timestamp.</li>
+        <li><strong>Filtering:</strong> Easily filter past submissions by Passed, Failed, or My Reported Issues.</li>
+      </ul>
     </div>
 
     <!-- Section 14 -->
@@ -890,16 +1007,31 @@
         <p class="qa-answer">A flag is a risk indicator, not a verdict. Faculty review it, and you can discuss it with them.</p>
       </div>
 
+      <div class="qa-item">
+        <div class="qa-question">❓ Where can I get quick help or flag a problem while coding?</div>
+        <p class="qa-answer">Click the floating purple <strong>+</strong> button at the bottom-right corner. It gives you 1-click access to the AI C Mentor, C Scratchpad, Issue Reporting modal, direct Faculty WhatsApp, and this Student Manual.</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ How is my official 20-mark Lab Internal score calculated?</div>
+        <p class="qa-answer">Each of the 80 Lab Internal practical questions is worth 0.25 Mark when all 3 GCC test cases pass: 80 &times; 0.25 = 20.0 Marks Total (evaluated continuously for CIE).</p>
+      </div>
+
+      <div class="qa-item">
+        <div class="qa-question">❓ Can the AI Mentor give me the solution to a question?</div>
+        <p class="qa-answer">No. To preserve academic integrity, the Socratic AI Mentor will never output copy-paste solution code. It provides hints, edge cases, compiler warnings help, and visual memory diagrams.</p>
+      </div>
+
       <div class="callout callout-info" style="margin-top: 20px;">
-        💬 <strong>Still stuck?</strong> Contact the Department Faculty Desk or reach out via Faculty WhatsApp / Faculty Email.
+        💬 <strong>Still stuck?</strong> Contact the Department Faculty Desk or reach out via Faculty WhatsApp (+91 9834620537) or Faculty Email (logicqarena@gmail.com).
       </div>
     </div>
 
   </div>
 
   <div class="footer-note">
-    LogicQ &bull; Smart C Programming Practice & Evaluation &bull; <a href="https://logicq-clanguage.web.app" target="_blank">logicq-clanguage.web.app</a><br>
-    Developed with pride by <strong>Bitwise Club</strong> &bull; Integrated M.Tech AY 2026-27
+    LogicQ &bull; Smart C Programming Practice &amp; Evaluation &bull; <a href="https://logicq-clanguage.web.app" target="_blank">logicq-clanguage.web.app</a><br>
+    Envisioned &amp; Engineered by <strong>Pratik Thorat</strong> &bull; Lead Architect, LogicQ Platform &bull; Sanjivani University &bull; AY 2026-27
   </div>
 
 </div>
