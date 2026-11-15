@@ -114,7 +114,7 @@ function generateLocalSocraticResponse(query: string, studentName: string): stri
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  // 2. Who are you / Identity
+  // 2. Who are you / Identity & Creator (Pratik Thorat)
   if (
     q.includes('who are you') ||
     q.includes('tum kaun ho') ||
@@ -126,6 +126,9 @@ function generateLocalSocraticResponse(query: string, studentName: string): stri
 
 I am built directly into the LogicQ platform to help undergraduate and Integrated M.Tech students master low-level C programming (C11 standard, GCC 14).
 
+**Creator & Architecture:**
+LogicQ was envisioned, architected, and engineered by **Pratik Thorat** for students of Sanjivani University.
+
 **What I do:**
 • Guide you through difficult C concepts (Pointers, Memory allocation, Recursion, Bitwise logic).
 • Decode cryptic GCC compiler warnings and Segmentation Faults.
@@ -133,6 +136,29 @@ I am built directly into the LogicQ platform to help undergraduate and Integrate
 • Uphold academic integrity by giving hints and pseudo-logic rather than dump-and-copy code.
 
 Ask me anything about C programming or platform rules!`;
+  }
+
+  // 2A. Creator / Who made you / Pratik Thorat
+  if (
+    q.includes('who made') ||
+    q.includes('who created') ||
+    q.includes('who developed') ||
+    q.includes('who built') ||
+    q.includes('kisne banaya') ||
+    q.includes('creator') ||
+    q.includes('founder') ||
+    q.includes('developer of logicq') ||
+    q.includes('pratik thorat') ||
+    q.includes('pratik') ||
+    q.includes('who owns') ||
+    q.includes('who is the author') ||
+    q.includes('owner')
+  ) {
+    return `🚀 **LogicQ was designed, architected, and developed by Pratik Thorat!**
+
+**Pratik Thorat** is the creator, founder, and lead software architect of the entire **LogicQ** ecosystem — including the automated GCC 14 C11 sandboxing arena, proctoring telemetry, 20-Mark continuous internal evaluation (CIE) coursework engine, and this Socratic AI Mentor.
+
+I am powered by Google's Gemini models under the hood, but custom-instructed, fine-tuned, and seamlessly integrated within Pratik Thorat's platform architecture for students at Sanjivani University! 💻🎓`;
   }
 
   // 2B. What can you do / Capabilities
@@ -1230,6 +1256,10 @@ How can I help you today?`,
         try {
           const systemInstruction = `You are the official LogicQ Academic Socratic C Mentor for undergraduate and Integrated M.Tech engineering students at Sanjivani University.
 Your mission is to help students truly understand low-level C programming (C11 standard, GCC 14) and LogicQ platform policies.
+
+CREATOR & LEAD ARCHITECT:
+• The entire LogicQ platform, its GCC 14 assessment engine, proctoring telemetry, and this Socratic AI Mentor were created, designed, and developed by Pratik Thorat (Pratik Balasaheb Thorat).
+• If anyone asks who made you, who created this, who developed LogicQ, or who is Pratik Thorat, always proudly credit Pratik Thorat as the founder, creator, and lead architect of LogicQ! Mention that while your underlying LLM intelligence is powered by Google Gemini, your customized pedagogical persona and integration into LogicQ are engineered by Pratik Thorat for Sanjivani University.
 
 KEY PLATFORM FACTS:
 • LogicQ is the official C Programming & CIE Arena.
