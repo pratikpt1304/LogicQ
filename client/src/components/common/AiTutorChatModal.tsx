@@ -1213,10 +1213,12 @@ What topic or doubt would you like to explore?`;
 
 // Helper to parse inline tokens: bold, italic, code, quotes, removing stray stars
 function renderInlineContent(text: string): React.ReactNode {
-  // Strip any stray *"quote"* or "*quote*" or *"
+  // Strip any stray *"quote"* or "*quote*" or *" or "*
   const normalized = text
-    .replace(/\*+"([^"]+)"\*+/g, '"$1"')
-    .replace(/"\*+([^"]+)\*+"/g, '"$1"');
+    .replace(/\*+"([^"]*)"\*+/g, '"$1"')
+    .replace(/"\*+([^"]*)\*+"/g, '"$1"')
+    .replace(/\*+"/g, '"')
+    .replace(/"\*+/g, '"');
 
   // Tokenize for code (`...`), bold-italic (***...***), bold (**...**), italic (*...*)
   const tokens = normalized.split(/(`[^`]+`|\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*)/g);
@@ -1363,6 +1365,8 @@ function renderFormattedChatMessage(rawText: string, isUser: boolean): React.Rea
           if (/^[\*\-]\s+/.test(line)) {
             line = '• ' + line.replace(/^[\*\-]\s+/, '');
           }
+          line = line.replace(/^•\s*[\*]+\s*/, '• ');
+          line = line.replace(/^•\s*[\*]+"/, '• "');
 
           return (
             <React.Fragment key={lIdx}>

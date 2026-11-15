@@ -41,6 +41,45 @@
             meta.setAttribute('content', theme === 'dark' ? '#0C0F1F' : '#F4F6FB');
           }
         } catch (e) {}
+
+        // Automatic Self-Healing: detect stale bundle / chunk load failures on mobile & reload
+        window.addEventListener('error', function(e) {
+          var msg = (e && e.message) ? e.message.toLowerCase() : '';
+          var src = (e && e.filename) ? e.filename.toLowerCase() : '';
+          var isChunkError = (
+            msg.indexOf('dynamically imported module') !== -1 ||
+            msg.indexOf('loading chunk') !== -1 ||
+            msg.indexOf('unexpected token') !== -1 ||
+            msg.indexOf('failed to fetch') !== -1 ||
+            src.indexOf('/assets/') !== -1
+          );
+
+          if (isChunkError) {
+            var hasRetried = sessionStorage.getItem('logicq_chunk_retry');
+            if (!hasRetried) {
+              sessionStorage.setItem('logicq_chunk_retry', 'true');
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  for (var i = 0; i < regs.length; i++) {
+                    regs[i].unregister();
+                  }
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      for (var j = 0; j < names.length; j++) {
+                        caches.delete(names[j]);
+                      }
+                      window.location.reload(true);
+                    });
+                  } else {
+                    window.location.reload(true);
+                  }
+                });
+              } else {
+                window.location.reload(true);
+              }
+            }
+          }
+        }, true);
       })();
     </script>
     <title>LogicQ — Smart C Programming &amp; Continuous Assessment Platform</title>
@@ -50,9 +89,109 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     />
+    <style>
+      /* Inline critical splash loader styling to prevent black screen on mobile */
+      #app-boot-loader {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #0c0f1f;
+        color: #94a3b8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        padding: 24px;
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .boot-spinner {
+        width: 44px;
+        height: 44px;
+        border: 3px solid rgba(99, 102, 241, 0.18);
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: bootSpin 0.9s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes bootSpin {
+        to { transform: rotate(360deg); }
+      }
+      .boot-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin: 0 0 6px 0;
+        letter-spacing: -0.01em;
+      }
+      .boot-subtitle {
+        font-size: 13px;
+        color: #64748b;
+        margin: 0 0 20px 0;
+      }
+      .boot-repair-btn {
+        display: none;
+        background: linear-gradient(135deg, #4f46e5, #4338ca);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+        transition: transform 0.15s ease, opacity 0.2s ease;
+      }
+      .boot-repair-btn:active {
+        transform: scale(0.97);
+      }
+    </style>
   </head>
   <body class="min-h-screen font-sans antialiased overflow-x-hidden">
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-boot-loader">
+        <div class="boot-spinner"></div>
+        <div class="boot-title">LogicQ C Programming Arena</div>
+        <div class="boot-subtitle">Initializing environment &amp; continuous evaluation...</div>
+        <button
+          id="boot-repair-btn"
+          class="boot-repair-btn"
+          onclick="(function(){
+            try {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  for (var i = 0; i < regs.length; i++) regs[i].unregister();
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      for (var j = 0; j < names.length; j++) caches.delete(names[j]);
+                      sessionStorage.clear();
+                      window.location.reload(true);
+                    });
+                  } else {
+                    sessionStorage.clear();
+                    window.location.reload(true);
+                  }
+                });
+              } else {
+                sessionStorage.clear();
+                window.location.reload(true);
+              }
+            } catch (err) {
+              window.location.reload(true);
+            }
+          })()"
+        >
+          Tap to Refresh &amp; Clear Cache
+        </button>
+      </div>
+      <script>
+        // Reveal emergency recovery button if React hasn't mounted in 3.5 seconds
+        setTimeout(function() {
+          var btn = document.getElementById('boot-repair-btn');
+          if (btn) btn.style.display = 'inline-block';
+        }, 3500);
+      </script>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
