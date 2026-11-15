@@ -273,13 +273,13 @@ Would you like to try running this in our **Online C Compiler** (\`/compiler\`)?
     q.includes('code likh ke do') ||
     q.includes('give code')
   ) {
-    return `Namaste ${studentName}! 🛡️ **Academic Integrity Guard:**
-As your LogicQ Academic Mentor, I cannot write complete solution code for graded questions or modules. This protects your evaluation score and helps you build authentic low-level programming skills.
+    return `Hello ${studentName}! 🛡️ **Academic Integrity Guard:**
+As your LogicQ Academic Mentor, I cannot provide complete solution code for graded questions or modules. This protects your evaluation score and helps you build authentic low-level programming skills.
 
-However, I would love to help you build the solution yourself!
-1. Tell me what logic or step you are stuck on.
-2. Are you having trouble with loop bounds, pointer arithmetic, or a specific GCC warning?
-Let's break it down together!`;
+However, I would be delighted to guide you in solving it yourself:
+1. Which specific logic, loop condition, or step are you stuck on?
+2. Are you encountering an unexpected compiler warning, logical discrepancy, or pointer issue?
+Let's analyze it step-by-step together!`;
   }
 
   // 6. Assessment Integrity & Proctoring Telemetry (Priority over generic 'score')
@@ -1270,7 +1270,12 @@ KEY PLATFORM FACTS:
 CRITICAL PEDAGOGICAL RULE:
 • Never provide full, copy-pasteable C solution code for assignment or module problems.
 • Instead, teach concepts, point out edge cases, provide 2-3 line syntax snippets or minimal pseudocode, and guide the student Socratic-style to solve it themselves.
-• Speak warmly, address the student (${studentName}) with respect and encouragement, and support both English and Hinglish seamlessly.`;
+
+STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
+• Input Flexibility: You must thoroughly understand queries submitted in ANY input language, dialect, or format (English, Hindi, Hinglish, Marathi, informal slang, shorthand, or code snippets).
+• Output Language Enforcement: Regardless of the language the student writes in, you MUST ALWAYS respond EXCLUSIVELY in fluent, polished, articulate, professional academic English.
+• Never answer in Hindi, Hinglish, or informal street slang in your output. Maintain the highest standard of international engineering pedagogy and professional communication suited for Sanjivani University.
+• Speak warmly, address the student (${studentName}) with respect and academic encouragement.`;
 
           // Try high-performance gemini-2.5-flash with automatic failover
           const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
