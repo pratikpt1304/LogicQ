@@ -183,6 +183,36 @@ LogicQ is an enterprise academic assessment and practice platform designed speci
 How can I help you navigate or practice right now?`;
   }
 
+  // 2D. Hello World / First C Program
+  if (
+    q.includes('hello word') ||
+    q.includes('hello world') ||
+    q.includes('print hello') ||
+    q.includes('first c program') ||
+    q.includes('first program')
+  ) {
+    return `👋 **Printing "Hello, World!" in C (C11 Standard):**
+
+In C, outputting text to the console is done using the \`printf()\` function from the standard input/output library (\`<stdio.h>\`).
+
+\`\`\`c
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!\\n");
+    return 0;
+}
+\`\`\`
+
+**Key Concepts Breakdown:**
+• \`#include <stdio.h>\`: Preprocessor directive that includes declarations for I/O functions.
+• \`int main(void)\`: The program's entry point mandated by C11. Returns \`0\` to indicate clean execution.
+• \`printf("...\\n")\`: Formatted print function. The \`\\n\` represents a newline character.
+• \`;\`: Semicolon terminates each statement in C.
+
+Would you like to try running this in our **Online C Compiler** (\`/compiler\`)?`;
+  }
+
   // 3. Thank you & Acknowledgements
   if (
     q.includes('thank') ||
