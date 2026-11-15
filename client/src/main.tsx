@@ -106,19 +106,19 @@ const ThemedToaster: React.FC = () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ThemeProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <ErrorBoundary>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <ThemeProvider>
+            <AuthProvider>
+              <SocketProvider>
                 <App />
-              </ErrorBoundary>
-              <ThemedToaster />
-            </SocketProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+                <ThemedToaster />
+              </SocketProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
