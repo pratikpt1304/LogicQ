@@ -259,7 +259,7 @@ Would you like to try running this in our **Online C Compiler** (\`/compiler\`)?
     q.includes('see you') ||
     q.includes('good night')
   ) {
-    return `Goodbye for now, ${studentName}! 👋 Best of luck with your coding practice. Remember: *Think in logic, code in C!*`;
+    return `Goodbye for now, ${studentName}! 👋 Best of luck with your coding practice. Remember: **Think in logic, code in C!**`;
   }
 
   // 5. Code begging / solution generation guard
@@ -1202,16 +1202,70 @@ Regarding **"${displayQuery}"**:
 I am focused on helping you master C programming (C11 standard) and navigate the LogicQ platform.
 
 Here are some helpful things you can ask me:
-• *"Explain Pointers vs Arrays in C"*
-• *"How does the 20-Mark CIE Score work?"*
-• *"What causes a Segmentation Fault?"*
-• *"Tell me about this app and its features"*
-• *"How does the assessment integrity score work?"*
+• "Explain Pointers vs Arrays in C"
+• "Visualize Stack vs Heap Memory"
+• "What causes a Segmentation Fault (Core Dumped)?"
+• "How does the 20-Mark CIE Score work?"
+• "Tell me about this app and its features"
 
 What topic or doubt would you like to explore?`;
 }
 
-// Helper to render formatted chat messages without raw markdown asterisks or LaTeX slashes
+// Helper to parse inline tokens: bold, italic, code, quotes, removing stray stars
+function renderInlineContent(text: string): React.ReactNode {
+  // Strip any stray *"quote"* or "*quote*" or *"
+  const normalized = text
+    .replace(/\*+"([^"]+)"\*+/g, '"$1"')
+    .replace(/"\*+([^"]+)\*+"/g, '"$1"');
+
+  // Tokenize for code (`...`), bold-italic (***...***), bold (**...**), italic (*...*)
+  const tokens = normalized.split(/(`[^`]+`|\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  return tokens.map((token, idx) => {
+    if (!token) return null;
+
+    if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
+      return (
+        <code
+          key={idx}
+          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-indigo-300 font-mono text-[11px]"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+
+    if (token.startsWith('***') && token.endsWith('***') && token.length > 6) {
+      return (
+        <strong key={idx} className="font-bold italic text-[var(--foreground)]">
+          {token.slice(3, -3)}
+        </strong>
+      );
+    }
+
+    if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
+      return (
+        <strong key={idx} className="font-bold text-[var(--foreground)]">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    if (token.startsWith('*') && token.endsWith('*') && token.length > 2) {
+      return (
+        <em key={idx} className="italic text-[var(--foreground)]">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+
+    // Remove any leftover stray asterisks or hashes from plain text token
+    const cleanedToken = token.replace(/[*#]/g, '');
+    return cleanedToken;
+  });
+}
+
+// Helper to render formatted chat messages without raw markdown asterisks, hashtags, or LaTeX slashes
 function renderFormattedChatMessage(rawText: string, isUser: boolean): React.ReactNode {
   if (isUser) {
     return rawText;
@@ -1283,37 +1337,36 @@ function renderFormattedChatMessage(rawText: string, isUser: boolean): React.Rea
       );
     }
 
-    // 3. Process line-by-line for bold (**bold**) and inline code (`code`)
+    // 3. Process line-by-line for headings, clean bullets, bold/italic tokens
     const lines = part.split('\n');
     return (
       <React.Fragment key={pIdx}>
-        {lines.map((line, lIdx) => {
-          const tokens = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+        {lines.map((rawLine, lIdx) => {
+          let line = rawLine;
 
-          const renderedTokens = tokens.map((token, tIdx) => {
-            if (token.startsWith('**') && token.endsWith('**')) {
-              return (
-                <strong key={tIdx} className="font-bold text-[var(--foreground)]">
-                  {token.slice(2, -2)}
-                </strong>
-              );
-            }
-            if (token.startsWith('`') && token.endsWith('`')) {
-              return (
-                <code
-                  key={tIdx}
-                  className="px-1.5 py-0.5 mx-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-indigo-300 font-mono text-[11px]"
-                >
-                  {token.slice(1, -1)}
-                </code>
-              );
-            }
-            return token;
-          });
+          // Strip markdown header hashes (# Title, ## Title, ### Title) and render as styled title
+          const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+          if (headingMatch) {
+            const headingText = headingMatch[2].trim();
+            return (
+              <div
+                key={lIdx}
+                className="font-bold text-[var(--foreground)] text-[12px] mt-2 mb-1 flex items-center gap-1.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                <span>{renderInlineContent(headingText)}</span>
+              </div>
+            );
+          }
+
+          // Convert markdown bullets (* or - at start of line) to clean bullet dot (•)
+          if (/^[\*\-]\s+/.test(line)) {
+            line = '• ' + line.replace(/^[\*\-]\s+/, '');
+          }
 
           return (
             <React.Fragment key={lIdx}>
-              {renderedTokens}
+              {renderInlineContent(line)}
               {lIdx < lines.length - 1 && '\n'}
             </React.Fragment>
           );
@@ -1417,6 +1470,13 @@ AUTOMATIC VISUAL MEMORY LAYOUT VISUALIZER (STACK VS HEAP DIAGRAMS):
 • Whenever the student's query concerns memory concepts, pointers, pointer arithmetic, dereferencing, dynamic memory (malloc/calloc/realloc/free), structs/unions (padding and byte alignment), array memory layout, dangling pointers, memory leaks, or Segmentation Faults (SIGSEGV), you MUST ALWAYS format and include a clean, intuitive ASCII/Unicode memory layout diagram enclosed in a \`\`\`memory or \`\`\`text code block.
 • Include virtual addresses (e.g. 0x7ffd... for Stack, 0x55a0... for Heap), byte sizes, boundary lines (+---+ or |), pointer direction arrows (--> or ===>), and variable labels.
 • This visual diagram helps students deeply comprehend low-level memory geometry and avoid common pointer and memory corruption bugs.
+
+CLEAN PROFESSIONAL FORMATTING DIRECTIVE (ZERO HASHTAGS OR RAW ASTERISKS):
+• Output Formatting Rules:
+  - NEVER output Markdown hashtag symbols like '#', '##', or '###' for titles. Use clean bold headings like '**1. Concept Overview:**' or '**Key Takeaways:**' instead.
+  - NEVER output raw asterisk bullets like '* item'. Use clean bullet dots '• item' or standard numbered lists '1. ', '2. '.
+  - NEVER output loose, stray, or mismatched asterisks (*). Do not wrap quotes with asterisks like *\"text\"*.
+  - Keep all formatting crisp, modern, and completely readable without raw markdown clutter.
 
 STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
 • Input Flexibility: You must thoroughly understand queries submitted in ANY input language, dialect, or format (English, Hindi, Hinglish, Marathi, informal slang, shorthand, or code snippets).
