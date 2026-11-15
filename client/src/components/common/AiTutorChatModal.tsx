@@ -1191,37 +1191,57 @@ How can I help you today?`,
 
     try {
       // Check if Gemini API key exists
-      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || localStorage.getItem('logicq_gemini_api_key');
+      const apiKey =
+        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+        localStorage.getItem('logicq_gemini_api_key') ||
+        'AQ.Ab8RN6IfQvST33QzIyUV9hMXW8Wa1WMWiCMSMIJocxX8V7N9gw';
 
       if (apiKey) {
         try {
-          const systemInstruction = `You are the LogicQ Academic Socratic C Mentor for undergraduate and Integrated M.Tech engineering students.
-Your mission is to help students truly understand low-level C programming (C11 standard, GCC 14) and platform policies.
-CRITICAL ACADEMIC RULE: Never give complete, copy-pasteable C code solutions to exam or assignment problems.
-Instead, teach them the underlying concept, provide minimal pseudo-code or short 2-3 line syntax examples, and guide them to find the bug or implement the logic themselves.
-Be polite, precise, and encouraging. Support both English and Hinglish seamlessly.`;
+          const systemInstruction = `You are the official LogicQ Academic Socratic C Mentor for undergraduate and Integrated M.Tech engineering students at Sanjivani University.
+Your mission is to help students truly understand low-level C programming (C11 standard, GCC 14) and LogicQ platform policies.
 
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemInstruction }] },
-                contents: [
-                  ...messages.slice(-4).map((m) => ({
-                    role: m.sender === 'ai' ? 'model' : 'user',
-                    parts: [{ text: m.text }],
-                  })),
-                  { role: 'user', parts: [{ text: query }] },
-                ],
-              }),
+KEY PLATFORM FACTS:
+• LogicQ is the official C Programming & CIE Arena.
+• Continuous Internal Evaluation (CIE) coursework has 4 modules × 20 questions = 80 questions, worth 20.0 Marks total (0.25 Mark per question).
+• Practice Arena has 100 open problems for unlimited practice.
+• Full-screen proctoring and integrity telemetry (0 score is clean) are enforced during tests.
+
+CRITICAL PEDAGOGICAL RULE:
+• Never provide full, copy-pasteable C solution code for assignment or module problems.
+• Instead, teach concepts, point out edge cases, provide 2-3 line syntax snippets or minimal pseudocode, and guide the student Socratic-style to solve it themselves.
+• Speak warmly, address the student (${studentName}) with respect and encouragement, and support both English and Hinglish seamlessly.`;
+
+          // Try high-performance gemini-2.5-flash with automatic failover
+          const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+          for (const modelName of modelsToTry) {
+            try {
+              const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    system_instruction: { parts: [{ text: systemInstruction }] },
+                    contents: [
+                      ...messages.slice(-6).map((m) => ({
+                        role: m.sender === 'ai' ? 'model' : 'user',
+                        parts: [{ text: m.text }],
+                      })),
+                      { role: 'user', parts: [{ text: query }] },
+                    ],
+                  }),
+                }
+              );
+
+              if (response.ok) {
+                const data = await response.json();
+                replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (replyText) break;
+              }
+            } catch {
+              // Try next model candidate
             }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
           }
         } catch {
           // Fallback to local Socratic engine
