@@ -107,9 +107,37 @@ export const HistoryPage: React.FC = () => {
       // Merge backend and Firestore submissions
       const combinedMap = new Map<string, any>();
       for (const s of fsSubs) {
+        if (!s.problem?.title || s.problem.title === 'Topic Practice') {
+          const topicItem = TOPIC_PRACTICE_DATA.find(
+            (t) => t.id === s.problemId || t.id === s.problem?.id || t.id === s.problemSlug || t.id === s.problem?.slug
+          );
+          if (topicItem) {
+            s.problem = {
+              ...s.problem,
+              id: s.problemId || topicItem.id,
+              title: topicItem.topicTitle || topicItem.problem?.title,
+              slug: topicItem.id,
+              difficulty: topicItem.problem?.difficulty || 'EASY',
+            };
+          }
+        }
         combinedMap.set(s.id, s);
       }
       for (const s of serverSubs) {
+        if (!s.problem?.title || s.problem.title === 'Topic Practice') {
+          const topicItem = TOPIC_PRACTICE_DATA.find(
+            (t) => t.id === s.problemId || t.id === s.problem?.id || t.id === s.problemSlug || t.id === s.problem?.slug
+          );
+          if (topicItem) {
+            s.problem = {
+              ...s.problem,
+              id: s.problemId || topicItem.id,
+              title: topicItem.topicTitle || topicItem.problem?.title,
+              slug: topicItem.id,
+              difficulty: topicItem.problem?.difficulty || 'EASY',
+            };
+          }
+        }
         if (!combinedMap.has(s.id)) {
           combinedMap.set(s.id, s);
         } else {
@@ -117,6 +145,7 @@ export const HistoryPage: React.FC = () => {
           combinedMap.set(s.id, {
             ...existing,
             ...s,
+            problem: s.problem?.title && s.problem.title !== 'Topic Practice' ? s.problem : existing.problem,
             isCheatAutoSubmit: existing.isCheatAutoSubmit || s.isCheatAutoSubmit,
             isCheatAttempt: existing.isCheatAttempt || s.isCheatAttempt,
             quarantinedAttempt: existing.quarantinedAttempt || s.quarantinedAttempt,
@@ -135,6 +164,9 @@ export const HistoryPage: React.FC = () => {
             for (const ts of topicSubs) {
               const topicKey = `topic_${ts.topicId}`;
               if (!combinedMap.has(topicKey) && !combinedMap.has(ts.topicId)) {
+                const topicItem = TOPIC_PRACTICE_DATA.find(
+                  (t) => t.id === ts.topicId || t.id === ts.problemId || t.problem?.title === ts.topicTitle
+                );
                 combinedMap.set(topicKey, {
                   id: topicKey,
                   problemId: ts.topicId,
@@ -148,9 +180,9 @@ export const HistoryPage: React.FC = () => {
                   createdAt: ts.solvedAt || ts.updatedAt || ts.firstOpenedAt || new Date().toISOString(),
                   problem: {
                     id: ts.topicId,
-                    title: ts.topicTitle || 'Topic Practice',
+                    title: topicItem?.topicTitle || topicItem?.problem?.title || ts.topicTitle || 'Practice Problem',
                     slug: ts.topicId,
-                    difficulty: ts.difficulty || 'EASY',
+                    difficulty: ts.difficulty || topicItem?.problem?.difficulty || 'EASY',
                   },
                 });
               }
@@ -674,7 +706,14 @@ export const HistoryPage: React.FC = () => {
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          {sub.problem?.title || 'Practice Exercise'}
+                          {(() => {
+                            const rawTitle = sub.problem?.title || sub.problemTitle || '';
+                            if (rawTitle && rawTitle !== 'Topic Practice') return rawTitle;
+                            const topic = TOPIC_PRACTICE_DATA.find(
+                              (t) => t.id === sub.problemId || t.id === sub.problem?.id || t.id === sub.problem?.slug || t.id === sub.problemSlug
+                            );
+                            return topic?.topicTitle || topic?.problem?.title || rawTitle || 'Practice Exercise';
+                          })()}
                         </h4>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                           {sub.submissionType || 'PRACTICE'}
@@ -758,7 +797,14 @@ export const HistoryPage: React.FC = () => {
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      {selectedSubmission.problem?.title || 'Submission Details'}
+                      {(() => {
+                        const rawTitle = selectedSubmission.problem?.title || selectedSubmission.problemTitle || '';
+                        if (rawTitle && rawTitle !== 'Topic Practice') return rawTitle;
+                        const topic = TOPIC_PRACTICE_DATA.find(
+                          (t) => t.id === selectedSubmission.problemId || t.id === selectedSubmission.problem?.id || t.id === selectedSubmission.problem?.slug || t.id === selectedSubmission.problemSlug
+                        );
+                        return topic?.topicTitle || topic?.problem?.title || rawTitle || 'Submission Details';
+                      })()}
                     </h3>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
