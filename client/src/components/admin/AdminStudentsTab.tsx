@@ -877,18 +877,6 @@ export const AdminStudentsTab: React.FC = () => {
                         <span>0 Solved</span>
                       </span>
                     )}
-
-                    {((st.tabSwitchCount ?? 0) > 0 || (st.clipboardAttempts ?? 0) > 0) ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title={`${st.tabSwitchCount || 0} tab switches, ${st.clipboardAttempts || 0} pastes`}>
-                        <Eye className="w-3 h-3 text-amber-500" />
-                        <span>{st.tabSwitchCount || 0} Tabs</span>
-                      </span>
-                    ) : (st.problemsSolved ?? 0) > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="Zero proctoring violations recorded">
-                        <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                        <span>Clean</span>
-                      </span>
-                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-1.5">
