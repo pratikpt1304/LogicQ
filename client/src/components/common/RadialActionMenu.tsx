@@ -271,69 +271,69 @@ export const RadialActionMenu: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="absolute bottom-20 right-0 w-[calc(100vw-3rem)] sm:w-[360px] max-w-[370px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-indigo-200/80 dark:border-indigo-800/80 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.35)] p-5 z-[10000] text-slate-800 dark:text-slate-100"
+            className="fixed bottom-24 right-6 w-[calc(100vw-3rem)] sm:w-[350px] max-w-[360px] max-h-[calc(100vh-7rem)] rounded-3xl bg-white/98 dark:bg-slate-900/98 backdrop-blur-2xl border border-indigo-200/90 dark:border-indigo-800/90 shadow-[0_20px_60px_-10px_rgba(79,70,229,0.35)] p-4 sm:p-5 z-[10000] text-slate-800 dark:text-slate-100 flex flex-col"
           >
             {/* Pointer arrow pointing to the FAB button */}
-            <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white dark:bg-slate-900 border-r border-b border-indigo-200/80 dark:border-indigo-800/80 rotate-45" />
+            <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white dark:bg-slate-900 border-r border-b border-indigo-200/90 dark:border-indigo-800/90 rotate-45 shadow-sm" />
 
             {/* Header Badge & Close */}
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5 shrink-0">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm">
                 <Sparkles className="w-3 h-3" />
-                New Feature Added
+                What's New in LogicQ
               </span>
               <button
                 type="button"
                 onClick={() => dismissGuide(false)}
-                className="w-6 h-6 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                className="w-6 h-6 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                 title="Dismiss"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight shrink-0">
               Student Quick Hub 🚀
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3.5 leading-relaxed">
-              We've added a floating quick action menu at the bottom-right for instant support and tools while practicing:
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 mb-2.5 leading-normal shrink-0">
+              Instant 1-tap support & tools while coding:
             </p>
 
-            {/* 5 Features Breakdown */}
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100/80 dark:border-indigo-900/40">
-                <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/30">
-                  <Sparkles className="w-3.5 h-3.5" />
+            {/* 5 Features Breakdown (Compact & Scroll-safe) */}
+            <div className="space-y-1.5 overflow-y-auto max-h-[220px] pr-0.5 mb-3 select-none">
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100/80 dark:border-indigo-900/40">
+                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/30">
+                  <Sparkles className="w-3 h-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">AI C Mentor</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">24/7 Socratic C11 tutor & memory model guide</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">24/7 Socratic C11 tutor & memory hints</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-cyan-50/60 dark:bg-cyan-950/30 border border-cyan-100/80 dark:border-cyan-900/40">
-                <div className="w-7 h-7 rounded-xl bg-cyan-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-cyan-500/30">
-                  <Code2 className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl bg-cyan-50/70 dark:bg-cyan-950/30 border border-cyan-100/80 dark:border-cyan-900/40">
+                <div className="w-6 h-6 rounded-lg bg-cyan-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-cyan-500/30">
+                  <Code2 className="w-3 h-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">C Scratchpad</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Instant online GCC 14 compiler to test code</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Online GCC 14 compiler to test arbitrary code</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-100/80 dark:border-rose-900/40">
-                <div className="w-7 h-7 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-rose-500/30">
-                  <Flag className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100/80 dark:border-rose-900/40">
+                <div className="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-rose-500/30">
+                  <Flag className="w-3 h-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Report Problem</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Flag doubts or question issues directly to faculty</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Flag question doubts directly to faculty</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100/80 dark:border-emerald-900/40">
-                <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
-                  <MessageCircle className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100/80 dark:border-emerald-900/40">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
+                  <MessageCircle className="w-3 h-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Faculty WhatsApp</div>
@@ -341,9 +341,9 @@ export const RadialActionMenu: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100/80 dark:border-amber-900/40">
-                <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30">
-                  <BookOpen className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-100/80 dark:border-amber-900/40">
+                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30">
+                  <BookOpen className="w-3 h-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">Student Manual</div>
@@ -353,18 +353,18 @@ export const RadialActionMenu: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
               <button
                 type="button"
                 onClick={() => dismissGuide(false)}
-                className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Dismiss
               </button>
               <button
                 type="button"
                 onClick={() => dismissGuide(true)}
-                className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30 hover:opacity-95 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5"
+                className="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-600/30 hover:opacity-95 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 Explore Hub
                 <Sparkles className="w-3.5 h-3.5" />
