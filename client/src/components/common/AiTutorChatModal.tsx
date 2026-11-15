@@ -1484,15 +1484,19 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
 • Never answer in Hindi, Hinglish, or informal street slang in your output. Maintain the highest standard of international engineering pedagogy and professional communication suited for Sanjivani University.
 • Speak warmly, address the student (${studentName}) with respect and academic encouragement.`;
 
-          // Try high-performance gemini-2.5-flash with automatic failover
-          const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+          // Try ultra-fast gemini-flash-lite-latest first for instant sub-second latency, with seamless fallbacks
+          const modelsToTry = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash'];
           for (const modelName of modelsToTry) {
             try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3500);
+
               const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
                 {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
+                  signal: controller.signal,
                   body: JSON.stringify({
                     system_instruction: { parts: [{ text: systemInstruction }] },
                     contents: [
@@ -1506,23 +1510,24 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
                 }
               );
 
+              clearTimeout(timeoutId);
+
               if (response.ok) {
                 const data = await response.json();
                 replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 if (replyText) break;
               }
             } catch {
-              // Try next model candidate
+              // Swiftly try next candidate model
             }
           }
         } catch {
-          // Fallback to local Socratic engine
+          // Instant fallback to local Socratic engine
         }
       }
 
       if (!replyText) {
-        // Natural thinking delay for local Socratic policy engine
-        await new Promise((r) => setTimeout(r, 450));
+        // Immediate response from local Socratic policy engine
         replyText = generateLocalSocraticResponse(query, studentName);
       }
     } catch {
@@ -1531,7 +1536,7 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
       setIsLoading(false);
     }
 
-    // Modern ChatGPT-style streaming typewriter animation
+    // Fast, smooth streaming typewriter animation
     const aiMsgId = `ai-${Date.now()}`;
     const aiTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -1547,7 +1552,7 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
     setStreamingMsgId(aiMsgId);
 
     const totalLen = replyText.length;
-    const chunkSize = totalLen > 800 ? 9 : totalLen > 400 ? 5 : totalLen > 180 ? 3 : 2;
+    const chunkSize = totalLen > 800 ? 24 : totalLen > 400 ? 16 : totalLen > 150 ? 10 : 6;
     let curr = 0;
 
     await new Promise<void>((resolve) => {
@@ -1560,11 +1565,7 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
             prev.map((m) => (m.id === aiMsgId ? { ...m, text: chunkStr } : m))
           );
 
-          // Natural cadence: slight micro-pause on punctuation
-          const lastCh = replyText[curr - 1];
-          const punctuationDelay = (lastCh === '.' || lastCh === '?' || lastCh === '!' || lastCh === '\n') ? 30 : 0;
-
-          typingTimerRef.current = setTimeout(typeStep, 16 + punctuationDelay);
+          typingTimerRef.current = setTimeout(typeStep, 10);
         } else {
           setStreamingMsgId(null);
           typingTimerRef.current = null;
@@ -1572,7 +1573,7 @@ STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
         }
       };
 
-      typingTimerRef.current = setTimeout(typeStep, 20);
+      typingTimerRef.current = setTimeout(typeStep, 10);
     });
   };
 
