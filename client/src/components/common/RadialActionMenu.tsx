@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { GalaxyButton } from './GalaxyButton.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -388,24 +389,20 @@ export const RadialActionMenu: React.FC = () => {
           </>
         )}
 
-        <button
-          type="button"
+        <GalaxyButton
           onClick={handleToggle}
-          className={`relative w-14 h-14 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 shadow-xl ${
-            isOpen
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 border border-slate-700 shadow-[0_8px_25px_rgba(0,0,0,0.35)]'
-              : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-700 text-white border border-indigo-400/40 shadow-[0_8px_25px_rgba(79,70,229,0.45),inset_1px_1px_3px_rgba(255,255,255,0.4)] hover:scale-105'
-          }`}
+          variant="circle"
           title={isOpen ? 'Close Quick Menu' : 'Quick Action Radial Menu'}
-          aria-label="Toggle Quick Actions Radial Menu"
+          ariaLabel="Toggle Quick Actions Radial Menu"
+          className="shadow-2xl"
         >
           <span
-            className="transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            className="transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] inline-flex items-center justify-center text-white"
             style={{ transform: isOpen ? 'rotate(135deg)' : 'rotate(0deg)' }}
           >
             <Plus className="w-6 h-6 stroke-[2.5]" />
           </span>
-        </button>
+        </GalaxyButton>
       </div>
 
       {/* Raise Issue Modal */}

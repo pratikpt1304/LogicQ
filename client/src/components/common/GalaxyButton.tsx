@@ -13,7 +13,10 @@ interface GalaxyButtonProps {
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   size?: 'xs' | 'sm' | 'md' | 'lg';
+  variant?: 'pill' | 'circle';
   hue?: number;
+  title?: string;
+  ariaLabel?: string;
 }
 
 const STATIC_STARS = [
@@ -26,7 +29,7 @@ const STATIC_STARS = [
 export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   to,
   onClick,
-  text = 'Explore',
+  text,
   children,
   icon,
   iconPosition = 'right',
@@ -34,7 +37,10 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   disabled = false,
   type = 'button',
   size = 'md',
+  variant = 'pill',
   hue,
+  title,
+  ariaLabel,
 }) => {
   const orbitStars = useMemo(() => {
     return Array.from({ length: 20 }, (_, i) => ({
@@ -89,19 +95,19 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
       </span>
       <span className="galaxy-text">
         {iconPosition === 'left' && icon}
-        {children ? children : <span>{text}</span>}
+        {children ? children : text ? <span>{text}</span> : null}
         {iconPosition === 'right' && icon}
       </span>
     </>
   );
 
   const wrapperStyle = hue !== undefined ? ({ '--hue': hue } as React.CSSProperties) : undefined;
-  const btnClass = `galaxy-btn size-${size} ${disabled ? 'disabled' : ''}`;
+  const btnClass = `galaxy-btn size-${size} variant-${variant} ${disabled ? 'disabled' : ''}`;
 
   return (
     <div className={`galaxy-button galaxy-btn-wrapper ${className}`} style={wrapperStyle}>
       {to && !disabled ? (
-        <Link to={to} className={btnClass} onClick={onClick}>
+        <Link to={to} className={btnClass} onClick={onClick} title={title} aria-label={ariaLabel}>
           {content}
         </Link>
       ) : (
@@ -110,6 +116,8 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
           onClick={onClick}
           disabled={disabled}
           className={btnClass}
+          title={title}
+          aria-label={ariaLabel}
         >
           {content}
         </button>
