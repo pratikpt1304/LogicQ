@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.js';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import {
   Play,
   ArrowRight,
@@ -218,21 +219,17 @@ export const LandingPage: React.FC = () => {
               className="pt-2 flex flex-wrap items-center gap-3.5"
             >
               {user ? (
-                <Link
+                <GalaxyButton
                   to="/dashboard"
-                  className="px-7 py-3.5 rounded-full bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-semibold text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <span>Go to Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                  text="Explore Dashboard"
+                  icon={<ArrowRight className="w-4 h-4 ml-1" />}
+                />
               ) : (
-                <Link
+                <GalaxyButton
                   to="/login"
-                  className="px-7 py-3.5 rounded-full bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-semibold text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <span>Sign In with Student PRN</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                  text="Explore Arena"
+                  icon={<ArrowRight className="w-4 h-4 ml-1" />}
+                />
               )}
 
               {/* Secondary Student Manual Button */}
