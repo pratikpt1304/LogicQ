@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { FadeUp, StaggerContainer, StaggerItem } from '../components/common/ScrollAnimations.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -1581,14 +1582,11 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                <Link
+                <GalaxyButton
                   to={`/practice?topic=${nextUnlockedPracticeTopic.id}`}
-                  className="w-full sm:w-auto px-6 py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 flex items-center justify-center gap-2 group active:scale-95"
-                >
-                  <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
-                  <span>Continue Solving</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
+                  text="Continue Solving"
+                  icon={<ArrowRight className="w-4 h-4 ml-1" />}
+                />
               </div>
             </div>
           </div>

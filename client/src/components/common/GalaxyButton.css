@@ -8,6 +8,15 @@
   --hue: 245;
 }
 
+.galaxy-btn-wrapper.w-full {
+  width: 100%;
+}
+
+.galaxy-btn-wrapper.w-full .galaxy-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .galaxy-btn {
   --cut: 0.1em;
   --active: 0;
@@ -31,6 +40,7 @@
   padding: 0.8em 1.6em;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4em;
   white-space: nowrap;
   border-radius: 9999px;
@@ -46,6 +56,13 @@
   overflow: hidden;
   text-decoration: none;
   user-select: none;
+}
+
+.galaxy-btn:disabled,
+.galaxy-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .galaxy-btn:active {

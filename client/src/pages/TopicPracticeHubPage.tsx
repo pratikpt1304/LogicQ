@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -2864,17 +2865,15 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                   <div className="space-y-2 pt-2">
                     {nextTopic ? (
-                      <button
-                        type="button"
+                      <GalaxyButton
                         onClick={() => {
                           setShowCelebrationModal(false);
                           handleOpenTopic(nextTopic);
                         }}
-                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 group cursor-pointer"
-                      >
-                        <span>Next Question: Q{currentTopicIndex + 2}</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </button>
+                        text={`Next Challenge: Q${currentTopicIndex + 2}`}
+                        icon={<ArrowRight className="w-4 h-4 ml-1" />}
+                        className="w-full"
+                      />
                     ) : (
                       <button
                         type="button"

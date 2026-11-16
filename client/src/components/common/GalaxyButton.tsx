@@ -4,10 +4,12 @@ import './GalaxyButton.css';
 
 interface GalaxyButtonProps {
   to?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   text?: string;
   icon?: React.ReactNode;
   className?: string;
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
 }
 
 const STATIC_STARS = [
@@ -23,6 +25,8 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   text = 'Explore',
   icon,
   className = '',
+  disabled = false,
+  type = 'button',
 }) => {
   const orbitStars = useMemo(() => {
     return Array.from({ length: 20 }, (_, i) => ({
@@ -84,12 +88,17 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
 
   return (
     <div className={`galaxy-button galaxy-btn-wrapper ${className}`}>
-      {to ? (
+      {to && !disabled ? (
         <Link to={to} className="galaxy-btn">
           {content}
         </Link>
       ) : (
-        <button type="button" onClick={onClick} className="galaxy-btn">
+        <button
+          type={type}
+          onClick={onClick}
+          disabled={disabled}
+          className={`galaxy-btn ${disabled ? 'disabled' : ''}`}
+        >
           {content}
         </button>
       )}

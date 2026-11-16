@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { GalaxyButton } from '../../components/common/GalaxyButton.js';
 import { api } from '../../api/client.js';
 import { handleFallbackRequest } from '../../api/fallbackEngine.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -507,21 +508,17 @@ export const StudentTestListPage: React.FC = () => {
                         <span>Test Concluded by Faculty</span>
                       </div>
                     ) : isInProgress ? (
-                      <Link
+                      <GalaxyButton
                         to={`/exam/${assignment.id}/${resumeProblemId}`}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs font-mono transition-all shadow-md shadow-amber-500/20 active:scale-95"
-                      >
-                        <span>Resume Test (Q{nextUnsolvedIndex + 1})</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
+                        text={`Resume Test (Q${nextUnsolvedIndex + 1})`}
+                        icon={<ChevronRight className="w-4 h-4 ml-1" />}
+                      />
                     ) : (
-                      <Link
+                      <GalaxyButton
                         to={`/exam/${assignment.id}/${firstProblemId}`}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs font-mono transition-all shadow-md shadow-indigo-600/20 active:scale-95"
-                      >
-                        <span>Start Proctored Test</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
+                        text="Start Proctored Test"
+                        icon={<ChevronRight className="w-4 h-4 ml-1" />}
+                      />
                     )}
 
                     {/* Question Jump Pills */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -2531,14 +2532,11 @@ export const PracticeWorkspacePage: React.FC = () => {
                           </div>
                         </div>
                         {nextProblem ? (
-                          <button
-                            type="button"
+                          <GalaxyButton
                             onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
-                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
-                          >
-                            <span>Next Question</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
+                            text="Next Question"
+                            icon={<ArrowRight className="w-3.5 h-3.5 ml-1" />}
+                          />
                         ) : (
                           <Link
                             to={`/practice/${moduleSlug}`}

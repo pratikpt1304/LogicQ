@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { api } from '../api/client.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
@@ -665,24 +666,13 @@ export const InstantJoinPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={handleContinueToDashboard}
               disabled={isNavigating}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/20 transition cursor-pointer active:scale-95 disabled:opacity-50"
-            >
-              {isNavigating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Entering Dashboard...</span>
-                </>
-              ) : (
-                <>
-                  <span>Continue to Student Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+              text={isNavigating ? 'Entering Dashboard...' : 'Continue to Student Dashboard'}
+              icon={<ArrowRight className="w-4 h-4 ml-1" />}
+              className="w-full"
+            />
             <Link
               to="/login"
               className="w-full block py-2.5 rounded-xl border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-xs font-medium transition"
