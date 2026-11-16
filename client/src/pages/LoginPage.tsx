@@ -323,13 +323,13 @@ export const LoginPage: React.FC = () => {
           <h2 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
             Sign In to LogicQ
           </h2>
-          <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
-            {authMode === 'prn'
-              ? 'Integrated M.Tech (FY) • Section LQ-C31A'
-              : step === 'identifier'
-              ? 'Enter your institutional email to receive a 6-digit OTP'
-              : `Enter the 6-digit code sent to ${targetDisplay}`}
-          </p>
+          {authMode !== 'prn' && (
+            <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
+              {step === 'identifier'
+                ? 'Enter your institutional email to receive a 6-digit OTP'
+                : `Enter the 6-digit code sent to ${targetDisplay}`}
+            </p>
+          )}
         </div>
 
         {/* Main Card */}
