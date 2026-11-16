@@ -30,7 +30,7 @@
       (function() {
         try {
           var saved = localStorage.getItem('logicq_theme');
-          var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          var theme = saved === 'dark' ? 'dark' : 'light';
           var root = document.documentElement;
           root.classList.remove('dark', 'light');
           root.classList.add(theme);
@@ -98,7 +98,7 @@
       />
     </noscript>
     <style>
-      /* Inline critical splash loader styling to prevent black screen on mobile */
+      /* Inline critical splash loader styling with dynamic theme support */
       #app-boot-loader {
         min-height: 100vh;
         min-height: 100dvh;
@@ -106,92 +106,114 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background-color: #0c0f1f;
-        color: #94a3b8;
+        background-color: #f8fafc;
+        color: #0f172a;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         padding: 24px;
         text-align: center;
         box-sizing: border-box;
+        transition: background-color 0.2s ease, color 0.2s ease;
       }
-      .loader {
-        --sizeVar: clamp(54px, 8vmin, 72px);
-        position: relative;
-        width: var(--sizeVar);
-        height: var(--sizeVar);
-        animation: loaderRotate 2000ms ease-in-out infinite;
-        margin-bottom: 28px;
-      }
-      .loader::before {
-        content: "";
-        position: absolute;
-        width: 200%;
-        height: 200%;
-        top: -50%;
-        left: -50%;
-        background: radial-gradient(
-          circle,
-          rgba(255, 255, 255, 0.2) 0%,
-          rgba(255, 255, 255, 0) 70%
-        );
-        pointer-events: none;
-      }
-      .loader-square {
-        position: absolute;
-        width: 45%;
-        height: 45%;
-        background-color: #f25022;
-        border-radius: 4px;
-        transform-origin: center;
-        animation: squareAnim 4000ms cubic-bezier(1, 0, 0, 1) infinite,
-          squareBlink 1000ms ease-in-out infinite;
-        box-shadow: 0 0 8px #f25022aa, 0 0 32px #f2502277;
-      }
-      .loader-square:nth-of-type(2) {
-        background-color: #7fba02;
-        box-shadow: 0 0 8px #7fba02aa, 0 0 32px #7fba0277;
-        animation-delay: -1000ms, -75ms;
-      }
-      .loader-square:nth-of-type(3) {
-        background-color: #ffb902;
-        box-shadow: 0 0 8px #ffb902aa, 0 0 32px #ffb90277;
-        animation-delay: -2000ms, -150ms;
-      }
-      .loader-square:nth-of-type(4) {
-        background-color: #01a4ef;
-        box-shadow: 0 0 8px #01a4efaa, 0 0 32px #01a4ef77;
-        animation-delay: -3000ms, -225ms;
+      html.dark #app-boot-loader,
+      html[data-theme="dark"] #app-boot-loader {
+        background-color: #0c0f1f;
+        color: #f1f5f9;
       }
 
-      @keyframes squareAnim {
-        0% { transform: translate(0, 0); }
-        25% { transform: translate(120%, 0); }
-        50% { transform: translate(120%, 120%); }
-        75% { transform: translate(0, 120%); }
-        100% { transform: translate(0, 0); }
+      .boot-logo-wrapper {
+        position: relative;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      @keyframes squareBlink {
-        0% { filter: brightness(110%); }
-        20% { filter: brightness(110%); }
-        50% { filter: brightness(80%); }
-        80% { filter: brightness(110%); }
-        100% { filter: brightness(110%); }
+      .boot-logo-box {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 0 20px rgba(139, 155, 255, 0.18);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        z-index: 2;
+        box-sizing: border-box;
       }
-      @keyframes loaderRotate {
-        0% { transform: scale(1); }
-        50% { transform: scale(0.7); }
-        100% { transform: scale(1); }
+      html.dark .boot-logo-box,
+      html[data-theme="dark"] .boot-logo-box {
+        background: #141932;
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 24px rgba(70, 217, 160, 0.18);
+      }
+      .boot-logo-pulse {
+        position: absolute;
+        width: 88px;
+        height: 88px;
+        border-radius: 26px;
+        background: radial-gradient(circle, rgba(139, 155, 255, 0.35) 0%, rgba(70, 217, 160, 0.22) 55%, transparent 75%);
+        animation: bootPulse 2.2s ease-in-out infinite;
+        z-index: 1;
+      }
+      @keyframes bootPulse {
+        0% { transform: scale(0.92); opacity: 0.5; }
+        50% { transform: scale(1.18); opacity: 0.85; }
+        100% { transform: scale(0.92); opacity: 0.5; }
+      }
+      .boot-logo-svg {
+        width: 100%;
+        height: 100%;
       }
       .boot-title {
-        font-size: 17px;
-        font-weight: 700;
-        color: #f1f5f9;
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f172a;
         margin: 0 0 6px 0;
-        letter-spacing: -0.01em;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+      }
+      html.dark .boot-title,
+      html[data-theme="dark"] .boot-title {
+        color: #f1f5f9;
       }
       .boot-subtitle {
         font-size: 13px;
         color: #64748b;
-        margin: 0 0 20px 0;
+        margin: 0 0 16px 0;
+        font-weight: 500;
+      }
+      html.dark .boot-subtitle,
+      html[data-theme="dark"] .boot-subtitle {
+        color: #94a3b8;
+      }
+      .boot-progress-bar {
+        width: 140px;
+        height: 3.5px;
+        background: rgba(148, 163, 184, 0.25);
+        border-radius: 9999px;
+        overflow: hidden;
+        margin: 4px auto 20px auto;
+        position: relative;
+      }
+      .boot-progress-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 45%;
+        background: linear-gradient(90deg, #8B9BFF, #46D9A0);
+        border-radius: 9999px;
+        animation: bootProgress 1.3s ease-in-out infinite;
+      }
+      @keyframes bootProgress {
+        0% { left: -50%; width: 30%; }
+        50% { left: 30%; width: 55%; }
+        100% { left: 110%; width: 30%; }
       }
       .boot-repair-btn {
         display: none;
@@ -214,14 +236,57 @@
   <body class="min-h-screen font-sans antialiased overflow-x-hidden">
     <div id="root">
       <div id="app-boot-loader">
-        <div class="loader">
-          <div class="loader-square"></div>
-          <div class="loader-square"></div>
-          <div class="loader-square"></div>
-          <div class="loader-square"></div>
+        <div class="boot-logo-wrapper">
+          <div class="boot-logo-pulse"></div>
+          <div class="boot-logo-box">
+            <svg viewBox="0 0 100 100" class="boot-logo-svg" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="bootLogoQGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#8B9BFF" />
+                  <stop offset="100%" stop-color="#46D9A0" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="48"
+                cy="44"
+                r="28"
+                stroke="url(#bootLogoQGrad)"
+                stroke-width="9"
+                stroke-linecap="round"
+              />
+              <path
+                d="M 38 38 L 47 44 L 38 50"
+                stroke="#8B9BFF"
+                stroke-width="4.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <line
+                x1="51"
+                y1="50"
+                x2="59"
+                y2="50"
+                stroke="#46D9A0"
+                stroke-width="4.5"
+                stroke-linecap="round"
+              />
+              <path
+                d="M 64 60 L 80 76 M 73 76 L 80 76 L 80 69"
+                stroke="url(#bootLogoQGrad)"
+                stroke-width="8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
         </div>
-        <div class="boot-title">LogicQ C Programming Arena</div>
-        <div class="boot-subtitle">Initializing environment &amp; continuous evaluation...</div>
+        <div class="boot-title">
+          <span>Logic</span><span style="color: #10b981;">Q</span>
+        </div>
+        <div class="boot-subtitle">Think in logic. Code in C.</div>
+        <div class="boot-progress-bar">
+          <div class="boot-progress-fill"></div>
+        </div>
         <button
           id="boot-repair-btn"
           class="boot-repair-btn"

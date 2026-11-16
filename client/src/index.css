@@ -817,6 +817,32 @@ button.apple-interactive:active:not(:disabled) {
   }
 }
 
+/* Boot Progress Bar */
+.boot-progress-bar {
+  width: 140px;
+  height: 3.5px;
+  background: var(--border-line, rgba(148, 163, 184, 0.25));
+  border-radius: 9999px;
+  overflow: hidden;
+  margin: 6px auto 18px auto;
+  position: relative;
+}
+.boot-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(90deg, #8B9BFF, #46D9A0);
+  border-radius: 9999px;
+  animation: bootProgress 1.3s ease-in-out infinite;
+}
+@keyframes bootProgress {
+  0% { left: -50%; width: 30%; }
+  50% { left: 30%; width: 55%; }
+  100% { left: 110%; width: 30%; }
+}
+
 /* 4-Square Glowing Rotating Loader */
 .loader {
   --sizeVar: 64px;

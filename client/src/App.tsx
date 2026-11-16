@@ -48,17 +48,15 @@ import { RadialActionMenu } from './components/common/RadialActionMenu.js';
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
   message = 'Authenticating LogicQ session...',
 }) => (
-  <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
-    <div className="mb-6">
-      <div className="loader">
-        <div className="loader-square"></div>
-        <div className="loader-square"></div>
-        <div className="loader-square"></div>
-        <div className="loader-square"></div>
-      </div>
+  <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center select-none bg-[var(--bg-main)] text-[var(--text-main)]">
+    <div className="mb-4 animate-pulse">
+      <Logo size="lg" />
     </div>
-    <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] tracking-wider">
-      <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />
+    <div className="boot-progress-bar">
+      <div className="boot-progress-fill" />
+    </div>
+    <div className="flex items-center gap-2 text-xs font-mono text-[var(--color-accent)] tracking-wider">
+      <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-ping" />
       <span>{message}</span>
     </div>
   </div>
