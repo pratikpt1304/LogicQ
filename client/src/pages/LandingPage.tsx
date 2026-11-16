@@ -188,7 +188,7 @@ export const LandingPage: React.FC = () => {
             <motion.div variants={itemVariants}>
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-600 dark:text-cyan-400 text-xs font-semibold tracking-wide uppercase">
                 <Sparkles className="w-3.5 h-3.5" />
-                Institutional C Systems & Evaluation
+                Smart C Programming &amp; CIE Arena
               </span>
             </motion.div>
 
@@ -199,7 +199,7 @@ export const LandingPage: React.FC = () => {
             >
               Think in logic. <br />
               <span className="relative text-cyan-600 dark:text-cyan-400">
-                Code in C.
+                Code in C
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-cyan-500 ml-1.5 align-baseline" />
               </span>
             </motion.h1>
@@ -230,7 +230,7 @@ export const LandingPage: React.FC = () => {
                   to="/login"
                   className="px-7 py-3.5 rounded-full bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-semibold text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <span>Sign In with Institutional PRN</span>
+                  <span>Sign In with Student PRN</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               )}
