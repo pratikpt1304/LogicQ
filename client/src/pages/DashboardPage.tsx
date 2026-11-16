@@ -63,6 +63,7 @@ import {
   ChevronRight,
   Target,
   KeyRound,
+  Key,
   Award,
   Code2,
   MessageSquare,
