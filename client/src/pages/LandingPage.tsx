@@ -8,14 +8,9 @@ import {
   Sparkles,
   Terminal,
   Cpu,
-  ShieldCheck,
-  Award,
-  BookOpen,
   HelpCircle,
   CheckCircle2,
   Code2,
-  Sliders,
-  Layers,
   Zap,
 } from 'lucide-react';
 
@@ -252,31 +247,6 @@ export const LandingPage: React.FC = () => {
                 </div>
                 <span>Student Manual & CIE Guide</span>
               </a>
-            </motion.div>
-
-            {/* Feature Badges Row */}
-            <motion.div
-              variants={itemVariants}
-              className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[var(--border-line)]"
-            >
-              {[
-                { icon: Terminal, title: 'GCC 14 Sandbox', desc: 'C11 standard execution' },
-                { icon: Award, title: '20-Mark CIE Coursework', desc: '80 proctored modules' },
-                { icon: ShieldCheck, title: 'Integrity Telemetry', desc: 'Full-screen proctoring' },
-              ].map((feat, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-cyan-500/40 transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[var(--bg-panel)] shadow-xs border border-[var(--border-line)] flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
-                    <feat.icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-[var(--text-main)]">{feat.title}</div>
-                    <div className="text-[11px] text-[var(--text-muted)]">{feat.desc}</div>
-                  </div>
-                </div>
-              ))}
             </motion.div>
 
           </div>
