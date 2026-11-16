@@ -2076,6 +2076,7 @@ export const DashboardPage: React.FC = () => {
                         disabled={isEnrollingCode || !dashboardJoinCode.trim()}
                         text={isEnrollingCode ? 'Joining...' : 'Unlock Tests'}
                         icon={<Key className="w-3.5 h-3.5" />}
+                        iconPosition="left"
                         className="shrink-0"
                       />
                     </form>

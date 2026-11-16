@@ -255,7 +255,8 @@ export const OnlineCompilerCard: React.FC = () => {
             hue={160}
             text="Open Online Compiler →"
             icon={<Play className="w-3.5 h-3.5 fill-current" />}
-            className="w-full sm:w-auto"
+            iconPosition="left"
+            className="shrink-0"
           />
         </div>
       </div>

@@ -1535,6 +1535,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 size="sm"
                 text="Lab Internal Coursework (20M) →"
                 icon={<BookOpen className="w-3.5 h-3.5" />}
+                iconPosition="left"
               />
             </div>
           </div>
@@ -1726,7 +1727,8 @@ export const TopicPracticeHubPage: React.FC = () => {
             size="md"
             text="Continue Solving →"
             icon={<Play className="w-3.5 h-3.5 fill-current" />}
-            className="w-full sm:w-auto shrink-0"
+            iconPosition="left"
+            className="shrink-0"
           />
         </div>
       )}

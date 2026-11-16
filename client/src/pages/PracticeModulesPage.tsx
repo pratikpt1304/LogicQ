@@ -417,6 +417,7 @@ export const PracticeModulesPage: React.FC = () => {
                 size="sm"
                 text="Practice Arena →"
                 icon={<Code2 className="w-3.5 h-3.5" />}
+                iconPosition="left"
               />
             </div>
           </div>
@@ -552,7 +553,8 @@ export const PracticeModulesPage: React.FC = () => {
                   hue={160}
                   text={`Continue Solving Question ${nextProblem.index} →`}
                   icon={<Play className="w-3.5 h-3.5 fill-white" />}
-                  className="w-full md:w-auto shrink-0"
+                  iconPosition="left"
+                  className="shrink-0"
                 />
               </div>
             ) : (

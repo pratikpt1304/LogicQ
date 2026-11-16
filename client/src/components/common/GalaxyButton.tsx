@@ -8,6 +8,7 @@ interface GalaxyButtonProps {
   text?: string;
   children?: React.ReactNode;
   icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
   className?: string;
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
@@ -28,6 +29,7 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   text = 'Explore',
   children,
   icon,
+  iconPosition = 'right',
   className = '',
   disabled = false,
   type = 'button',
@@ -86,8 +88,9 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
         </span>
       </span>
       <span className="galaxy-text">
+        {iconPosition === 'left' && icon}
         {children ? children : <span>{text}</span>}
-        {icon}
+        {iconPosition === 'right' && icon}
       </span>
     </>
   );

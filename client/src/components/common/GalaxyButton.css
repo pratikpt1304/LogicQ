@@ -6,38 +6,46 @@
   --transition: 0.28s;
   --spark: 1.8s;
   --hue: 245;
+  vertical-align: middle;
+  max-width: 100%;
 }
 
+/* Allow explicit full width only when caller really demands it */
+.galaxy-btn-wrapper.is-block,
 .galaxy-btn-wrapper.w-full {
   width: 100%;
 }
 
+.galaxy-btn-wrapper.is-block .galaxy-btn,
 .galaxy-btn-wrapper.w-full .galaxy-btn {
   width: 100%;
   justify-content: center;
 }
 
 .galaxy-btn {
-  --cut: 0.1em;
+  --cut: 0.12em;
   --active: 0;
+  /* Cosmic Royal Gradient: Vibrant Electric Indigo / Violet base with stellar radial flare */
   --bg:
     radial-gradient(
-      120% 120% at 126% 126%,
-      hsl(var(--hue) calc(var(--active) * 97%) 98% / calc(var(--active) * 0.9)) 40%,
-      transparent 50%
-    ) calc(100px - (var(--active) * 100px)) 0 / 100% 100% no-repeat, 
+      120% 120% at 115% 115%,
+      hsl(calc(var(--hue) + 35) 100% 75% / calc(0.35 + (var(--active) * 0.55))) 25%,
+      transparent 60%
+    ) calc(80px - (var(--active) * 80px)) 0 / 100% 100% no-repeat,
     radial-gradient(
-      120% 120% at 120% 120%,
-      hsl(var(--hue) calc(var(--active) * 97%) 70% / calc(var(--active) * 1)) 30%,
-      transparent 70%
-    ) calc(100px - (var(--active) * 100px)) 0 / 100% 100% no-repeat,
-    hsl(var(--hue) calc(var(--active) * 100%) calc(13% - (var(--active) * 8%)));
+      100% 100% at 15% 15%,
+      hsl(calc(var(--hue) - 20) 100% 75% / 0.45) 0%,
+      transparent 55%
+    ) no-repeat,
+    linear-gradient(
+      135deg,
+      hsl(var(--hue) 84% 54%) 0%,
+      hsl(calc(var(--hue) + 26) 82% 46%) 100%
+    );
   background: var(--bg);
-  font-size: 1.05rem;
   font-weight: 600;
   border: 0;
   cursor: pointer;
-  padding: 0.8em 1.6em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -46,16 +54,18 @@
   border-radius: 9999px;
   position: relative;
   box-shadow:
-    0 0 calc(var(--active) * 3em) calc(var(--active) * 1.5em) hsl(var(--hue) 97% 61% / 0.45),
-    0 0.05em 0 0 hsl(var(--hue) calc(var(--active) * 97%) calc((var(--active) * 50%) + 30%)) inset,
-    0 -0.05em 0 0 hsl(var(--hue) calc(var(--active) * 97%) calc(var(--active) * 10%)) inset;
+    0 4px 18px -2px hsl(var(--hue) 80% 50% / 0.38),
+    0 0 calc(var(--active) * 2.2em) calc(var(--active) * 1.1em) hsl(var(--hue) 95% 65% / 0.42),
+    0 0.06em 0 0 hsl(var(--hue) 100% 90% / calc(0.35 + (var(--active) * 0.45))) inset,
+    0 -0.06em 0 0 hsl(var(--hue) 100% 20% / 0.3) inset;
   transition: box-shadow var(--transition), transform var(--transition), background var(--transition);
-  transform: scale(calc(1 + (var(--active) * 0.05)));
+  transform: scale(calc(1 + (var(--active) * 0.035)));
   transform-style: preserve-3d;
   perspective: 100vmin;
   overflow: hidden;
   text-decoration: none;
   user-select: none;
+  max-width: 100%;
 }
 
 /* Sizing variations */
