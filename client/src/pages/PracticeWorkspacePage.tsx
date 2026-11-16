@@ -1865,11 +1865,11 @@ export const PracticeWorkspacePage: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsExitConfirmOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-rose-400 transition shrink-0"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-sans font-bold shadow-md shadow-blue-600/30 border border-blue-400/30 transition-all shrink-0 active:scale-95 cursor-pointer"
             title="Exit test session and return to modules"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exit Test</span>
+            <ArrowLeft className="w-4 h-4 text-white stroke-[2.5]" />
+            <span className="font-bold">Exit Test</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />

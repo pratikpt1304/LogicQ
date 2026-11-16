@@ -2040,11 +2040,11 @@ export const TopicPracticeHubPage: React.FC = () => {
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 onClick={handleCloseTopic}
-                className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-medium transition flex items-center gap-1.5 shrink-0"
+                className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-sans font-bold shadow-md shadow-blue-600/30 border border-blue-400/30 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer"
                 title="Return to Practice Arena"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                <span className="hidden sm:inline font-bold">Exit Practice</span>
+                <ArrowLeft className="w-4 h-4 text-white stroke-[2.5]" />
+                <span className="font-bold">Exit Practice</span>
               </button>
 
               <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block shrink-0" />
