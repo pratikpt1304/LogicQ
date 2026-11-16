@@ -83,7 +83,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   overflow: hidden;
-  opacity: var(--active);
+  opacity: calc(0.5 + (var(--active) * 0.5));
   transition: opacity var(--transition);
   pointer-events: none;
 }
@@ -102,7 +102,7 @@
 .galaxy-btn .galaxy__container {
   position: absolute;
   inset: 0;
-  opacity: var(--active);
+  opacity: calc(0.6 + (var(--active) * 0.4));
   transition: opacity var(--transition);
   -webkit-mask: radial-gradient(white, transparent);
   mask: radial-gradient(white, transparent);
