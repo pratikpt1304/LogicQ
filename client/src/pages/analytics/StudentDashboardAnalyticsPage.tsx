@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { GalaxyButton } from '../../components/common/GalaxyButton.js';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
@@ -630,13 +631,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               <FileText className="w-3.5 h-3.5 text-blue-500" />
               <span>Code History</span>
             </Link>
-            <Link
+            <GalaxyButton
               to="/practice"
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Practice Arena →</span>
-            </Link>
+              size="sm"
+              text="Practice Arena →"
+              icon={<Code2 className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="shrink-0"
+            />
           </div>
         </div>
 
@@ -1229,15 +1231,15 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
+                  <GalaxyButton
                     onClick={handleDownloadPDF}
+                    size="sm"
                     disabled={isGeneratingPdf}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Report'}</span>
-                  </button>
+                    text={isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Report'}
+                    icon={<Download className="w-3.5 h-3.5" />}
+                    iconPosition="left"
+                    className="shrink-0"
+                  />
                   <Link
                     to="/history"
                     className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5"

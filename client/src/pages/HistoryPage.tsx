@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client.js';
@@ -489,13 +490,14 @@ export const HistoryPage: React.FC = () => {
               <BookOpen className="w-3.5 h-3.5 text-cyan-500" />
               <span>Lab Internal</span>
             </Link>
-            <Link
+            <GalaxyButton
               to="/practice"
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Practice Arena →</span>
-            </Link>
+              size="sm"
+              text="Practice Arena →"
+              icon={<Code2 className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="shrink-0"
+            />
           </div>
         </div>
 

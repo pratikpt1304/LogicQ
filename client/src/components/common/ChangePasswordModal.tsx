@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GalaxyButton } from './GalaxyButton.js';
 import { Lock, CheckCircle2, ShieldCheck, X, ArrowRight, Loader2, RefreshCw, KeyRound, Eye, EyeOff, AlertTriangle, Mail } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -597,24 +598,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               </div>
 
               {/* Submit Button */}
-              <button
+              <GalaxyButton
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 cursor-pointer disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Updating Password...</span>
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="w-4 h-4" />
-                    <span>Update Password</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+                size="md"
+                text={loading ? 'Updating Password...' : 'Update Password →'}
+                icon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                iconPosition="left"
+                className="w-full"
+              />
             </form>
           )}
         </div>

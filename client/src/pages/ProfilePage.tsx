@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -1538,15 +1539,14 @@ export const ProfilePage: React.FC = () => {
               {/* Action Buttons (Apple Style Pills) */}
               {isOwnProfile && (
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
+                  <GalaxyButton
                     onClick={handleOpenEdit}
-                    data-testid="edit-profile-btn"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-500/25 transition-all active:scale-95 cursor-pointer border border-blue-500/30"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-white" />
-                    <span className="text-white font-semibold">Edit Profile</span>
-                  </button>
+                    size="sm"
+                    text="Edit Profile"
+                    icon={<Edit3 className="w-3.5 h-3.5 text-white" />}
+                    iconPosition="left"
+                    className="shrink-0"
+                  />
 
                   <button
                     type="button"
