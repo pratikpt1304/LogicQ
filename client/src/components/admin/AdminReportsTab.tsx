@@ -491,7 +491,6 @@ export const AdminReportsTab: React.FC = () => {
         'Typing Velocity (CPM)': u.cpm > 0 ? `${u.cpm} CPM` : (u.typingVelocityCPM > 0 ? `${u.typingVelocityCPM} CPM` : '—'),
         'Typing Speed (WPM)': u.wpm > 0 ? `${u.wpm} WPM` : (u.cpm > 0 ? `${Math.round(u.cpm / 5)} WPM` : '—'),
         'Active Session Status': u.activeSession ? 'ACTIVE / ONLINE' : 'OFFLINE',
-        'Account Security Status': u.isBanned ? 'SUSPENDED / BANNED' : 'ACTIVE',
         'Capstone Mini-Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
         'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
         'Last Activity / Submission': u.lastActivityTime || 'N/A',
@@ -528,7 +527,6 @@ export const AdminReportsTab: React.FC = () => {
         else if (key === 'Tab Switch Violations') minWidth = 22;
         else if (key === 'Clipboard Paste Attempts') minWidth = 24;
         else if (key === 'Active Session Status') minWidth = 22;
-        else if (key === 'Account Security Status') minWidth = 24;
         else if (key === 'Last Activity / Submission') minWidth = 26;
 
         return { wch: Math.max(maxLen + 4, minWidth) };
