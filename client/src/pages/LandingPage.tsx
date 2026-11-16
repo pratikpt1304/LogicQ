@@ -245,7 +245,7 @@ export const LandingPage: React.FC = () => {
                 <div className="w-6 h-6 rounded-full bg-cyan-500/15 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
                   <Play className="w-3 h-3 fill-current ml-0.5" />
                 </div>
-                <span>Student Manual & CIE Guide</span>
+                <span>Student Manual</span>
               </a>
             </motion.div>
 
