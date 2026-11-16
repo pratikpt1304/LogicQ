@@ -1536,16 +1536,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>Lab Internal Coursework (20M) →</span>
               </Link>
-
-              <a
-                href="/student-guide.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-all flex items-center gap-1.5 whitespace-nowrap"
-              >
-                <Play className="w-3.5 h-3.5" />
-                <span>Student Manual</span>
-              </a>
             </div>
           </div>
 
