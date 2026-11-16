@@ -476,7 +476,6 @@ export const AdminReportsTab: React.FC = () => {
         'Sr No': idx + 1,
         'PRN': u.prn || u.id || 'N/A',
         'Student Name': u.name || u.displayName || u.fullName || 'Candidate',
-        'Institutional Email': u.institutionalEmail || u.email || `${String(u.prn || '').toLowerCase()}@sanjivani.edu.in`,
         'Verified Bound Email': u.boundEmail || (u.isEmailBound && !u.email.endsWith('@sanjivani.edu.in') ? u.email : 'NOT_BOUND'),
         'Identity Status': u.isEmailBound ? 'VERIFIED / BOUND' : 'PENDING (UNBOUND)',
         'Section / Division': u.section || selectedSection || 'Integrated Mtech',
@@ -517,7 +516,6 @@ export const AdminReportsTab: React.FC = () => {
         if (key === 'Sr No') minWidth = 8;
         else if (key === 'PRN') minWidth = 18;
         else if (key === 'Student Name') minWidth = 32;
-        else if (key === 'Institutional Email') minWidth = 36;
         else if (key === 'Verified Bound Email') minWidth = 36;
         else if (key === 'Identity Status') minWidth = 22;
         else if (key === 'Section / Division') minWidth = 24;

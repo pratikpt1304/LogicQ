@@ -897,7 +897,7 @@ export const SectionManagementPage: React.FC = () => {
         'Sr No': idx + 1,
         'PRN / Roll No': prn,
         'Student Full Name': name,
-        'Institutional Email': email,
+        'Email': email,
         'Department': dept,
         'Academic Year': year,
         'Practical Topics Solved (/100)': solved,
