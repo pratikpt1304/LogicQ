@@ -2043,14 +2043,14 @@ export const TopicPracticeHubPage: React.FC = () => {
             
             {/* Left: Exit + Problem Identity */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <button
+              <GalaxyButton
                 onClick={handleCloseTopic}
-                className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-sans font-bold shadow-md shadow-blue-600/30 border border-blue-400/30 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer"
-                title="Return to Practice Arena"
-              >
-                <ArrowLeft className="w-4 h-4 text-white stroke-[2.5]" />
-                <span className="font-bold">Exit Practice</span>
-              </button>
+                size="sm"
+                text="Exit Practice"
+                icon={<ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />}
+                iconPosition="left"
+                className="shrink-0"
+              />
 
               <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block shrink-0" />
 

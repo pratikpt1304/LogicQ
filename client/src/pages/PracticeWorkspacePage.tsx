@@ -1863,15 +1863,14 @@ export const PracticeWorkspacePage: React.FC = () => {
       {/* Top JEE CBT Exam Header */}
       <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsExitConfirmOpen(true)}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-sans font-bold shadow-md shadow-blue-600/30 border border-blue-400/30 transition-all shrink-0 active:scale-95 cursor-pointer"
-            title="Exit test session and return to modules"
-          >
-            <ArrowLeft className="w-4 h-4 text-white stroke-[2.5]" />
-            <span className="font-bold">Exit Test</span>
-          </button>
+            size="sm"
+            text="Exit Test"
+            icon={<ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />}
+            iconPosition="left"
+            className="shrink-0"
+          />
 
           <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
 
