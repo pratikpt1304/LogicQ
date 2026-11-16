@@ -43,6 +43,12 @@ const isSectionMatch = (studentSec: string | undefined | null, targetSec: string
   return false;
 };
 
+const getPrnSortNum = (prnStr?: string | null): number => {
+  if (!prnStr) return 999999;
+  const digits = String(prnStr).replace(/\D/g, '').slice(-4);
+  return digits ? parseInt(digits, 10) : 999999;
+};
+
 export const AdminReportsTab: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, studentName: '' });
@@ -335,8 +341,13 @@ export const AdminReportsTab: React.FC = () => {
         };
       });
 
-      // Sort students consistently by PRN
-      processed.sort((a: any, b: any) => (a.prn || '').localeCompare(b.prn || ''));
+      // Sort students consistently by last 4 digits of PRN ascending
+      processed.sort((a: any, b: any) => {
+        const numA = getPrnSortNum(a.prn);
+        const numB = getPrnSortNum(b.prn);
+        if (numA !== numB) return numA - numB;
+        return String(a.prn || '').localeCompare(String(b.prn || ''));
+      });
 
       setStudents(processed);
       if (Array.isArray(realSections) && realSections.length > 0) {
@@ -402,11 +413,18 @@ export const AdminReportsTab: React.FC = () => {
     };
   }, []);
 
-  const activeStudents = selectedSection === 'ALL'
-    ? students
-    : students.filter((s: any) =>
-        isSectionMatch(s.section || s.sectionName, selectedSection)
-      );
+  const activeStudents = (
+    selectedSection === 'ALL'
+      ? students
+      : students.filter((s: any) =>
+          isSectionMatch(s.section || s.sectionName, selectedSection)
+        )
+  ).sort((a: any, b: any) => {
+    const numA = getPrnSortNum(a.prn);
+    const numB = getPrnSortNum(b.prn);
+    if (numA !== numB) return numA - numB;
+    return String(a.prn || '').localeCompare(String(b.prn || ''));
+  });
 
   const matchedStudents = students.filter((s: any) => {
     if (!studentSearchQuery.trim()) return false;
@@ -461,10 +479,17 @@ export const AdminReportsTab: React.FC = () => {
       const latestStudents = await fetchAuthoritativeReportStudents();
       const currentList = latestStudents.length > 0 ? latestStudents : activeStudents;
 
-      // 2. Filter by current section scope
-      const targetStudents = selectedSection === 'ALL'
+      // 2. Filter by current section scope & sort by last 4 digits of PRN ascending
+      const rawFiltered = selectedSection === 'ALL'
         ? currentList
         : currentList.filter((s: any) => isSectionMatch(s.section || s.sectionName, selectedSection));
+
+      const targetStudents = [...rawFiltered].sort((a: any, b: any) => {
+        const numA = getPrnSortNum(a.prn);
+        const numB = getPrnSortNum(b.prn);
+        if (numA !== numB) return numA - numB;
+        return String(a.prn || '').localeCompare(String(b.prn || ''));
+      });
 
       if (targetStudents.length === 0) {
         toast.error('No enrolled students in the selected section to export.');
