@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Production_Live-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=rocket&logoColor=white" alt="Live Status" /></a>
   <a href="https://logicq-bitwiseclub.onrender.com/api/health"><img src="https://img.shields.io/badge/Render_API-Online_200_OK-8B9BFF?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
-  <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v41_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
+  <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v51_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
   <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-53%2F53_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
   <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/AI_Viva-Gemini_2.5_Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="Gemini Viva" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white" alt="Security Policy" /></a>
@@ -97,6 +97,25 @@ It integrates **Apple-grade minimalist human interface design** with **instituti
 - **Distraction-Free Workspace**: Monaco C11 IDE with collapsible execution dock, auto-saved drafts, and real-time syntax references.
 - **System Launch Epoch**: Built-in global launch epoch (`logicq_clean_launch_2026_11_10_v2`) flushes stale browser local storage and sessions automatically across all devices.
 - **Direct Student Deep-Dive Vault**: Admin modal for hardware device reset (max 2 devices: laptop & mobile), one-click PRN password reset, and full source code inspection.
+
+---
+
+### 6. 🌌 3D Cosmic Galaxy Button System & Institutional Polish
+- **Proprietary GalaxyButton Component**: 
+  - Dynamic rotating perimeter spark (`conic-gradient`), 20 deterministic 3D celestial star orbits, and radial starlight flares.
+  - Custom brand hue support (`hsl`): Royal Electric Indigo (`--hue: 245`), GCC Compiler Emerald (`--hue: 160`), and Amber Draft/Resume (`--hue: 35`).
+  - Strict 4-tier responsive sizing: `xs` (problem rows), `sm` (navigation & toolbars), `md` (spotlights & action CTAs), `lg` (hero banners), and `variant="circle"` for floating action buttons (FABs).
+  - Omnipresent across Landing Page, Student Dashboard, Topic Practice Arena, Lab Internal Coursework, Submissions History, Learning Analytics, Student Profile, and Exam Workspace.
+- **Theme-Aware Dynamic Boot & Splash Screen**:
+  - Replaced legacy loader with official LogicQ Brand Logo (`#8B9BFF` → `#46D9A0`), ambient glow, and animated gradient progress bar in `index.html`.
+  - Native theme awareness: Pure White (`#FFFFFF` / `#F8FAFC`) background in light mode, Midnight Dark (`#0C0F1F`) in dark mode.
+- **High-Precision Live Radar Pulse**:
+  - Student identity standing badge featuring a dual-ring `animate-ping` radar wave with a high-luminance glowing core.
+- **Optimized Institutional Excel (XLSX) Export Engine**:
+  - Cleaned & compacted gradebook columns: `Total Solved`, `Lab Solved`, `Practice Solved`, `Marks (20)`, `Tab Switch`, `Integrity`, `Typing (CPM/WPM)`.
+  - Snug-fit automatic column widths (`wch = maxLen + 1`) eliminating whitespace padding.
+- **PDF Verification Dossier Alignment**:
+  - Hardened layout rendering for student verification and CIE assessment PDF exports, preventing badge boundary clipping and text overflows.
 
 ---
 
@@ -266,7 +285,7 @@ npx firebase-tools deploy --only hosting --project logicq-clanguage
 
 ## 🌐 Production Deployments
 
-- **Frontend Application (PWA v41)**: Deployed on **Firebase Hosting** with global edge CDN.
+- **Frontend Application (PWA v51)**: Deployed on **Firebase Hosting** with global edge CDN.
   - **Live Portal**: [https://logicq-clanguage.web.app](https://logicq-clanguage.web.app)
   - **Lab Internal (CIE Coursework)**: [https://logicq-clanguage.web.app/lab-internal](https://logicq-clanguage.web.app/lab-internal)
   - **Practice Arena (100 Topics)**: [https://logicq-clanguage.web.app/practice](https://logicq-clanguage.web.app/practice)
