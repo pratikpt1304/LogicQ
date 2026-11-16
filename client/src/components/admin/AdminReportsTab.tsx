@@ -504,10 +504,9 @@ export const AdminReportsTab: React.FC = () => {
         'Verified Bound Email': u.boundEmail || (u.isEmailBound && !u.email.endsWith('@sanjivani.edu.in') ? u.email : 'NOT_BOUND'),
         'Identity Status': u.isEmailBound ? 'VERIFIED / BOUND' : 'PENDING (UNBOUND)',
         'Section / Division': u.section || selectedSection || 'Integrated Mtech',
-        'Total Solved (Lab + Practice)': u.totalSolved ?? 0,
-        'Lab Internal Experiments Solved': u.labSolved ?? 0,
-        'Topic Practice Problems Solved': u.practiceSolved ?? 0,
-        'Continuous Practical Score (0-100)': u.academicScore ?? 0,
+        'Total Solved': u.totalSolved ?? 0,
+        'Lab Solved': u.labSolved ?? 0,
+        'Practice Solved': u.practiceSolved ?? 0,
         'Lab Internal CIE Marks (0-20)': u.cieMarks !== undefined ? u.cieMarks : (u.labSolved > 0 ? Math.min(20, Number((u.labSolved * 0.25).toFixed(1))) : 0),
         'Exam Integrity Index': `${u.integrityScore ?? 100}%`,
         'Tab Switch Violations': u.tabSwitchCount ?? 0,
@@ -543,10 +542,9 @@ export const AdminReportsTab: React.FC = () => {
         else if (key === 'Verified Bound Email') minWidth = 36;
         else if (key === 'Identity Status') minWidth = 22;
         else if (key === 'Section / Division') minWidth = 24;
-        else if (key === 'Total Solved (Lab + Practice)') minWidth = 28;
-        else if (key === 'Lab Internal Experiments Solved') minWidth = 30;
-        else if (key === 'Topic Practice Problems Solved') minWidth = 30;
-        else if (key === 'Continuous Practical Score (0-100)') minWidth = 32;
+        else if (key === 'Total Solved') minWidth = 16;
+        else if (key === 'Lab Solved') minWidth = 16;
+        else if (key === 'Practice Solved') minWidth = 18;
         else if (key === 'Lab Internal CIE Marks (0-20)') minWidth = 28;
         else if (key === 'Exam Integrity Index') minWidth = 22;
         else if (key === 'Tab Switch Violations') minWidth = 22;
