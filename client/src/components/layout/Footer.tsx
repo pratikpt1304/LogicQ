@@ -57,19 +57,8 @@ export const Footer: React.FC = () => {
             </div>
             <ul className="space-y-2 text-[var(--text-muted)]">
               <li>
-                <a
-                  href="/student-guide.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
-                >
-                  <BookOpen className="w-3 h-3 text-amber-400" />
-                  <span>• Student User Guide</span>
-                </a>
-              </li>
-              <li>
                 <Link to="/privacy" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Privacy & Security Policy
+                  • Privacy &amp; Security Policy
                 </Link>
               </li>
               <li>

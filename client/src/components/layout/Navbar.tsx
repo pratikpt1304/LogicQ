@@ -276,17 +276,6 @@ export const Navbar: React.FC = () => {
                             <span>My Assigned Tests</span>
                           </Link>
 
-                          <a
-                            href="/student-guide.html"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
-                          >
-                            <BookOpen className="w-4 h-4 text-amber-500" />
-                            <span>Student User Guide</span>
-                          </a>
-
 
 
                           {!isStandalone && (
