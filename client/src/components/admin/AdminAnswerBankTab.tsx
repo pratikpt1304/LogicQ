@@ -103,7 +103,7 @@ export const AdminAnswerBankTab: React.FC = () => {
         // 1. Register enrolled students
         if (Array.isArray(firestoreUsers)) {
           firestoreUsers
-            .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+            .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) && !FirestoreDataService.isPurgedStudent(u))
             .forEach((u: any) => {
               const prnKey = (u.prn || '').toUpperCase().trim();
               const key = prnKey || (u.id || u.uid || '').toUpperCase().trim();

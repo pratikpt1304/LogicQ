@@ -43,7 +43,7 @@ export const StudentLiveAlertListener: React.FC = () => {
 
   // 1. REAL-TIME BAN / SUSPENSION LISTENER
   useEffect(() => {
-    if (!cleanPrn || user?.role === 'ADMIN' || userEmail === 'logicqarena@gmail.com') return;
+    if (!cleanPrn || user?.role === 'ADMIN' || userEmail === 'logicqarena@gmail.com' || userEmail === 'hariprasathset@sanjivani.edu.in') return;
 
     // Fast local check
     const localBanned = localStorage.getItem(`logicq_banned_${cleanPrn}`) === 'true';

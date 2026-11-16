@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../config/firebase.js';
+import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 
 export type SyncScope =
   | 'PROBLEMS'
@@ -282,7 +283,8 @@ class RealtimeSyncManager {
       const currentEmail = (user.email || '').toLowerCase().trim();
       const isAdmin = [
         'logicqarena@gmail.com',
-      ].includes(currentEmail);
+        'hariprasathset@sanjivani.edu.in',
+      ].includes(currentEmail) || isExplicitAdminEmail(currentEmail);
 
       if (isAdmin && !this.unsubscribeFirestoreUsers) {
         try {

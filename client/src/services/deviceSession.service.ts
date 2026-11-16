@@ -92,7 +92,7 @@ export class DeviceSessionService {
     }
 
     // Admins and faculty are exempt from device limits
-    if (cleanPrn === 'LOGICQARENA' || cleanPrn.includes('ADMIN') || auth.currentUser?.email === 'logicqarena@gmail.com') {
+    if (cleanPrn === 'LOGICQARENA' || cleanPrn.includes('ADMIN') || auth.currentUser?.email === 'logicqarena@gmail.com' || auth.currentUser?.email === 'hariprasathset@sanjivani.edu.in') {
       return { success: true, sessionId: forceNewSession ? this.createSessionId() : this.getOrCreateSessionId(), deviceId: this.getDeviceId() };
     }
 

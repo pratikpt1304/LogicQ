@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
   const isTargetAdmin =
     user?.role === 'ADMIN' ||
     user?.prn === 'LOGICQARENA' ||
-    (user?.email && user.email.toLowerCase() === 'logicqarena@gmail.com');
+    (user?.email && (user.email.toLowerCase() === 'logicqarena@gmail.com' || user.email.toLowerCase() === 'hariprasathset@sanjivani.edu.in'));
 
   const defaultDestination = isTargetAdmin ? '/admin' : '/dashboard';
   const rawFrom = fromLocation
@@ -42,7 +42,7 @@ export const LoginPage: React.FC = () => {
   // If already authenticated, redirect immediately away from login
   useEffect(() => {
     if (user) {
-      const dest = (user.role === 'ADMIN' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com')
+      const dest = (user.role === 'ADMIN' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in')
         ? '/admin'
         : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
@@ -217,7 +217,8 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success("You're verified! Welcome to LogicQ.");
-      const dest = (identifier.trim().toLowerCase() === 'logicqarena@gmail.com' || user?.role === 'ADMIN') ? '/admin' : from;
+      const cleanIdent = identifier.trim().toLowerCase();
+      const dest = (cleanIdent === 'logicqarena@gmail.com' || cleanIdent === 'hariprasathset@sanjivani.edu.in' || user?.role === 'ADMIN') ? '/admin' : from;
       setTimeout(() => {
         navigate(dest, { replace: true });
       }, 1500);

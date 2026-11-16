@@ -438,7 +438,7 @@ export const AdminIntegrityTab: React.FC = () => {
           firestoreUsers
             .filter((u: any) => {
               if (u.role && u.role !== 'STUDENT') return false;
-              if (u.email === 'logicqarena@gmail.com') return false;
+              if (u.email === 'logicqarena@gmail.com' || u.email === 'hariprasathset@sanjivani.edu.in') return false;
               if (FirestoreDataService.isPurgedStudent(u)) return false;
               const prnKey = (u.prn || '').toUpperCase().trim();
               if (!prnKey || prnKey === '—' || prnKey === '-' || prnKey === 'GUEST' || prnKey === 'UNDEFINED' || prnKey === 'NULL') return false;

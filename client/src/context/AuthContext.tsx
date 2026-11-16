@@ -213,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (finalUser) {
       const isMasterAdmin =
         (finalUser.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+        (finalUser.email || '').toLowerCase().trim() === 'hariprasathset@sanjivani.edu.in' ||
         (finalUser.prn || '').toUpperCase().trim() === 'LOGICQARENA' ||
         finalUser.role === 'ADMIN' ||
         isExplicitAdminEmail(finalUser.email);
@@ -220,10 +221,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       finalUser = {
         ...finalUser,
         role: isMasterAdmin ? 'ADMIN' : (finalUser.role || 'STUDENT'),
-        displayName: isMasterAdmin ? 'LogicQ Arena (Admin)' : (finalUser.displayName || 'LogicQ Arena'),
-        fullName: isMasterAdmin ? 'LogicQ Arena (Admin)' : (finalUser.fullName || 'LogicQ Arena'),
+        displayName: isMasterAdmin ? (finalUser.displayName || (finalUser.email?.includes('hariprasath') ? 'Hariprasath (Admin)' : 'LogicQ Arena (Admin)')) : (finalUser.displayName || 'LogicQ Arena'),
+        fullName: isMasterAdmin ? (finalUser.fullName || (finalUser.email?.includes('hariprasath') ? 'Hariprasath (Admin)' : 'LogicQ Arena (Admin)')) : (finalUser.fullName || 'LogicQ Arena'),
         profileComplete: true,
-        email: isMasterAdmin ? 'logicqarena@gmail.com' : (finalUser.email || ''),
+        email: finalUser.email || (isMasterAdmin ? 'logicqarena@gmail.com' : ''),
         isEmailBound: isMasterAdmin ? true : Boolean(finalUser.isEmailBound),
         isEmailBoundV2: isMasterAdmin ? true : Boolean((finalUser as any).isEmailBoundV2),
         emailVerified: isMasterAdmin ? true : Boolean(finalUser.emailVerified),
@@ -297,7 +298,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const retainedIsEmailBound = isMasterAdmin ? true : isBoundV2;
       const retainedEmailVerified = isMasterAdmin ? true : isBoundV2;
       const retainedEmail = isMasterAdmin
-        ? 'logicqarena@gmail.com'
+        ? (finalUser.email || 'logicqarena@gmail.com')
         : (boundEmailV2 || finalUser.email || (prnUpper ? `${prnUpper.toLowerCase()}@sanjivani.edu.in` : ''));
 
       if (isBoundV2 && prnUpper) {
@@ -1076,7 +1077,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : cleanId.toUpperCase();
 
     // 0. Pre-login Ban Check: Banned students cannot log in (bounded 2s race)
-    if (prnToCheck && cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
+    const isAdminLogin =
+      cleanId.toLowerCase() === 'logicqarena@gmail.com' ||
+      cleanId.toLowerCase() === 'hariprasathset@sanjivani.edu.in' ||
+      isExplicitAdminEmail(cleanId) ||
+      cleanId.toLowerCase().includes('admin');
+
+    if (prnToCheck && !isAdminLogin) {
       try {
         const [enrolledSnap, cohortSnap] = await Promise.race([
           Promise.all([
@@ -1098,7 +1105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    if (cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
+    if (!isAdminLogin) {
       const reg = await DeviceSessionService.registerDeviceSession(prnToCheck, true);
       if (!reg.success) {
         throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');

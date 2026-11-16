@@ -199,19 +199,21 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 
 export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
+  'hariprasathset@sanjivani.edu.in',
 ];
 
+// Institutional Admin (Dean / HOD / VC level - read-only governance)
 export const INSTITUTIONAL_ADMIN_EMAILS = [
   'hod.sanjivani@gmail.com',
 ];
 
+// Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
   'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
-  'hariprasathset@sanjivani.edu.in',
   'admin@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
@@ -233,6 +235,7 @@ export function isExplicitlyPurgedUser(identifier?: string | { email?: string; p
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
   'logicqarena@gmail.com',
+  'hariprasathset@sanjivani.edu.in',
 ];
 
 export function isWalkthroughAccount(email?: string | null): boolean {

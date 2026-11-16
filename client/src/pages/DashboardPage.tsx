@@ -1354,7 +1354,7 @@ export const DashboardPage: React.FC = () => {
       {/* ========================================================================= */}
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 font-sans">
           {/* ADMIN CONSOLE QUICK SWITCH BANNER */}
-          {(isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA') && (
+          {(isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user?.prn === 'LOGICQARENA') && (
             <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0">

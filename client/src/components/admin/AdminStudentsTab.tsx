@@ -142,7 +142,7 @@ export const AdminStudentsTab: React.FC = () => {
 
         if (isMounted && Array.isArray(users)) {
           const studentUsers: AdminStudentRecord[] = users
-            .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
+            .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
             .map((u) => {
               const anyUser = u as any;
               const prnClean = (anyUser.prn || '').toUpperCase().trim();

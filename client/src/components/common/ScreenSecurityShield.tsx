@@ -23,6 +23,7 @@ export const ScreenSecurityShield: React.FC<ScreenSecurityShieldProps> = ({
       auth.user?.role === 'ADMIN' ||
       auth.user?.role === 'FACULTY' ||
       (auth.user?.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+      (auth.user?.email || '').toLowerCase().trim() === 'hariprasathset@sanjivani.edu.in' ||
       (auth.user?.prn || '').toUpperCase().trim() === 'LOGICQARENA'
     );
   } catch {}

@@ -129,7 +129,7 @@ export const AdminPortalPage: React.FC = () => {
         const validSections = Array.isArray(realSections) ? realSections : [];
         const studentUsers = Array.isArray(realUsers)
           ? realUsers
-              .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+              .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) && !FirestoreDataService.isPurgedStudent(u))
               .map((u: any) => {
                 const prnClean = (u.prn || '').toUpperCase().trim();
                 const cData = cohortMap.get(prnClean) || {};

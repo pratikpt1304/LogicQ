@@ -56,6 +56,7 @@ export const RadialActionMenu: React.FC = () => {
     user?.role === 'ADMIN' ||
     user?.role === 'FACULTY' ||
     user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
+    user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' ||
     user?.prn === 'LOGICQARENA'
   );
 

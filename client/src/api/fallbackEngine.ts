@@ -290,6 +290,7 @@ function saveStoredProblems(problems: any[]) {
 
 export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
+  'hariprasathset@sanjivani.edu.in',
 ];
 
 // Institutional Admin (Dean / HOD / VC level - read-only governance)
@@ -306,7 +307,6 @@ export const FACULTY_EMAILS = [
 export const PURGED_EMAILS = [
   'faculty@logicq.io',
   'student@logicq.io',
-  'hariprasathset@sanjivani.edu.in',
   'admin@logicq.io',
   'rohan_1390@test.edu',
   'rohan.sharma2026@gmail.com',
@@ -344,6 +344,7 @@ export const WALKTHROUGH_EMAILS = [
   'student@logicq.io',
   'faculty@logicq.io',
   'logicqarena@gmail.com',
+  'hariprasathset@sanjivani.edu.in',
 ];
 
 export function isWalkthroughAccount(email?: string | null): boolean {
@@ -449,7 +450,26 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hodAdmin, faculty1, faculty2];
+  const hariAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'admin-hariprasath-1',
+    username: 'hariprasathset',
+    email: 'hariprasathset@sanjivani.edu.in',
+    fullName: 'Hariprasath (Admin)',
+    displayName: 'Hariprasath (Admin)',
+    role: 'ADMIN' as any,
+    college: 'Sanjivani University',
+    department: 'CSE',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: 'password123',
+    isBanned: false,
+    shortId: 'HARI',
+    createdAt: new Date().toISOString(),
+  };
+
+  const allStaff = [arenaAdmin, hariAdmin, hodAdmin, faculty1, faculty2];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));
@@ -501,7 +521,10 @@ function getStoredSubmissions(): any[] {
         return parsed.filter(
           (s) =>
             s?.user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
-            s?.userId === 'admin-super-1'
+            s?.user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' ||
+            isExplicitAdminEmail(s?.user?.email) ||
+            s?.userId === 'admin-super-1' ||
+            s?.userId === 'admin-hariprasath-1'
         );
       }
     }
@@ -513,7 +536,10 @@ function saveStoredSubmissions(subs: any[]) {
   const filtered = (subs || []).filter(
     (s) =>
       s?.user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
-      s?.userId === 'admin-super-1'
+      s?.user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' ||
+      isExplicitAdminEmail(s?.user?.email) ||
+      s?.userId === 'admin-super-1' ||
+      s?.userId === 'admin-hariprasath-1'
   );
   try {
     localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(filtered));
@@ -835,10 +861,12 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
       throw new Error('Your account has been suspended by an administrator.');
     }
 
-    // Whitelist check: faculty@logicq.io, student@logicq.io, logicqarena@gmail.com & admin@logicq.io can authenticate using OTP 123456
+    // Whitelist check: admin accounts can authenticate using OTP 123456
     const cleanUserEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
-      cleanUserEmail === 'logicqarena@gmail.com'
+      cleanUserEmail === 'logicqarena@gmail.com' ||
+      cleanUserEmail === 'hariprasathset@sanjivani.edu.in' ||
+      isExplicitAdminEmail(cleanUserEmail)
     );
     let isValid = isWalkthroughOtp;
     try {

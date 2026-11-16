@@ -98,7 +98,7 @@ const FacultyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  const isAuthorized = isFaculty || isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com';
+  const isAuthorized = isFaculty || isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in';
   if (!isAuthorized) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -146,6 +146,7 @@ export const App: React.FC = () => {
     user?.role === 'FACULTY' ||
     user?.role === 'INSTITUTIONAL_ADMIN' ||
     (user?.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+    (user?.email || '').toLowerCase().trim() === 'hariprasathset@sanjivani.edu.in' ||
     (user?.prn || '').toUpperCase().trim() === 'LOGICQARENA' ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/faculty')
@@ -164,6 +165,7 @@ export const App: React.FC = () => {
       user.role === 'ADMIN' ||
       user.role === 'FACULTY' ||
       (user.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+      (user.email || '').toLowerCase().trim() === 'hariprasathset@sanjivani.edu.in' ||
       (user.prn || '').toUpperCase().trim() === 'LOGICQARENA';
 
     if (isAdminAccount) {
@@ -297,7 +299,7 @@ export const App: React.FC = () => {
               authState === 'loading' ? (
                 <AuthLoadingScreen message="Restoring LogicQ session..." />
               ) : user ? (
-                user.role === 'ADMIN' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.prn === 'LOGICQARENA' ? (
+                user.role === 'ADMIN' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user.prn === 'LOGICQARENA' ? (
                   <Navigate to="/admin" replace />
                 ) : user.role === 'STUDENT' && user.profileComplete === false ? (
                   <Navigate to="/complete-profile" replace />
@@ -329,7 +331,7 @@ export const App: React.FC = () => {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                {isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA' ? (
+                {isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user?.prn === 'LOGICQARENA' ? (
                   <Navigate to="/admin" replace />
                 ) : (
                   <DashboardPage />

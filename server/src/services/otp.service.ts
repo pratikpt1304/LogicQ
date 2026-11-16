@@ -30,7 +30,8 @@ export class OtpService {
       cleanEmail === 'faculty@logicq.io' ||
       cleanEmail === 'student@logicq.io' ||
       cleanEmail === 'admin@logicq.io' ||
-      cleanEmail === 'logicqarena@gmail.com'
+      cleanEmail === 'logicqarena@gmail.com' ||
+      cleanEmail === 'hariprasathset@sanjivani.edu.in'
     );
 
     // 1. Rate-limit cooldown check (must wait 60s between requests, bypassed for walkthrough/testing accounts)
@@ -175,7 +176,8 @@ export class OtpService {
       cleanEmail === 'faculty@logicq.io' ||
       cleanEmail === 'student@logicq.io' ||
       cleanEmail === 'admin@logicq.io' ||
-      cleanEmail === 'logicqarena@gmail.com'
+      cleanEmail === 'logicqarena@gmail.com' ||
+      cleanEmail === 'hariprasathset@sanjivani.edu.in'
     );
     const hashed = hashOtp(code);
 

@@ -1920,7 +1920,8 @@ export class FirestoreDataService {
     const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
     const isAdmin = [
       'logicqarena@gmail.com',
-    ].includes(currentEmail);
+      'hariprasathset@sanjivani.edu.in',
+    ].includes(currentEmail) || isExplicitAdminEmail(currentEmail);
 
     // 1. Fetch from 'users' collection (Admin only - non-admins lack global read permission on /users)
     if (isAdmin) {
@@ -2884,6 +2885,8 @@ export class FirestoreDataService {
     // Never purge admin or canonical dummy student testing account
     if (
       email === 'logicqarena@gmail.com' ||
+      email === 'hariprasathset@sanjivani.edu.in' ||
+      isExplicitAdminEmail(email) ||
       prn === 'LOGICQARENA' ||
       email === 'dummy@logicq.io' ||
       prn === 'DUMMY' ||
@@ -4575,7 +4578,8 @@ export class FirestoreDataService {
       const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
       const isAdmin = [
         'logicqarena@gmail.com',
-      ].includes(currentEmail);
+        'hariprasathset@sanjivani.edu.in',
+      ].includes(currentEmail) || isExplicitAdminEmail(currentEmail);
 
       if (isAdmin) {
         try {

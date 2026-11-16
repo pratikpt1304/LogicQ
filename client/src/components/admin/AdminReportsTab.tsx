@@ -144,7 +144,7 @@ export const AdminReportsTab: React.FC = () => {
 
       const rawList = Array.from(studentMap.values()).filter(
         (u: any) =>
-          (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
+          (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) &&
           !FirestoreDataService.isPurgedStudent(u)
       );
 

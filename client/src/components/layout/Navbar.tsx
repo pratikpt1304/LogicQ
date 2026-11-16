@@ -39,7 +39,7 @@ import { SatisfyingThemeToggle } from '../common/SatisfyingThemeToggle.js';
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
-  const isMasterAdmin = Boolean(isAdmin || user?.role === 'ADMIN' || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA');
+  const isMasterAdmin = Boolean(isAdmin || user?.role === 'ADMIN' || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user?.prn === 'LOGICQARENA');
   const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039' && !isMasterAdmin;
   const isStudent = !isFacultyUser && !isMasterAdmin;
   const { theme, toggleTheme } = useTheme();
@@ -132,7 +132,7 @@ export const Navbar: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Brand (links to /dashboard when signed in, / when signed out) */}
-        <Logo size="md" to={user ? (isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' ? '/admin' : '/dashboard') : '/'} />
+        <Logo size="md" to={user ? (isAdmin || isMasterAdmin ? '/admin' : '/dashboard') : '/'} />
 
         {/* Desktop Navigation (Apple HIG Segmented Capsule) */}
         {user && (
