@@ -26,11 +26,14 @@ import {
   UploadCloud,
   Download,
   MessageSquare,
+  Mail,
+  Loader2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { NotificationDispatchService } from '../../services/notificationDispatch.service.js';
 import { TestSubmissionsAuditModal } from './TestSubmissionsAuditModal.js';
 import { WhatsAppBroadcastModal } from './WhatsAppBroadcastModal.js';
 
@@ -257,6 +260,34 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [questionSearch, setQuestionSearch] = useState('');
   const [difficultyProfile, setDifficultyProfile] = useState<'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS'>('BALANCED');
   const [lockPolicy, setLockPolicy] = useState(true);
+  const [notifyStudentsViaEmail, setNotifyStudentsViaEmail] = useState(true);
+  const [sendingEmailForTestId, setSendingEmailForTestId] = useState<string | null>(null);
+
+  const handleSendEmailAlert = async (t: AdminTestDefinition) => {
+    setSendingEmailForTestId(t.id);
+    try {
+      toast.info(`Preparing email alerts for "${t.title}"...`);
+      const result = await NotificationDispatchService.broadcastTestNotification({
+        id: t.id,
+        title: t.title,
+        durationMinutes: t.durationMinutes,
+        totalMarks: t.totalMarks,
+        questionCount: t.questionCount || (t.questions ? t.questions.length : 20),
+        sectionTarget: t.sectionTarget,
+        unitTarget: t.unitTarget,
+      });
+
+      if (result.success) {
+        toast.success(`🎉 Assessment alert emailed to ${result.dispatchedCount} enrolled students!`);
+      } else {
+        toast.error(result.error || 'Failed to dispatch email alerts.');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error dispatching emails.');
+    } finally {
+      setSendingEmailForTestId(null);
+    }
+  };
   const [questionsPerStudent, setQuestionsPerStudent] = useState<number | 'ALL'>(2);
   const [antiCheatingRotation, setAntiCheatingRotation] = useState<boolean>(true);
 
@@ -615,6 +646,19 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     toast.success(
       `Test "${created.title}" scheduled! (Pool: ${matchedQuestions.length} Qs, Each student gets ${effectiveQuestionCount} distinct Qs with PRN Rotation)`
     );
+
+    if (notifyStudentsViaEmail) {
+      toast.info('Dispatching email alerts to all enrolled students...');
+      NotificationDispatchService.broadcastTestNotification(created).then((res) => {
+        if (res.success) {
+          toast.success(`📧 Assessment notification emailed to ${res.dispatchedCount} enrolled students!`);
+        } else if (res.error) {
+          toast.warning(`Email dispatch note: ${res.error}`);
+        }
+      }).catch((err) => {
+        console.warn('Notification dispatch error:', err);
+      });
+    }
   };
 
   const handleDeleteTest = async (id: string, e: React.MouseEvent) => {
@@ -1141,6 +1185,21 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    onClick={() => handleSendEmailAlert(t)}
+                    disabled={sendingEmailForTestId === t.id}
+                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                    title="Dispatch Email Notification to all Enrolled Students"
+                  >
+                    {sendingEmailForTestId === t.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Mail className="w-3.5 h-3.5" />
+                    )}
+                    <span>{sendingEmailForTestId === t.id ? 'Sending...' : 'Email'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setSelectedWhatsAppTest(t)}
                     className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                     title="Broadcast Assessment Alert on WhatsApp (OpenWA Gateway)"
@@ -1658,6 +1717,25 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   type="checkbox"
                   checked={lockPolicy}
                   onChange={(e) => setLockPolicy(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
+
+              {/* Automatic Student Email Alert Toggle */}
+              <div className="p-3 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-500/20 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-blue-900 dark:text-blue-200 text-xs flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Notify Students via Email</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Automatically emails test details &amp; exam portal link to all enrolled students.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifyStudentsViaEmail}
+                  onChange={(e) => setNotifyStudentsViaEmail(e.target.checked)}
                   className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                 />
               </div>
