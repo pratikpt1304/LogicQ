@@ -285,8 +285,9 @@ npx firebase-tools deploy --only hosting --project logicq-clanguage
 
 ## 🌐 Production Deployments
 
-- **Frontend Application (PWA v51)**: Deployed on **Firebase Hosting** with global edge CDN.
+- **Frontend Application (PWA v52)**: Deployed on **Firebase Hosting** with global edge CDN.
   - **Live Portal**: [https://logicq-clanguage.web.app](https://logicq-clanguage.web.app)
+  - **Admin Command Center**: [https://logicq-clanguage.web.app/admin](https://logicq-clanguage.web.app/admin) (Upgraded with 3D Galaxy Cosmic Action Buttons)
   - **Lab Internal (CIE Coursework)**: [https://logicq-clanguage.web.app/lab-internal](https://logicq-clanguage.web.app/lab-internal)
   - **Practice Arena (100 Topics)**: [https://logicq-clanguage.web.app/practice](https://logicq-clanguage.web.app/practice)
   - **Student Exam Hub**: [https://logicq-clanguage.web.app/student/tests](https://logicq-clanguage.web.app/student/tests)

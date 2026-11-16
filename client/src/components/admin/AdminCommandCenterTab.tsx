@@ -1,4 +1,5 @@
 import React from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Users,
   Clock,
@@ -98,14 +99,14 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.05]">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => onSelectTab('sections')}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Section</span>
-            </button>
+              size="sm"
+              text="New Section"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="flex-1"
+            />
             <button
               type="button"
               onClick={() => onSelectTab('students')}
@@ -137,14 +138,14 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.05]">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => onSelectTab('test-orchestrator')}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Schedule Test</span>
-            </button>
+              size="sm"
+              text="Schedule Test"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="flex-1"
+            />
             <button
               type="button"
               onClick={() => onSelectTab('question-bank')}
@@ -176,14 +177,15 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.05]">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => onSelectTab('reports')}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export Excel</span>
-            </button>
+              size="sm"
+              hue={160}
+              text="Export Excel"
+              icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="flex-1"
+            />
             <button
               type="button"
               onClick={() => onSelectTab('reports')}

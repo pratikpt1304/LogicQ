@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   BookOpen,
   Sparkles,
@@ -455,33 +456,31 @@ export const AdminQuestionBankTab: React.FC = () => {
 
           {/* 1-Click Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => setIsExcelModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border border-emerald-500/20"
-              title="Bulk import questions from Excel spreadsheet"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Upload Excel</span>
-            </button>
+              size="sm"
+              hue={160}
+              text="Upload Excel"
+              icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
+              iconPosition="left"
+            />
 
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => setIsAiModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border border-purple-500/20"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>AI Generate</span>
-            </button>
+              size="sm"
+              hue={280}
+              text="AI Generate"
+              icon={<Sparkles className="w-3.5 h-3.5" />}
+              iconPosition="left"
+            />
 
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Question</span>
-            </button>
+              size="sm"
+              text="New Question"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              iconPosition="left"
+            />
           </div>
         </div>
 
@@ -738,14 +737,15 @@ export const AdminQuestionBankTab: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
+                <GalaxyButton
                   type="submit"
                   disabled={isGenerating || !aiTopic.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isGenerating ? 'Generating...' : 'Generate Problem'}</span>
-                </button>
+                  size="sm"
+                  hue={280}
+                  text={isGenerating ? 'Generating...' : 'Generate Problem'}
+                  icon={<Sparkles className="w-3.5 h-3.5" />}
+                  iconPosition="left"
+                />
               </div>
             </form>
           </div>
@@ -888,13 +888,12 @@ export const AdminQuestionBankTab: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
+                <GalaxyButton
                   type="submit"
                   disabled={!manualForm.title.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs cursor-pointer"
-                >
-                  Save Question
-                </button>
+                  size="sm"
+                  text="Save Question"
+                />
               </div>
             </form>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import { collection, doc, onSnapshot, getDocs, updateDoc, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -1099,18 +1100,17 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={handleUnlockStudentProctoring}
               disabled={isUnlocking}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+              size="xs"
+              hue={160}
+              text="Unlock Student"
+              icon={<Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />}
+              iconPosition="left"
               title="Unlock Student & Clear Proctoring / Cheating Locks"
-            >
-              <Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Unlock Student</span>
-            </button>
-            <button
-              type="button"
+            />
+            <GalaxyButton
               onClick={() => generateIndividualStudentPdf({
                 ...student,
                 name: studentName,
@@ -1133,12 +1133,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 practiceSolvedCount: practiceSubmissions.filter((s: any) => s.verdict === 'ACCEPTED' || s.status === 'PASSED' || (Number(s.score) || 0) > 0).length,
                 cieMarks: testSubmissions.filter((s: any) => s.verdict === 'ACCEPTED' || (Number(s.academicScore) || 0) > 0).length > 0 ? undefined : 0,
               })}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              size="xs"
+              text="Export PDF"
+              icon={<Download className="w-3.5 h-3.5" />}
+              iconPosition="left"
               title="Download Student Transcript PDF"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export PDF</span>
-            </button>
+            />
             <button
               type="button"
               onClick={onClose}

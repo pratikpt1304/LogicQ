@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Sliders,
   Play,
@@ -734,14 +735,14 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
             </p>
           </div>
 
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Schedule Test</span>
-          </button>
+            size="sm"
+            text="Schedule Test"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            iconPosition="left"
+            className="shrink-0"
+          />
         </div>
 
         {/* Apple Segmented Filter Tabs */}
@@ -809,14 +810,13 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             Schedule a test to assign coding challenges to your students with automatic timer limits and test case verification.
           </p>
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Schedule First Test</span>
-          </button>
+            size="sm"
+            text="Schedule First Test"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            iconPosition="left"
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -1748,13 +1748,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 >
                   Cancel
                 </button>
-                <button
+                <GalaxyButton
                   type="submit"
                   disabled={!newTitle.trim() || activeQuestionsPool.length === 0}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs cursor-pointer active:scale-95"
-                >
-                  Schedule Test ({activeQuestionsPool.length} {activeQuestionsPool.length === 1 ? 'Question' : 'Questions'})
-                </button>
+                  size="sm"
+                  text={`Schedule Test (${activeQuestionsPool.length} ${activeQuestionsPool.length === 1 ? 'Question' : 'Questions'})`}
+                />
               </div>
             </form>
           </div>

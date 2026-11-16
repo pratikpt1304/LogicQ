@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -1072,14 +1073,14 @@ export const AdminIntegrityTab: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={() => setIsDemoVivaModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Preview AI Viva</span>
-            </button>
+              size="sm"
+              hue={280}
+              text="Preview AI Viva"
+              icon={<Sparkles className="w-3.5 h-3.5" />}
+              iconPosition="left"
+            />
           </div>
         </div>
 
@@ -2091,13 +2092,11 @@ export const AdminIntegrityTab: React.FC = () => {
               <span className="text-xs text-slate-400 font-mono">
                 PRN: {selectedStudentForTimeline.prn} • Status: {selectedStudentForTimeline.status}
               </span>
-              <button
-                type="button"
+              <GalaxyButton
                 onClick={() => setSelectedStudentForTimeline(null)}
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer active:scale-95 transition"
-              >
-                Close Audit View
-              </button>
+                size="sm"
+                text="Close Audit View"
+              />
             </div>
           </div>
         </div>
@@ -2161,13 +2160,11 @@ export const AdminIntegrityTab: React.FC = () => {
             </div>
 
             <div className="pt-2 flex items-center justify-end">
-              <button
-                type="button"
+              <GalaxyButton
                 onClick={() => setIsDemoVivaModalOpen(false)}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition active:scale-95 cursor-pointer"
-              >
-                Close Preview
-              </button>
+                size="sm"
+                text="Close Preview"
+              />
             </div>
           </div>
         </div>

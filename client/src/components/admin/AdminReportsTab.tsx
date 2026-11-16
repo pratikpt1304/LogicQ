@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   FileText,
   Download,
@@ -720,19 +721,19 @@ export const AdminReportsTab: React.FC = () => {
           </div>
 
           <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center gap-2">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={handleDownloadOfficialPdf}
               disabled={isExportingPdf}
-              className="flex-1 py-2.5 rounded-xl font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>
-                {isExportingPdf
+              size="sm"
+              text={
+                isExportingPdf
                   ? `Compiling ZIP (${exportProgress.current}/${exportProgress.total})...`
-                  : `Download Official PDF Package (${activeStudents.length} Students .ZIP)`}
-              </span>
-            </button>
+                  : `Download Official PDF Package (${activeStudents.length} Students .ZIP)`
+              }
+              icon={<Download className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="flex-1"
+            />
             <button
               type="button"
               onClick={() => setIsPreviewModalOpen(true)}
@@ -847,14 +848,14 @@ export const AdminReportsTab: React.FC = () => {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
+                  <GalaxyButton
                     onClick={() => generateIndividualStudentPdf(st)}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs shrink-0"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Student PDF</span>
-                  </button>
+                    size="xs"
+                    text="Download Student PDF"
+                    icon={<Download className="w-3.5 h-3.5" />}
+                    iconPosition="left"
+                    className="shrink-0"
+                  />
                 </div>
               ))}
             </div>
@@ -978,17 +979,16 @@ export const AdminReportsTab: React.FC = () => {
                 <Download className="w-3.5 h-3.5" />
                 <span>Master Summary Only (PDF)</span>
               </button>
-              <button
-                type="button"
+              <GalaxyButton
                 onClick={() => {
                   setIsPreviewModalOpen(false);
                   handleDownloadOfficialPdf();
                 }}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download All Reports ({activeStudents.length} Students .ZIP)</span>
-              </button>
+                size="sm"
+                text={`Download All Reports (${activeStudents.length} Students .ZIP)`}
+                icon={<Download className="w-3.5 h-3.5" />}
+                iconPosition="left"
+              />
             </div>
           </div>
         </div>

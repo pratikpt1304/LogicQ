@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Plus,
   Copy,
@@ -225,14 +226,14 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Section</span>
-          </button>
+            size="sm"
+            text="New Section"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            iconPosition="left"
+            className="shrink-0"
+          />
         </div>
       </div>
 
@@ -250,14 +251,13 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             Type a section name in the quick bar above or click below to initialize your first class division and issue student join links.
           </p>
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create First Section</span>
-          </button>
+            size="sm"
+            text="Create First Section"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            iconPosition="left"
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -453,13 +453,12 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                 >
                   Cancel
                 </button>
-                <button
+                <GalaxyButton
                   type="submit"
                   disabled={!modalSectionName.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs"
-                >
-                  Create &amp; Issue Join Code
-                </button>
+                  size="sm"
+                  text="Create & Issue Join Code"
+                />
               </div>
             </form>
           </div>
@@ -618,14 +617,13 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                   <span className="text-xs text-slate-500">
                     {excelPreview.validRows.length} students ready to enroll.
                   </span>
-                  <button
-                    type="button"
+                  <GalaxyButton
                     onClick={handleCommitExcelImport}
                     disabled={isImporting || excelPreview.validRows.length === 0}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-xs"
-                  >
-                    {isImporting ? 'Enrolling...' : `Confirm & Enroll (${excelPreview.validRows.length})`}
-                  </button>
+                    size="sm"
+                    hue={160}
+                    text={isImporting ? 'Enrolling...' : `Confirm & Enroll (${excelPreview.validRows.length})`}
+                  />
                 </div>
               </div>
             )}
