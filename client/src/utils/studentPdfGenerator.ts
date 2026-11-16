@@ -370,7 +370,7 @@ export const buildIndividualStudentPdfDoc = async (
   doc.text(`${integrityScore} / 100`, margin + (tileWidth + 3) * 3 + 3, y + 12);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(isClean ? '✓ Verified Clean Standing' : '⚠ Audit Flagged', margin + (tileWidth + 3) * 3 + 3, y + 17);
+  doc.text(isClean ? 'Verified Clean' : 'Audit Flagged', margin + (tileWidth + 3) * 3 + 3, y + 17);
 
   y += 28;
 

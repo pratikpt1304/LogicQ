@@ -493,7 +493,7 @@ export const StudentVerificationPage: React.FC = () => {
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-600 dark:text-slate-400 block">
-                    ✓ Verified Clean Standing
+                    ✓ Verified Clean
                   </span>
                 </div>
 
