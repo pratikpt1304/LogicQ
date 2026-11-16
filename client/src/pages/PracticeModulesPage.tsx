@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom';
+import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -411,13 +412,12 @@ export const PracticeModulesPage: React.FC = () => {
                 <span>Dashboard</span>
               </Link>
 
-              <Link
+              <GalaxyButton
                 to="/practice"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                <span>Practice Arena →</span>
-              </Link>
+                size="sm"
+                text="Practice Arena →"
+                icon={<Code2 className="w-3.5 h-3.5" />}
+              />
             </div>
           </div>
 
@@ -545,14 +545,15 @@ export const PracticeModulesPage: React.FC = () => {
                   </p>
                 </div>
 
-                <Link
+                <GalaxyButton
                   to={`/lab-internal/${activeModule.slug}/${nextProblem.slug}`}
                   onClick={handleLaunchQuestionFullscreen}
-                  className="w-full md:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer shrink-0"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>Continue Solving Question {nextProblem.index} →</span>
-                </Link>
+                  size="md"
+                  hue={160}
+                  text={`Continue Solving Question ${nextProblem.index} →`}
+                  icon={<Play className="w-3.5 h-3.5 fill-white" />}
+                  className="w-full md:w-auto shrink-0"
+                />
               </div>
             ) : (
               <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 sm:p-7 text-center space-y-3">
@@ -761,9 +762,11 @@ export const PracticeModulesPage: React.FC = () => {
                             <span>Solved</span>
                           </span>
                         ) : isNextUp ? (
-                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold shadow-md shadow-emerald-600/20 transition-all">
-                            <span>Solve →</span>
-                          </span>
+                          <GalaxyButton
+                            size="xs"
+                            hue={160}
+                            text="Solve →"
+                          />
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
                             <span>Solve</span>

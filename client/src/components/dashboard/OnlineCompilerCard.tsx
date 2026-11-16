@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GalaxyButton } from '../common/GalaxyButton.js';
 import { CodeEditor } from '../editor/CodeEditor.js';
 import { api } from '../../api/client.js';
 import {
@@ -248,14 +249,14 @@ export const OnlineCompilerCard: React.FC = () => {
         </div>
 
         <div className="w-full sm:w-auto flex items-center">
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => setIsExpanded(true)}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Open Online Compiler →</span>
-          </button>
+            size="sm"
+            hue={160}
+            text="Open Online Compiler →"
+            icon={<Play className="w-3.5 h-3.5 fill-current" />}
+            className="w-full sm:w-auto"
+          />
         </div>
       </div>
     );

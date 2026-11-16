@@ -6,10 +6,13 @@ interface GalaxyButtonProps {
   to?: string;
   onClick?: (e: React.MouseEvent) => void;
   text?: string;
+  children?: React.ReactNode;
   icon?: React.ReactNode;
   className?: string;
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  hue?: number;
 }
 
 const STATIC_STARS = [
@@ -23,10 +26,13 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   to,
   onClick,
   text = 'Explore',
+  children,
   icon,
   className = '',
   disabled = false,
   type = 'button',
+  size = 'md',
+  hue,
 }) => {
   const orbitStars = useMemo(() => {
     return Array.from({ length: 20 }, (_, i) => ({
@@ -80,16 +86,19 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
         </span>
       </span>
       <span className="galaxy-text">
-        <span>{text}</span>
+        {children ? children : <span>{text}</span>}
         {icon}
       </span>
     </>
   );
 
+  const wrapperStyle = hue !== undefined ? ({ '--hue': hue } as React.CSSProperties) : undefined;
+  const btnClass = `galaxy-btn size-${size} ${disabled ? 'disabled' : ''}`;
+
   return (
-    <div className={`galaxy-button galaxy-btn-wrapper ${className}`}>
+    <div className={`galaxy-button galaxy-btn-wrapper ${className}`} style={wrapperStyle}>
       {to && !disabled ? (
-        <Link to={to} className="galaxy-btn">
+        <Link to={to} className={btnClass} onClick={onClick}>
           {content}
         </Link>
       ) : (
@@ -97,7 +106,7 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
           type={type}
           onClick={onClick}
           disabled={disabled}
-          className={`galaxy-btn ${disabled ? 'disabled' : ''}`}
+          className={btnClass}
         >
           {content}
         </button>

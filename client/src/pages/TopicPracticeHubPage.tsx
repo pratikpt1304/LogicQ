@@ -1530,13 +1530,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <span>Dashboard</span>
               </Link>
 
-              <Link
+              <GalaxyButton
                 to="/lab-internal"
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/25 transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Lab Internal Coursework (20M) →</span>
-              </Link>
+                size="sm"
+                text="Lab Internal Coursework (20M) →"
+                icon={<BookOpen className="w-3.5 h-3.5" />}
+              />
             </div>
           </div>
 
@@ -1722,15 +1721,13 @@ export const TopicPracticeHubPage: React.FC = () => {
             </p>
           </div>
 
-          <button
-            type="button"
+          <GalaxyButton
             onClick={() => handleOpenTopic(nextUnsolvedInModule)}
-            className="w-full sm:w-auto px-6 py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 flex items-center justify-center gap-2 group active:scale-95 shrink-0 cursor-pointer"
-          >
-            <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
-            <span>Continue Solving</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+            size="md"
+            text="Continue Solving →"
+            icon={<Play className="w-3.5 h-3.5 fill-current" />}
+            className="w-full sm:w-auto shrink-0"
+          />
         </div>
       )}
 
@@ -2005,21 +2002,26 @@ export const TopicPracticeHubPage: React.FC = () => {
                           <span>Solved</span>
                         </span>
                       ) : hasDraft ? (
-                        <button
-                          type="button"
-                          className="px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold transition flex items-center gap-1 shadow-xs group-hover:scale-105 cursor-pointer"
-                        >
-                          <span>Resume</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <GalaxyButton
+                          size="xs"
+                          hue={35}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenTopic(topic);
+                          }}
+                          text="Resume →"
+                          className="shrink-0"
+                        />
                       ) : (
-                        <button
-                          type="button"
-                          className="px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 shadow-xs group-hover:scale-105 cursor-pointer"
-                        >
-                          <span>Solve</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <GalaxyButton
+                          size="xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenTopic(topic);
+                          }}
+                          text="Solve →"
+                          className="shrink-0"
+                        />
                       )}
                     </div>
                   </div>

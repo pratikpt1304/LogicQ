@@ -58,6 +58,35 @@
   user-select: none;
 }
 
+/* Sizing variations */
+.galaxy-btn.size-xs {
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.32em 0.8em;
+  gap: 0.28em;
+}
+
+.galaxy-btn.size-sm {
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 0.48em 1.1em;
+  gap: 0.35em;
+}
+
+.galaxy-btn.size-md {
+  font-size: 0.925rem;
+  font-weight: 600;
+  padding: 0.62em 1.35em;
+  gap: 0.4em;
+}
+
+.galaxy-btn.size-lg {
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.8em 1.6em;
+  gap: 0.45em;
+}
+
 .galaxy-btn:disabled,
 .galaxy-btn.disabled {
   opacity: 0.5;

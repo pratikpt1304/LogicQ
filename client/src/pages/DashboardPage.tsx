@@ -1584,6 +1584,7 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-3 shrink-0">
                 <GalaxyButton
                   to={`/practice?topic=${nextUnlockedPracticeTopic.id}`}
+                  size="md"
                   text="Continue Solving"
                   icon={<ArrowRight className="w-4 h-4 ml-1" />}
                 />
@@ -2068,13 +2069,14 @@ export const DashboardPage: React.FC = () => {
                         onChange={(e) => setDashboardJoinCode(e.target.value.toUpperCase())}
                         className="flex-1 px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold tracking-widest placeholder:tracking-normal placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                       />
-                      <button
+                      <GalaxyButton
                         type="submit"
+                        size="sm"
                         disabled={isEnrollingCode || !dashboardJoinCode.trim()}
-                        className="px-6 py-2.5 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50 cursor-pointer shadow-xs whitespace-nowrap"
-                      >
-                        {isEnrollingCode ? 'Joining...' : 'Unlock Tests'}
-                      </button>
+                        text={isEnrollingCode ? 'Joining...' : 'Unlock Tests'}
+                        icon={<Key className="w-3.5 h-3.5" />}
+                        className="shrink-0"
+                      />
                     </form>
                   </div>
                 ) : (

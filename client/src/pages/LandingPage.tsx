@@ -221,13 +221,15 @@ export const LandingPage: React.FC = () => {
               {user ? (
                 <GalaxyButton
                   to="/dashboard"
+                  size="md"
                   text="Explore Dashboard"
                   icon={<ArrowRight className="w-4 h-4 ml-1" />}
                 />
               ) : (
                 <GalaxyButton
                   to="/login"
-                  text="Explore Arena"
+                  size="md"
+                  text="Sign In with Student PRN"
                   icon={<ArrowRight className="w-4 h-4 ml-1" />}
                 />
               )}
