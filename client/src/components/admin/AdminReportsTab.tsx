@@ -501,28 +501,28 @@ export const AdminReportsTab: React.FC = () => {
         'Sr No': idx + 1,
         'PRN': u.prn || u.id || 'N/A',
         'Student Name': u.name || u.displayName || u.fullName || 'Candidate',
-        'Verified Bound Email': u.boundEmail || (u.isEmailBound && !u.email.endsWith('@sanjivani.edu.in') ? u.email : 'NOT_BOUND'),
-        'Identity Status': u.isEmailBound ? 'VERIFIED / BOUND' : 'PENDING (UNBOUND)',
-        'Section / Division': u.section || selectedSection || 'Integrated Mtech',
+        'Bound Email': u.boundEmail || (u.isEmailBound && !u.email.endsWith('@sanjivani.edu.in') ? u.email : 'NOT_BOUND'),
+        'Status': u.isEmailBound ? 'VERIFIED' : 'PENDING',
+        'Section': u.section || selectedSection || 'Integrated Mtech',
         'Total Solved': u.totalSolved ?? 0,
         'Lab Solved': u.labSolved ?? 0,
         'Practice Solved': u.practiceSolved ?? 0,
-        'Lab Internal CIE Marks (0-20)': u.cieMarks !== undefined ? u.cieMarks : (u.labSolved > 0 ? Math.min(20, Number((u.labSolved * 0.25).toFixed(1))) : 0),
-        'Exam Integrity Index': `${u.integrityScore ?? 100}%`,
-        'Tab Switch Violations': u.tabSwitchCount ?? 0,
-        'Clipboard Paste Attempts': u.clipboardAttempts ?? 0,
-        'Total Keystroke Dynamics': u.totalKeystrokes ?? 0,
-        'Typing Velocity (CPM)': u.cpm > 0 ? `${u.cpm} CPM` : (u.typingVelocityCPM > 0 ? `${u.typingVelocityCPM} CPM` : '—'),
-        'Typing Speed (WPM)': u.wpm > 0 ? `${u.wpm} WPM` : (u.cpm > 0 ? `${Math.round(u.cpm / 5)} WPM` : '—'),
-        'Active Session Status': u.activeSession ? 'ACTIVE / ONLINE' : 'OFFLINE',
-        'Capstone Mini-Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
-        'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
-        'Last Activity / Submission': u.lastActivityTime || 'N/A',
+        'Marks (20)': u.cieMarks !== undefined ? u.cieMarks : (u.labSolved > 0 ? Math.min(20, Number((u.labSolved * 0.25).toFixed(1))) : 0),
+        'Integrity': `${u.integrityScore ?? 100}%`,
+        'Tab Switch': u.tabSwitchCount ?? 0,
+        'Paste Attempts': u.clipboardAttempts ?? 0,
+        'Keystrokes': u.totalKeystrokes ?? 0,
+        'Typing (CPM)': u.cpm > 0 ? `${u.cpm} CPM` : (u.typingVelocityCPM > 0 ? `${u.typingVelocityCPM} CPM` : '—'),
+        'Typing (WPM)': u.wpm > 0 ? `${u.wpm} WPM` : (u.cpm > 0 ? `${Math.round(u.cpm / 5)} WPM` : '—'),
+        'Session': u.activeSession ? 'ONLINE' : 'OFFLINE',
+        'Mini Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
+        'AI Viva': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
+        'Last Active': u.lastActivityTime || 'N/A',
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(studentRows);
 
-      // Auto-fit spacious column widths so no headers or values are cut off
+      // Auto-fit tight column widths: column border ends right at the last letter of header/content
       const columnKeys = Object.keys(studentRows[0] || {});
       const colWidths = columnKeys.map((key) => {
         let maxLen = key.length;
@@ -533,26 +533,7 @@ export const AdminReportsTab: React.FC = () => {
             maxLen = str.length;
           }
         });
-
-        // Explicit column minimums so Excel online and desktop render beautifully without any truncation
-        let minWidth = 16;
-        if (key === 'Sr No') minWidth = 8;
-        else if (key === 'PRN') minWidth = 18;
-        else if (key === 'Student Name') minWidth = 32;
-        else if (key === 'Verified Bound Email') minWidth = 36;
-        else if (key === 'Identity Status') minWidth = 22;
-        else if (key === 'Section / Division') minWidth = 24;
-        else if (key === 'Total Solved') minWidth = 16;
-        else if (key === 'Lab Solved') minWidth = 16;
-        else if (key === 'Practice Solved') minWidth = 18;
-        else if (key === 'Lab Internal CIE Marks (0-20)') minWidth = 28;
-        else if (key === 'Exam Integrity Index') minWidth = 22;
-        else if (key === 'Tab Switch Violations') minWidth = 22;
-        else if (key === 'Clipboard Paste Attempts') minWidth = 24;
-        else if (key === 'Active Session Status') minWidth = 22;
-        else if (key === 'Last Activity / Submission') minWidth = 26;
-
-        return { wch: Math.max(maxLen + 4, minWidth) };
+        return { wch: maxLen + 1 };
       });
 
       worksheet['!cols'] = colWidths;
