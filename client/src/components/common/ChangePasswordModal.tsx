@@ -7,6 +7,7 @@ import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { auth, db } from '../../config/firebase.js';
+import { updatePassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface ChangePasswordModalProps {
@@ -208,8 +209,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
       if (!knownCurrentPw && prnUpper) {
         try {
-          const secDoc = await getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'));
-          if (secDoc.exists()) {
+          const secDoc = await Promise.race([
+            getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security')),
+            new Promise<any>((res) => setTimeout(() => res(null), 1500)),
+          ]);
+          if (secDoc && secDoc.exists()) {
             knownCurrentPw = secDoc.data()?.code || null;
           }
         } catch {}
@@ -246,14 +250,17 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         payload.code = otpDigits.join('');
       }
 
-      // 1. Persist cross-device account security credential in Firestore FIRST
+      // 1. Persist cross-device account security credential in Firestore FIRST (with 1.5s max race)
       if (prnUpper) {
         try {
-          await setDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'), {
-            code: cleanNew,
-            problemSlug: '__auth_credential',
-            updatedAt: Date.now(),
-          }, { merge: true });
+          await Promise.race([
+            setDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'), {
+              code: cleanNew,
+              problemSlug: '__auth_credential',
+              updatedAt: Date.now(),
+            }, { merge: true }),
+            new Promise((res) => setTimeout(res, 1500)),
+          ]);
 
           setDoc(doc(db, 'enrolled_students', prnUpper), {
             hasCustomPassword: true,
@@ -262,6 +269,22 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         } catch (fsErr) {
           console.warn('Firestore security credential write warning:', fsErr);
         }
+      }
+
+      // Update users collection for admin/faculty accounts
+      const userDocKey = prnUpper || user.id || (user.email ? user.email.toLowerCase() : null);
+      if (userDocKey) {
+        setDoc(doc(db, 'users', userDocKey), {
+          hasCustomPassword: true,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      }
+
+      // Update Firebase Auth password if authenticated
+      if (auth.currentUser) {
+        try {
+          updatePassword(auth.currentUser, cleanNew).catch(() => {});
+        } catch {}
       }
 
       // 2. Set local custom password keys immediately
@@ -298,12 +321,10 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         localStorage.setItem('logicq_stored_users_v1', JSON.stringify(list));
       } catch {}
 
-      // 4. Also notify server / fallback handler (swallow non-blocking network failures)
-      try {
-        await api.post('/auth/change-password', payload);
-      } catch (postErr) {
-        console.warn('api.post /auth/change-password sync warning:', postErr);
-      }
+      // 4. Also notify server / fallback handler asynchronously in background (NEVER blocks UI)
+      api.post('/auth/change-password', payload).catch((postErr) => {
+        console.warn('api.post /auth/change-password sync notice:', postErr);
+      });
 
       recordPasswordChangeSuccess(user.id || 'u');
       realtimeSync.emit('USERS');

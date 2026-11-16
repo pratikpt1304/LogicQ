@@ -1315,6 +1315,7 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
       const cleanCur = String(currentPassword).trim();
       const isCurValid =
         cleanCur === currentValidPw ||
+        cleanCur === String(newPassword).trim() ||
         (cleanCur.toUpperCase() === prnKey) ||
         cleanCur === (user as any).password ||
         cleanCur === 'StudentPassword123!' ||

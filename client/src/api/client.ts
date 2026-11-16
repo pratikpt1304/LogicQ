@@ -255,16 +255,16 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   let useFallback = false;
 
   // Resilient retry loop to smoothly absorb Render free tier cold-starts (502/503/504)
-  // For /auth/login, use a fast 8s timeout and 1 attempt so students never wait 135s cold-starts
-  const isDirectLogin = cleanEndpoint === '/auth/login';
-  const maxAttempts = isDirectLogin
+  // For auth/login & change-password, use a fast 6s timeout and 1 attempt so users never wait 135s cold-starts
+  const isFastAuth = cleanEndpoint === '/auth/login' || cleanEndpoint === '/auth/change-password' || cleanEndpoint.includes('-otp');
+  const maxAttempts = isFastAuth
     ? 1
     : (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice') || cleanEndpoint.startsWith('/submissions')) ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const fetchConfig: RequestInit = { ...config };
       if (!fetchConfig.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-        const timeoutMs = isDirectLogin ? 8000 : 45000;
+        const timeoutMs = isFastAuth ? 6000 : 45000;
         fetchConfig.signal = (AbortSignal as any).timeout(timeoutMs);
       }
       response = await fetch(url, fetchConfig);
