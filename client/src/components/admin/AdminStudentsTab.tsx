@@ -20,6 +20,7 @@ import {
   Download,
   FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
@@ -614,73 +615,75 @@ export const AdminStudentsTab: React.FC = () => {
   const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
   const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
 
-  const handleExportCsv = () => {
+  const handleExportExcel = () => {
     if (filteredStudents.length === 0) {
       toast.warning('No students match the current filter to export.');
       return;
     }
 
-    const headers = [
-      'PRN',
-      'Student Name',
-      'Email Address',
-      'Section / Department',
-      'Activity Status',
-      'Email Verification',
-      'Problems Solved',
-      'Academic Score (%)',
-      'Integrity Score (%)',
-      'Mini-Project Access',
-      'Account Status',
-      'Last Active',
-    ];
+    try {
+      const studentRows = filteredStudents.map((s, idx) => ({
+        'Sr. No': idx + 1,
+        'PRN': s.prn || '—',
+        'Student Name': s.name || '—',
+        'Email Address': s.email || '—',
+        'Section / Department': s.section || 'Integrated Mtech',
+        'Activity Status': (s.problemsSolved ?? 0) >= 1 ? 'Active' : 'Inactive',
+        'Email Verification': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
+        'Problems Solved': s.problemsSolved ?? 0,
+        'Academic Score (%)': s.academicScore ?? 0,
+        'Integrity Score (%)': s.integrityScore ?? 100,
+        'Mini-Project Access': s.miniProjectUnlocked ? 'Unlocked' : 'Locked',
+        'Account Status': s.isBanned ? 'Banned' : 'Normal',
+        'Last Active': s.lastActive || 'Recent',
+      }));
 
-    const rows = filteredStudents.map((s) => {
-      const activityStatus = (s.problemsSolved ?? 0) >= 1 ? 'Active' : 'Inactive';
-      const emailStatus = s.identityStatus === 'BOUND' ? 'Verified' : 'Pending';
-      const miniProject = s.miniProjectUnlocked ? 'Unlocked' : 'Locked';
-      const accountStatus = s.isBanned ? 'Banned' : 'Normal';
+      const worksheet = XLSX.utils.json_to_sheet(studentRows);
 
-      return [
-        `"${(s.prn || '').replace(/"/g, '""')}"`,
-        `"${(s.name || '').replace(/"/g, '""')}"`,
-        `"${(s.email || '').replace(/"/g, '""')}"`,
-        `"${(s.section || '').replace(/"/g, '""')}"`,
-        activityStatus,
-        emailStatus,
-        String(s.problemsSolved ?? 0),
-        String(s.academicScore ?? 0),
-        String(s.integrityScore ?? 100),
-        miniProject,
-        accountStatus,
-        `"${(s.lastActive || '—').replace(/"/g, '""')}"`,
-      ];
-    });
+      // Auto-fit tight column widths: column border ends right at the last letter of header/content
+      const columnKeys = Object.keys(studentRows[0] || {});
+      const colWidths = columnKeys.map((key) => {
+        let maxLen = key.length;
+        studentRows.forEach((row: any) => {
+          const val = row[key];
+          const str = val !== null && val !== undefined ? String(val) : '';
+          if (str.length > maxLen) {
+            maxLen = str.length;
+          }
+        });
+        return { wch: maxLen + 3 };
+      });
+      worksheet['!cols'] = colWidths;
 
-    const filterLabelMap: Record<string, string> = {
-      ALL: 'All_Students',
-      ACTIVE: 'Active_Students',
-      INACTIVE: 'Inactive_Students',
-      VERIFIED: 'Email_Verified_Students',
-      UNLOCKED: 'MiniProject_Active_Students',
-    };
-    const filterSlug = filterLabelMap[activeFilter] || 'Students';
-    const sectionSlug = selectedSection !== 'ALL' ? `_${selectedSection.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `LogicQ_${filterSlug}${sectionSlug}_${dateStr}.csv`;
+      const workbook = XLSX.utils.book_new();
+      const sheetName = activeFilter === 'ALL'
+        ? 'All Students'
+        : activeFilter === 'ACTIVE'
+        ? 'Active Students'
+        : activeFilter === 'INACTIVE'
+        ? 'Inactive Students'
+        : activeFilter === 'VERIFIED'
+        ? 'Verified Students'
+        : 'Filtered Students';
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const filterLabelMap: Record<string, string> = {
+        ALL: 'All_Students',
+        ACTIVE: 'Active_Students',
+        INACTIVE: 'Inactive_Students',
+        VERIFIED: 'Email_Verified_Students',
+        UNLOCKED: 'MiniProject_Active_Students',
+      };
+      const filterSlug = filterLabelMap[activeFilter] || 'Students';
+      const sectionSlug = selectedSection !== 'ALL' ? `_${selectedSection.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `LogicQ_${filterSlug}${sectionSlug}_${dateStr}.xlsx`;
 
-    toast.success(`Exported ${filteredStudents.length} students to ${filename}`);
+      XLSX.writeFile(workbook, filename);
+      toast.success(`Excel Sheet exported: ${filename} (${filteredStudents.length} students)`);
+    } catch (err: any) {
+      toast.error('Failed to export Excel: ' + (err?.message || 'Unknown error'));
+    }
   };
 
   return (
@@ -743,17 +746,17 @@ export const AdminStudentsTab: React.FC = () => {
               />
             </div>
 
-            {/* Apple Export CSV Button */}
+            {/* Apple Export Excel Button */}
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={handleExportExcel}
               disabled={filteredStudents.length === 0}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 text-xs font-semibold shadow-xs hover:border-slate-300 dark:hover:border-white/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed group"
-              title={`Export ${filteredStudents.length} students to CSV`}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold shadow-xs hover:border-emerald-500/50 transition-all active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed group"
+              title={`Export ${filteredStudents.length} students to Excel Sheet (.xlsx)`}
             >
-              <Download className="w-3.5 h-3.5 text-blue-500 group-hover:-translate-y-0.5 transition-transform" />
-              <span>Export CSV</span>
-              <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-bold">
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:-translate-y-0.5 transition-transform" />
+              <span>Export Excel (.xlsx)</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] font-bold">
                 {filteredStudents.length}
               </span>
             </button>
@@ -832,17 +835,17 @@ export const AdminStudentsTab: React.FC = () => {
             </button>
           )}
 
-          {/* Quick Filtered CSV Download Button */}
+          {/* Quick Filtered Excel Download Button */}
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={handleExportExcel}
               disabled={filteredStudents.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
-              title={`Download CSV of current filter (${filteredStudents.length} students)`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
+              title={`Download Excel Sheet (.xlsx) of current filter (${filteredStudents.length} students)`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
-              <span>Download {activeFilter === 'ALL' ? 'All' : activeFilter === 'ACTIVE' ? 'Active' : activeFilter === 'INACTIVE' ? 'Inactive' : activeFilter === 'VERIFIED' ? 'Verified' : 'Filtered'} CSV ({filteredStudents.length})</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>Download {activeFilter === 'ALL' ? 'All' : activeFilter === 'ACTIVE' ? 'Active' : activeFilter === 'INACTIVE' ? 'Inactive' : activeFilter === 'VERIFIED' ? 'Verified' : 'Filtered'} Excel ({filteredStudents.length})</span>
             </button>
           </div>
         </div>
