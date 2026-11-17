@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { isOfficialAssessmentTest } from '../../utils/progression.js';
 import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
@@ -123,8 +124,12 @@ const resolveProblemContext = (
   const cleanLower = clean.toLowerCase();
   const subType = String(submissionType || '').toUpperCase();
 
-  const isExplicitPractice = subType === 'PRACTICE' || subType === 'TOPIC';
-  const isExplicitAssessment = subType === 'ASSESSMENT' || subType === 'TEST' || subType === 'LAB_INTERNAL';
+  const isAssessment = isOfficialAssessmentTest({
+    problemTitle: clean,
+    title: clean,
+    testTitle: fallbackTestTitle,
+    submissionType: subType,
+  });
 
   // 1. Check in TOPIC_PRACTICE_DATA
   const matchedTopic = TOPIC_PRACTICE_DATA.find((t) =>
@@ -135,7 +140,7 @@ const resolveProblemContext = (
     (cleanLower.length > 5 && t.problem.title.toLowerCase().includes(cleanLower))
   );
 
-  if (matchedTopic && !isExplicitAssessment) {
+  if (!isAssessment && matchedTopic) {
     return {
       category: 'Practice' as const,
       categoryLabel: 'Practice Solutions',
@@ -146,15 +151,6 @@ const resolveProblemContext = (
   }
 
   // 2. Check if it's an assessment
-  const isAssessment =
-    isExplicitAssessment ||
-    cleanLower.startsWith('exam_') ||
-    cleanLower.startsWith('unit_') ||
-    cleanLower.startsWith('test_') ||
-    cleanLower.startsWith('asub_') ||
-    /^(q-s\d+|q\d+|unit)/i.test(cleanLower) ||
-    (Boolean(fallbackTestTitle) && fallbackTestTitle !== 'Continuous Practical Lab');
-
   if (isAssessment) {
     return {
       category: 'Lab Internal' as const,
@@ -167,7 +163,7 @@ const resolveProblemContext = (
 
   // 3. Fallback
   return {
-    category: isExplicitPractice ? ('Practice' as const) : ('Practice' as const),
+    category: 'Practice' as const,
     categoryLabel: 'Practice Solutions',
     moduleName: fallbackTestTitle || (matchedTopic ? matchedTopic.moduleTitle : 'Module: C Programming Practice'),
     topicTitle: clean || 'Practice Problem',

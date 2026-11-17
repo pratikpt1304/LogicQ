@@ -29,6 +29,7 @@ import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
+import { isOfficialAssessmentTest } from '../../utils/progression.js';
 import { toast } from 'sonner';
 
 export interface AnswerBankStudent {
@@ -139,7 +140,15 @@ export const AdminAnswerBankTab: React.FC = () => {
 
           const student = studentsMap.get(targetKey) || (prn ? studentsMap.get(prn) : null) || (uid ? studentsMap.get(uid) : null);
           if (student) {
-            student.labInternalSubmissions.push(sub);
+            if (isOfficialAssessmentTest(sub)) {
+              if (!student.labInternalSubmissions.some((x: any) => x.id === sub.id)) {
+                student.labInternalSubmissions.push(sub);
+              }
+            } else {
+              if (!student.practiceSubmissions.some((x: any) => x.id === sub.id)) {
+                student.practiceSubmissions.push(sub);
+              }
+            }
           }
         });
 
@@ -155,12 +164,14 @@ export const AdminAnswerBankTab: React.FC = () => {
 
           const student = studentsMap.get(targetKey) || (prn ? studentsMap.get(prn) : null) || (uid ? studentsMap.get(uid) : null);
           if (student) {
-            if (sub.submissionType === 'ASSESSMENT' || sub.submissionType === 'LAB_INTERNAL') {
+            if (isOfficialAssessmentTest(sub)) {
               if (!student.labInternalSubmissions.some((x: any) => x.id === sub.id)) {
                 student.labInternalSubmissions.push(sub);
               }
             } else {
-              student.practiceSubmissions.push(sub);
+              if (!student.practiceSubmissions.some((x: any) => x.id === sub.id)) {
+                student.practiceSubmissions.push(sub);
+              }
             }
           }
         });

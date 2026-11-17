@@ -996,6 +996,10 @@ export class FirestoreDataService {
       studentName?: string;
       totalKeystrokes?: number;
       typingVelocityCPM?: number;
+      testId?: string;
+      assessmentId?: string;
+      testTitle?: string;
+      isAssessmentTest?: boolean;
     }
   ): Promise<void> {
     try {
@@ -1073,48 +1077,61 @@ export class FirestoreDataService {
         console.warn('Submissions collection addDoc notice:', subErr);
       }
 
-      // 2. Authoritatively write to assessment_test_submissions so Answer Bank and Live Listeners see it instantly
-      try {
-        await addDoc(collection(db, 'assessment_test_submissions'), {
-          studentPrn: effectivePrn,
-          prn: effectivePrn,
-          studentName: effectiveName,
-          name: effectiveName,
-          studentEmail: effectiveEmail,
-          email: effectiveEmail,
-          userId: primaryUid,
-          uid: primaryUid,
-          problemId: data.problemId,
-          problemTitle: data.problemTitle,
-          code: data.code,
-          submittedCode: data.code,
-          verdict: data.verdict,
-          points: pointsAwarded,
-          academicScore: pointsAwarded,
-          score: pointsAwarded,
-          pointsAwarded,
-          marksAwarded: pointsAwarded,
-          maxMarks,
-          isLate,
-          lateStatus: isLate ? 'LATE' : 'ON_TIME',
-          manualGradingRequired: isLate || Boolean(data.manualGradingRequired),
-          submissionType: data.submissionType || 'PRACTICE',
-          attemptNumber: data.attemptNumber || 1,
-          testTitle: isPractice ? 'Continuous Practical Lab' : 'Lab Internal Assessment',
-          difficulty: data.difficulty || 'EASY',
-          timeTakenSeconds: data.timeTakenSeconds || 0,
-          totalKeystrokes: data.totalKeystrokes || 0,
-          typingVelocityCPM: data.typingVelocityCPM || 0,
-          cpm: data.typingVelocityCPM || 0,
-          tabSwitchCount: data.tabSwitchCount || 0,
-          copyPasteAttempts: data.copyPasteAttempts || 0,
-          fullscreenExits: data.fullscreenExits || 0,
-          submittedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (attErr) {
-        console.warn('assessment_test_submissions write notice:', attErr);
+      // 2. Authoritatively write to assessment_test_submissions ONLY if this is an official assessment test
+      const isActualTest = Boolean(
+        data.testId ||
+        data.assessmentId ||
+        (data as any).isAssessmentTest ||
+        data.submissionType === 'ASSESSMENT' ||
+        data.submissionType === 'TEST' ||
+        data.submissionType === 'LAB_INTERNAL_TEST' ||
+        data.submissionType === 'EXAM'
+      );
+
+      if (isActualTest) {
+        try {
+          await addDoc(collection(db, 'assessment_test_submissions'), {
+            studentPrn: effectivePrn,
+            prn: effectivePrn,
+            studentName: effectiveName,
+            name: effectiveName,
+            studentEmail: effectiveEmail,
+            email: effectiveEmail,
+            userId: primaryUid,
+            uid: primaryUid,
+            testId: data.testId || 'test_lab_internal',
+            problemId: data.problemId,
+            problemTitle: data.problemTitle,
+            code: data.code,
+            submittedCode: data.code,
+            verdict: data.verdict,
+            points: pointsAwarded,
+            academicScore: pointsAwarded,
+            score: pointsAwarded,
+            pointsAwarded,
+            marksAwarded: pointsAwarded,
+            maxMarks,
+            isLate,
+            lateStatus: isLate ? 'LATE' : 'ON_TIME',
+            manualGradingRequired: isLate || Boolean(data.manualGradingRequired),
+            submissionType: data.submissionType || 'LAB_INTERNAL_TEST',
+            attemptNumber: data.attemptNumber || 1,
+            testTitle: data.testTitle || 'Lab Internal Assessment',
+            difficulty: data.difficulty || 'EASY',
+            timeTakenSeconds: data.timeTakenSeconds || 0,
+            totalKeystrokes: data.totalKeystrokes || 0,
+            typingVelocityCPM: data.typingVelocityCPM || 0,
+            cpm: data.typingVelocityCPM || 0,
+            tabSwitchCount: data.tabSwitchCount || 0,
+            copyPasteAttempts: data.copyPasteAttempts || 0,
+            fullscreenExits: data.fullscreenExits || 0,
+            submittedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (attErr) {
+          console.warn('assessment_test_submissions write notice:', attErr);
+        }
       }
 
       // 3. Save problem solution code directly into student draft vault in cohort_progress

@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
+import { isOfficialAssessmentTest } from '../../utils/progression.js';
 
 const resolvePracticeModule = (sub: any): string => {
   const probId = String(sub.problemId || sub.problemSlug || '').trim().toLowerCase();
@@ -405,8 +406,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         for (const [key, existing] of uniqueSubmissionsMap.entries()) {
           if (existing.problemId === pId) {
             // Lab Internal / Assessment submissions must NEVER merge into Practice submissions!
-            const existingIsTest = Boolean(existing.isAssessmentTest);
-            const subIsTest = Boolean(sub.isAssessmentTest);
+            const existingIsTest = isOfficialAssessmentTest(existing);
+            const subIsTest = isOfficialAssessmentTest(sub);
             if (existingIsTest !== subIsTest) {
               continue;
             }
@@ -485,7 +486,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
         // Check if uniqueSubmissionsMap ALREADY has a practice submission for canonicalId
         const existingEntry = Array.from(uniqueSubmissionsMap.values()).find(
-          (s) => (s.problemId === canonicalId || s.problemSlug === canonicalId) && !s.isAssessmentTest
+          (s) => (s.problemId === canonicalId || s.problemSlug === canonicalId) && !isOfficialAssessmentTest(s)
         );
 
         const draftObj =
@@ -619,36 +620,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       const practices: any[] = [];
 
       enrichedAll.forEach((sub) => {
-        const testTitle = String(sub.testTitle || '').toLowerCase();
-        const subType = String(sub.submissionType || sub.type || '').toUpperCase();
-        const contextType = String(sub.contextType || '').toUpperCase();
-
-        const isLabOrTest =
-          Boolean(sub.isAssessmentTest) ||
-          sub.sourceCollection === 'assessment_test_submissions' ||
-          Boolean(sub.testId || sub.assessmentId || sub.examId || sub.testDocId) ||
-          subType === 'ASSESSMENT' ||
-          subType === 'TEST' ||
-          subType === 'LAB_INTERNAL' ||
-          subType === 'EXAM' ||
-          contextType === 'LAB_INTERNAL' ||
-          contextType === 'EXAM' ||
-          Boolean(sub.isLabInternal) ||
-          Boolean(sub.isAssessment) ||
-          sub.problemTitle?.toLowerCase().includes('largest of three') ||
-          sub.title?.toLowerCase().includes('largest of three') ||
-          sub.testTitle?.toLowerCase().includes('largest of three') ||
-          (testTitle.length > 0 && testTitle !== 'continuous practical lab' && (
-            testTitle.includes('internal') ||
-            testTitle.includes('assessment') ||
-            testTitle.includes('exam') ||
-            testTitle.includes('test')
-          ));
+        const isLabOrTest = isOfficialAssessmentTest(sub);
 
         if (isLabOrTest) {
-          tests.push({ ...sub, isLabInternal: true, sourceCollection: 'assessment_test_submissions' });
+          tests.push({ ...sub, isLabInternal: true, isAssessmentTest: true, sourceCollection: 'assessment_test_submissions' });
         } else {
-          practices.push(sub);
+          practices.push({ ...sub, isLabInternal: false, isAssessmentTest: false });
         }
       });
 
@@ -673,12 +650,13 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             const uidMatch = studentUid && subUid && subUid === studentUid;
 
             if (prnMatch || emailMatch || uidMatch) {
+              const isTest = isOfficialAssessmentTest(data);
               matched.push({
                 ...data,
-                isAssessmentTest: true,
+                isAssessmentTest: isTest,
                 sourceCollection: 'assessment_test_submissions',
-                submissionType: data.submissionType || 'LAB_INTERNAL',
-                contextType: data.contextType || 'LAB_INTERNAL',
+                submissionType: isTest ? (data.submissionType || 'LAB_INTERNAL_TEST') : 'PRACTICE',
+                contextType: isTest ? 'LAB_INTERNAL' : 'PRACTICE',
               });
             }
           });
@@ -707,28 +685,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             const uidMatch = studentUid && subUid && subUid === studentUid;
 
             if (prnMatch || emailMatch || uidMatch) {
-              const testTitleLower = String(data.testTitle || '').toLowerCase();
-              const subTypeUpper = String(data.submissionType || data.type || '').toUpperCase();
-              const contextTypeUpper = String(data.contextType || '').toUpperCase();
-              const isTestOrLab =
-                Boolean(data.testId || data.assessmentId || data.examId || data.isTest || data.isAssessment || data.isLabInternal) ||
-                subTypeUpper === 'ASSESSMENT' ||
-                subTypeUpper === 'TEST' ||
-                subTypeUpper === 'LAB_INTERNAL' ||
-                subTypeUpper === 'EXAM' ||
-                contextTypeUpper === 'LAB_INTERNAL' ||
-                contextTypeUpper === 'EXAM' ||
-                (testTitleLower.length > 0 && testTitleLower !== 'continuous practical lab' && (
-                  testTitleLower.includes('internal') ||
-                  testTitleLower.includes('assessment') ||
-                  testTitleLower.includes('exam') ||
-                  testTitleLower.includes('test')
-                ));
-
+              const isTest = isOfficialAssessmentTest(data);
               matched.push({
                 ...data,
-                isAssessmentTest: isTestOrLab,
+                isAssessmentTest: isTest,
                 sourceCollection: 'submissions',
+                submissionType: isTest ? (data.submissionType || 'LAB_INTERNAL_TEST') : 'PRACTICE',
               });
             }
           });

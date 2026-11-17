@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { toast } from 'sonner';
 import { collection, query, where, getDocs, doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
+import { isOfficialAssessmentTest } from './progression.js';
 
 export interface StudentReportMetrics {
   studentName: string;
@@ -139,22 +140,7 @@ export const buildIndividualStudentPdfDoc = async (
 
   // Separate Lab Experiments vs Practice Arena Problems
   const labSubs = allSubs.filter((s) => {
-    const type = String(s.submissionType || s.type || s.track || '').toUpperCase();
-    const testTitle = String(s.testTitle || '').toLowerCase();
-    const isLabOrTest =
-      Boolean(s.isAssessmentTest) ||
-      s.sourceCollection === 'assessment_test_submissions' ||
-      Boolean(s.testId || s.assessmentId || s.examId) ||
-      type === 'ASSESSMENT' ||
-      type === 'TEST' ||
-      type === 'LAB_INTERNAL' ||
-      type === 'EXAM' ||
-      (testTitle.length > 0 && testTitle !== 'continuous practical lab' && (
-        testTitle.includes('internal') ||
-        testTitle.includes('assessment') ||
-        testTitle.includes('exam') ||
-        testTitle.includes('test')
-      ));
+    const isLabOrTest = isOfficialAssessmentTest(s);
     const isPassed =
       s.verdict === 'ACCEPTED' ||
       s.verdict === 'AC' ||

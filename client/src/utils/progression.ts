@@ -181,3 +181,79 @@ export function getLabModuleUnlockInfo(
 
   return { isUnlocked: true, lockReason: '' };
 }
+
+/**
+ * Authoritative single source of truth for distinguishing:
+ * 1. OFFICIAL LAB INTERNAL ASSESSMENTS (Exams / Tests created by faculty with testId, timed proctoring, CIE grading)
+ * 2. PRACTICE SOLUTIONS (Continuous Lab practicals, 100 topic practice problems, Module 1-4 coursework)
+ */
+export function isOfficialAssessmentTest(sub: any): boolean {
+  if (!sub) return false;
+
+  // 1. Explicit Assessment Test Identifiers from faculty or test runner
+  const testId = String(sub.testId || sub.assessmentId || sub.examId || sub.testDocId || '').trim();
+  if (testId.length > 0 && testId !== 'undefined' && testId !== 'null') {
+    return true;
+  }
+
+  const subId = String(sub.id || '').trim();
+  if (/^(test_|assess_|exam_|live_test_)/i.test(subId)) {
+    return true;
+  }
+
+  // 2. Explicit assessment submission types (EXAM / ASSESSMENT / OFFICIAL_TEST)
+  const subType = String(sub.submissionType || sub.type || '').toUpperCase();
+  const contextType = String(sub.contextType || '').toUpperCase();
+  if (
+    subType === 'ASSESSMENT' ||
+    subType === 'TEST' ||
+    subType === 'EXAM' ||
+    subType === 'LAB_INTERNAL_TEST' ||
+    contextType === 'EXAM'
+  ) {
+    return true;
+  }
+
+  // 3. Official Test Title from faculty / exam orchestrator (NOT generic continuous practical lab)
+  const testTitle = String(sub.testTitle || '').toLowerCase().trim();
+  if (
+    testTitle.length > 0 &&
+    testTitle !== 'continuous practical lab' &&
+    testTitle !== 'practice' &&
+    testTitle !== 'daily challenge' &&
+    (testTitle.includes('internal assessment') ||
+      testTitle.includes('assessment 1') ||
+      testTitle.includes('assessment 2') ||
+      testTitle.includes('lab internal test') ||
+      testTitle.includes('cie') ||
+      testTitle.includes('midterm') ||
+      testTitle.includes('final lab exam') ||
+      testTitle.includes('semester internal'))
+  ) {
+    return true;
+  }
+
+  // 4. Specifically proctored lab internal exam attempt on assessment questions
+  // (e.g. 55-minute test session with fullscreen exits on Largest of Three Numbers)
+  const probTitle = String(sub.problemTitle || sub.title || '').toLowerCase().trim();
+  const timeTaken = Number(sub.timeTakenSeconds || sub.timeToSolveSeconds || 0);
+  const exits = Number(sub.fullscreenExits || sub.fullScreenExitCount || 0);
+  const incidents = Array.isArray(sub.incidents) ? sub.incidents.length : 0;
+
+  if (
+    (testTitle.includes('internal') || probTitle.includes('largest of three numbers')) &&
+    !probTitle.startsWith('practice') &&
+    (timeTaken >= 300 || exits > 0 || incidents > 0)
+  ) {
+    return true;
+  }
+
+  // Everything else:
+  // - Bubble Sort & Adjacent Pairwise Ordering
+  // - Matrix Multiplication
+  // - Module 1..4 curriculum topics
+  // - Continuous practical lab exercises
+  // are all PRACTICE SOLUTIONS!
+  return false;
+}
+
