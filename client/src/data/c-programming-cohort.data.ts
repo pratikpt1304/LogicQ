@@ -2151,6 +2151,24 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
     totalSolved: 0,
     currentStreak: 0,
   },
+  {
+    index: 118,
+    prn: '2126PMIM1090',
+    fullName: 'Sairaj Nilesh Gunjal',
+    department: 'Integrated Mtech',
+    year: 'FY',
+    college: 'LogicQ',
+    sectionId: 'sec-mw6l4r2s',
+    sectionName: 'Integrated Mtech',
+    joinCode: 'LQ-INTE34',
+    email: '2126pmim1090@sanjivani.edu.in',
+    role: 'STUDENT',
+    profileComplete: true,
+    password: '2126PMIM1090',
+    totalPoints: 0,
+    totalSolved: 0,
+    currentStreak: 0,
+  },
 ];
 
 export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [];
