@@ -304,7 +304,7 @@ export const App: React.FC = () => {
               authState === 'loading' ? (
                 <AuthLoadingScreen message="Restoring LogicQ session..." />
               ) : user ? (
-                user.role === 'ADMIN' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user.prn === 'LOGICQARENA' ? (
+                user.role === 'ADMIN' || user.role === 'FACULTY' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user.prn === 'LOGICQARENA' ? (
                   <Navigate to="/admin" replace />
                 ) : user.role === 'STUDENT' && user.profileComplete === false ? (
                   <Navigate to="/complete-profile" replace />

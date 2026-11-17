@@ -42,7 +42,7 @@ export const LoginPage: React.FC = () => {
   // If already authenticated, redirect immediately away from login
   useEffect(() => {
     if (user) {
-      const dest = (user.role === 'ADMIN' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in')
+      const dest = (user.role === 'ADMIN' || user.role === 'FACULTY' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in')
         ? '/admin'
         : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
@@ -138,7 +138,7 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'Student'}!`);
-      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN') ? '/admin' : (from === '/login' ? '/dashboard' : from);
+      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN' || user?.role === 'FACULTY') ? '/admin' : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
     } catch (err: any) {
       setError(
