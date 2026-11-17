@@ -26,6 +26,7 @@ import {
   X,
   Mail,
   ChevronDown,
+  Lock,
 } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
@@ -366,9 +367,9 @@ export const AdminRaisedIssuesTab: React.FC = () => {
           assignedTo: solver,
           assignedEmail: user?.email || '',
           assignedAt,
-        }).catch(() => {});
+        }).catch((err) => console.warn('Primary updateDoc notice:', err));
 
-        // Sync duplicates
+        // Sync duplicate reports from the same student
         try {
           const snap = await getDocs(collection(db, 'raised_issues'));
           for (const d of snap.docs) {
@@ -390,6 +391,29 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             }
           }
         } catch {}
+      } else {
+        // Find matching Firestore doc if issue originally had local- ID
+        try {
+          const snap = await getDocs(collection(db, 'raised_issues'));
+          for (const d of snap.docs) {
+            const data = d.data();
+            const isMatch =
+              data.studentPrn &&
+              issue.studentPrn &&
+              data.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() &&
+              data.description &&
+              issue.description &&
+              data.description.trim() === issue.description.trim();
+            if (isMatch) {
+              await updateDoc(d.ref, {
+                status: 'IN_PROGRESS',
+                assignedTo: solver,
+                assignedEmail: user?.email || '',
+                assignedAt,
+              }).catch(() => {});
+            }
+          }
+        } catch {}
       }
 
       const storedKey = 'logicq_faculty_raised_issues';
@@ -402,7 +426,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
       localStorage.setItem(storedKey, JSON.stringify(updated));
       realtimeSync.emit('ISSUES');
 
-      toast.success(`Claimed by ${solver}! Status set to In Progress.`);
+      toast.success(`Claimed by ${solver}! Issue locked.`);
     } catch (err) {
       console.warn('handleClaimIssue error:', err);
       toast.success(`Claimed by ${solver}!`);
@@ -886,9 +910,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             const isMine =
               isInProgress &&
               Boolean(issue.assignedTo && issue.assignedTo.toLowerCase().trim() === activeSolver.toLowerCase().trim());
-            const isSomeoneElse =
-              isInProgress &&
-              Boolean(issue.assignedTo && issue.assignedTo.toLowerCase().trim() !== activeSolver.toLowerCase().trim());
+            const isSomeoneElse = isInProgress && !isMine;
 
             return (
               <div
@@ -921,9 +943,17 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                           <span>✓ RESOLVED</span>
                         </span>
                       ) : isInProgress ? (
-                        <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${
+                          isMine
+                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                            : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30'
+                        }`}>
                           <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 animate-pulse" />
-                          <span>🟡 CLAIMED ({issue.assignedTo || 'In Progress'})</span>
+                          <span>
+                            {isMine
+                              ? `🟡 CLAIMED BY YOU (${issue.assignedTo || activeSolver})`
+                              : `🟡 CLAIMED (${issue.assignedTo || 'Team Member'})`}
+                          </span>
                         </span>
                       ) : (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 flex items-center gap-1">
@@ -1041,24 +1071,28 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                               <span>Release</span>
                             </button>
                           </>
-                        ) : isSomeoneElse ? (
-                          <>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 select-none shadow-xs">
+                              <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span>Claimed by {issue.assignedTo || 'Team Member'}</span>
+                            </div>
+
                             <button
                               type="button"
                               onClick={() => {
                                 if (
                                   confirm(
-                                    `This issue is currently being worked on by "${issue.assignedTo}".\n\nAre you sure you want to take over and claim it for yourself (${activeSolver})?`
+                                    `This issue is currently claimed by "${issue.assignedTo}".\n\nDo you want to reassign / take over this issue as "${activeSolver}"?`
                                   )
                                 ) {
                                   handleClaimIssue(issue, activeSolver);
                                 }
                               }}
-                              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-amber-400/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 transition flex items-center gap-1 cursor-pointer"
-                              title={`Currently locked by ${issue.assignedTo}. Click to reassign to yourself.`}
+                              className="text-[11px] text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 underline transition cursor-pointer px-1"
+                              title={`Take over from ${issue.assignedTo}`}
                             >
-                              <UserCheck className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Take Over / Reassign</span>
+                              Take over
                             </button>
 
                             <button
@@ -1069,20 +1103,12 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                                 }
                               }}
                               className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 cursor-pointer"
+                              title="Resolve on behalf of solver"
                             >
                               <Check className="w-3.5 h-3.5" />
                               <span>Resolve</span>
                             </button>
-                          </>
-                        ) : (
-                          <GalaxyButton
-                            onClick={() => handleResolveIssue(issue)}
-                            size="xs"
-                            hue={160}
-                            text="Mark Resolved"
-                            icon={<Check className="w-3.5 h-3.5" />}
-                            iconPosition="left"
-                          />
+                          </div>
                         )}
                       </>
                     )}

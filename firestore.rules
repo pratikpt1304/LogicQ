@@ -296,6 +296,9 @@ rules_version = '2';
 //   - createdAt: string (required, <= 50 chars)
 //   - status: string (required, enum: 'OPEN' | 'RESOLVED' | 'IN_PROGRESS')
 //   - serverTimestamp: timestamp (optional)
+//   - assignedTo: string (optional, <= 150 chars)
+//   - assignedEmail: string (optional, <= 150 chars)
+//   - assignedAt: timestamp | string (optional, <= 50 chars)
 //
 // Collection: viva_logs/{vivaLogId} (AI Oral Viva Telemetry & Forensics)
 // Document ID: Auto-generated document ID
@@ -1146,7 +1149,8 @@ service cloud.firestore {
         'id', 'questionId', 'questionTitle', 'contextType', 'category', 'description',
         'studentId', 'studentName', 'studentPrn', 'studentEmail', 'createdAt',
         'status', 'serverTimestamp', 'updatedAt', 'resolvedAt', 'resolvedBy', 'resolutionComment',
-        'studentPhone', 'studentWhatsapp', 'syncedToCloud'
+        'studentPhone', 'studentWhatsapp', 'syncedToCloud',
+        'assignedTo', 'assignedEmail', 'assignedAt'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('questionId' in data) || (data.questionId is string && data.questionId.size() <= 100))
@@ -1167,7 +1171,10 @@ service cloud.firestore {
         && (!('updatedAt' in data) || data.updatedAt is timestamp || (data.updatedAt is string && data.updatedAt.size() <= 50))
         && (!('resolvedAt' in data) || data.resolvedAt is timestamp || (data.resolvedAt is string && data.resolvedAt.size() <= 50))
         && (!('resolvedBy' in data) || (data.resolvedBy is string && data.resolvedBy.size() <= 150))
-        && (!('resolutionComment' in data) || (data.resolutionComment is string && data.resolutionComment.size() <= 2000));
+        && (!('resolutionComment' in data) || (data.resolutionComment is string && data.resolutionComment.size() <= 2000))
+        && (!('assignedTo' in data) || (data.assignedTo is string && data.assignedTo.size() <= 150))
+        && (!('assignedEmail' in data) || (data.assignedEmail is string && data.assignedEmail.size() <= 150))
+        && (!('assignedAt' in data) || data.assignedAt is timestamp || (data.assignedAt is string && data.assignedAt.size() <= 50));
     }
 
     match /raised_issues/{issueId} {
