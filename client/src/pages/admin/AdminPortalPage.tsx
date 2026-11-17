@@ -41,6 +41,7 @@ import { AdminStaffTab } from '../../components/admin/AdminStaffTab.js';
 import { AdminRaisedIssuesTab } from '../../components/admin/AdminRaisedIssuesTab.js';
 // AdminAnswerBankTab kept for legacy reference — Answer Bank is now inside StudentDeepDiveModal
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
+import { FacultyPortalPage } from '../faculty/FacultyPortalPage.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
@@ -100,6 +101,11 @@ export const AdminPortalPage: React.FC = () => {
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
   const isDeanOrHod = Boolean(isInstitutionalAdmin || user?.email === 'hod.sanjivani@gmail.com');
   const isFacultyUser = Boolean(!isSuperAdmin && !isDeanOrHod && (user?.role === 'FACULTY' || isFaculty));
+
+  // If logged-in user is a Faculty Instructor, render the dedicated Faculty Workspace
+  if (isFacultyUser) {
+    return <FacultyPortalPage />;
+  }
 
   // Determine faculty assigned section
   const facultySectionName = user?.sectionName || user?.department || 'Computer Science';

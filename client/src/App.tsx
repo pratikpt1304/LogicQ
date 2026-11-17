@@ -38,6 +38,7 @@ import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.
 import { CompilerPage } from './pages/CompilerPage.js';
 import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
+import { FacultyPortalPage } from './pages/faculty/FacultyPortalPage.js';
 import { AdminPortalPage } from './pages/admin/AdminPortalPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
 import { BindEmailModal } from './components/common/BindEmailModal.js';
@@ -490,7 +491,7 @@ export const App: React.FC = () => {
             path="/faculty"
             element={
               <FacultyRoute>
-                <AdminPortalPage />
+                <FacultyPortalPage />
               </FacultyRoute>
             }
           />
@@ -498,7 +499,15 @@ export const App: React.FC = () => {
             path="/faculty/dashboard"
             element={
               <FacultyRoute>
-                <AdminPortalPage />
+                <FacultyPortalPage />
+              </FacultyRoute>
+            }
+          />
+          <Route
+            path="/faculty/*"
+            element={
+              <FacultyRoute>
+                <FacultyPortalPage />
               </FacultyRoute>
             }
           />
