@@ -236,7 +236,7 @@ export const TermsPage: React.FC = () => {
               <div className="text-slate-500 dark:text-slate-400">Department of Integrated M.Tech, Sanjivani University</div>
               <div className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pt-1">
                 <Mail className="w-3.5 h-3.5" />
-                <span>support.logicq@sanjivani.edu.in</span>
+                <a href="mailto:logicqarena@gmail.com" className="hover:underline">logicqarena@gmail.com</a>
               </div>
             </div>
           </div>

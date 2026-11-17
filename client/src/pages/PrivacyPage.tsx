@@ -426,7 +426,7 @@ export const PrivacyPage: React.FC = () => {
               <span>Institutional Grievance Redressal</span>
             </span>
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-              Students have the right to register concerns or request privacy audits. Written requests are resolved within 72 hours by the Academic Data Protection Coordinator at <strong className="text-indigo-600 dark:text-indigo-400">support.logicq@sanjivani.edu.in</strong>.
+              Students have the right to register concerns or request privacy audits. Written requests are resolved within 72 hours by the Academic Data Protection Coordinator at <a href="mailto:logicqarena@gmail.com" className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">logicqarena@gmail.com</a>.
             </p>
           </div>
         </div>
