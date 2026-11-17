@@ -17,6 +17,8 @@ import {
   Layers,
   CheckCircle2,
   Eye,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -612,6 +614,75 @@ export const AdminStudentsTab: React.FC = () => {
   const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
   const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
 
+  const handleExportCsv = () => {
+    if (filteredStudents.length === 0) {
+      toast.warning('No students match the current filter to export.');
+      return;
+    }
+
+    const headers = [
+      'PRN',
+      'Student Name',
+      'Email Address',
+      'Section / Department',
+      'Activity Status',
+      'Email Verification',
+      'Problems Solved',
+      'Academic Score (%)',
+      'Integrity Score (%)',
+      'Mini-Project Access',
+      'Account Status',
+      'Last Active',
+    ];
+
+    const rows = filteredStudents.map((s) => {
+      const activityStatus = (s.problemsSolved ?? 0) >= 1 ? 'Active' : 'Inactive';
+      const emailStatus = s.identityStatus === 'BOUND' ? 'Verified' : 'Pending';
+      const miniProject = s.miniProjectUnlocked ? 'Unlocked' : 'Locked';
+      const accountStatus = s.isBanned ? 'Banned' : 'Normal';
+
+      return [
+        `"${(s.prn || '').replace(/"/g, '""')}"`,
+        `"${(s.name || '').replace(/"/g, '""')}"`,
+        `"${(s.email || '').replace(/"/g, '""')}"`,
+        `"${(s.section || '').replace(/"/g, '""')}"`,
+        activityStatus,
+        emailStatus,
+        String(s.problemsSolved ?? 0),
+        String(s.academicScore ?? 0),
+        String(s.integrityScore ?? 100),
+        miniProject,
+        accountStatus,
+        `"${(s.lastActive || '—').replace(/"/g, '""')}"`,
+      ];
+    });
+
+    const filterLabelMap: Record<string, string> = {
+      ALL: 'All_Students',
+      ACTIVE: 'Active_Students',
+      INACTIVE: 'Inactive_Students',
+      VERIFIED: 'Email_Verified_Students',
+      UNLOCKED: 'MiniProject_Active_Students',
+    };
+    const filterSlug = filterLabelMap[activeFilter] || 'Students';
+    const sectionSlug = selectedSection !== 'ALL' ? `_${selectedSection.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `LogicQ_${filterSlug}${sectionSlug}_${dateStr}.csv`;
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`Exported ${filteredStudents.length} students to ${filename}`);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ========================================================================= */}
@@ -671,6 +742,21 @@ export const AdminStudentsTab: React.FC = () => {
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition placeholder:text-slate-400"
               />
             </div>
+
+            {/* Apple Export CSV Button */}
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={filteredStudents.length === 0}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 text-xs font-semibold shadow-xs hover:border-slate-300 dark:hover:border-white/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed group"
+              title={`Export ${filteredStudents.length} students to CSV`}
+            >
+              <Download className="w-3.5 h-3.5 text-blue-500 group-hover:-translate-y-0.5 transition-transform" />
+              <span>Export CSV</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-bold">
+                {filteredStudents.length}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -739,12 +825,26 @@ export const AdminStudentsTab: React.FC = () => {
             <button
               type="button"
               onClick={() => setSelectedSection('ALL')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition cursor-pointer ml-auto"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition cursor-pointer"
             >
               <span>Section: {selectedSection}</span>
               <span className="text-xs font-bold leading-none">✕</span>
             </button>
           )}
+
+          {/* Quick Filtered CSV Download Button */}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={filteredStudents.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
+              title={`Download CSV of current filter (${filteredStudents.length} students)`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
+              <span>Download {activeFilter === 'ALL' ? 'All' : activeFilter === 'ACTIVE' ? 'Active' : activeFilter === 'INACTIVE' ? 'Inactive' : activeFilter === 'VERIFIED' ? 'Verified' : 'Filtered'} CSV ({filteredStudents.length})</span>
+            </button>
+          </div>
         </div>
       </div>
       </FadeUp>
