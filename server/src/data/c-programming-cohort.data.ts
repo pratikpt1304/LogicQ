@@ -149,6 +149,8 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 114, prn: "2126PMIF1121", fullName: "Durva Sachin Jadhav", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1121@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 115, prn: "2126PMIM1122", fullName: "Parth Vishal Warade", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1122@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 116, prn: "2126PMIM1124", fullName: "Vivek Gangadhar Tuwar", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1124@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
+  { index: 117, prn: "2126PMIM1042", fullName: "Tanishq Ganesh Gunjal", department: "Integrated M.Tech", year: "FY", college: "LogicQ", sectionId: "sec-mw6l4r2s", sectionName: "Integrated Mtech", joinCode: "LQ-INTE34", email: "2126pmim1042@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
+  { index: 118, prn: "2126PMIM1090", fullName: "Sairaj Nilesh Gunjal", department: "Integrated M.Tech", year: "FY", college: "LogicQ", sectionId: "sec-mw6l4r2s", sectionName: "Integrated Mtech", joinCode: "LQ-INTE34", email: "2126pmim1090@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
 ];
 
 export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [];

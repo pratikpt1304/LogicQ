@@ -1,34 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Flag,
   Search,
   CheckCircle2,
   Clock,
   AlertCircle,
-  HelpCircle,
-  Code2,
   Trash2,
   Check,
   RotateCcw,
   Sparkles,
-  BookOpen,
   User,
   UserCheck,
-  UserPlus,
-  ShieldAlert,
   Edit3,
-  Filter,
-  Layers,
   MessageSquare,
   MessageCircle,
   Phone,
   X,
   Mail,
-  ChevronDown,
   Lock,
+  ArrowUpRight,
 } from 'lucide-react';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
@@ -60,34 +52,43 @@ const CATEGORY_MAP: Record<string, { label: string; color: string; border: strin
   AMBIGUOUS_DESCRIPTION: {
     label: 'Ambiguous Description',
     color: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    border: 'border-amber-200 dark:border-amber-800/40',
+    border: 'border-amber-500/20 dark:border-amber-500/30',
   },
   TEST_CASE_MISMATCH: {
     label: 'Test Case Mismatch',
     color: 'bg-rose-500/10 text-rose-700 dark:text-rose-400',
-    border: 'border-rose-200 dark:border-rose-800/40',
+    border: 'border-rose-500/20 dark:border-rose-500/30',
   },
   COMPILER_OR_TIMEOUT: {
     label: 'Compiler / Timeout',
     color: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
-    border: 'border-purple-200 dark:border-purple-800/40',
+    border: 'border-purple-500/20 dark:border-purple-500/30',
   },
   TYPO_OR_CLARITY: {
     label: 'Typo / Clarity',
     color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-    border: 'border-blue-200 dark:border-blue-800/40',
+    border: 'border-blue-500/20 dark:border-blue-500/30',
   },
   OTHER: {
-    label: 'Other Feedback',
-    color: 'bg-slate-500/10 text-slate-700 dark:text-slate-400',
-    border: 'border-slate-200 dark:border-slate-700',
+    label: 'Platform Feedback',
+    color: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
+    border: 'border-slate-500/20 dark:border-slate-700/60',
   },
 };
 
 const CONTEXT_MAP: Record<string, { label: string; color: string }> = {
-  PRACTICE: { label: 'Practice Problem', color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/40' },
-  EXAM: { label: 'Proctored Exam', color: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/40' },
-  LAB_INTERNAL: { label: 'Continuous Lab Internal', color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' },
+  PRACTICE: {
+    label: 'Practice Problem',
+    color: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20',
+  },
+  EXAM: {
+    label: 'Proctored Exam',
+    color: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20',
+  },
+  LAB_INTERNAL: {
+    label: 'Continuous Lab Internal',
+    color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+  },
 };
 
 // Strict deduplication helper: Eliminates duplicate reports for the same question by the same candidate
@@ -120,7 +121,7 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
 export const AdminRaisedIssuesTab: React.FC = () => {
   const { user } = useAuth();
   const [issues, setIssues] = useState<RaisedIssue[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'MINE' | 'RESOLVED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -132,7 +133,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
     const authName = (user?.fullName || user?.displayName || '').trim();
     if (authName) return authName;
     if (user?.email) return user.email.split('@')[0];
-    return 'Pratik Thorat';
+    return 'Pratik';
   });
   const [isEditingSolver, setIsEditingSolver] = useState(false);
   const [tempSolverName, setTempSolverName] = useState('');
@@ -140,7 +141,6 @@ export const AdminRaisedIssuesTab: React.FC = () => {
   // Inline WhatsApp phone editing
   const [editingPhoneIssueId, setEditingPhoneIssueId] = useState<string | null>(null);
   const [tempPhone, setTempPhone] = useState('');
-
 
   const handleSaveActiveSolver = (newName: string) => {
     const trimmed = newName.trim();
@@ -647,36 +647,38 @@ export const AdminRaisedIssuesTab: React.FC = () => {
   const resolvedCount = issues.filter((i) => i.status === 'RESOLVED').length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 1. Header Banner */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* 1. Header Banner - Apple Cupertino Frosted Design */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-[#121622]/80 backdrop-blur-2xl p-6 sm:p-7 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 via-rose-600 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0">
               <Flag className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Student Flagged Issues &amp; Inquiries
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Student Flagged Issues
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 text-[10px] font-bold">
-                  <Sparkles className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200/70 dark:border-rose-500/20 text-[11px] font-semibold tracking-wide">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   Live Team Sync
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl font-normal leading-relaxed">
                 Multi-agent ticket claiming &amp; resolution system. Prevents duplicate effort across faculty and support team members.
               </p>
             </div>
           </div>
 
           {/* Active Support Solver Identity Badge / Switcher */}
-          <div className="flex items-center gap-2 self-start md:self-auto bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
+          <div className="flex items-center gap-3 bg-slate-50/90 dark:bg-white/[0.04] p-2 pl-3 pr-3.5 rounded-2xl border border-slate-200/70 dark:border-white/[0.08] shadow-xs self-start md:self-auto shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+              {(activeSolver || 'P').charAt(0).toUpperCase()}
+            </div>
             <div className="text-left">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
-                You Are Acting As:
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-400 block leading-none">
+                Acting As
               </span>
               {isEditingSolver ? (
                 <div className="flex items-center gap-1.5 mt-1">
@@ -686,7 +688,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                     value={tempSolverName}
                     onChange={(e) => setTempSolverName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-36 px-2 py-0.5 text-xs font-bold rounded-lg border border-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none"
+                    className="w-36 px-2.5 py-1 text-xs font-semibold rounded-lg border border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveActiveSolver(tempSolverName);
                       if (e.key === 'Escape') setIsEditingSolver(false);
@@ -695,21 +697,21 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSaveActiveSolver(tempSolverName)}
-                    className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-bold cursor-pointer hover:bg-blue-500"
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-[11px] font-semibold cursor-pointer transition shadow-xs"
                   >
                     Save
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditingSolver(false)}
-                    className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
                     {activeSolver}
                   </span>
                   <button
@@ -718,11 +720,11 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                       setTempSolverName(activeSolver);
                       setIsEditingSolver(true);
                     }}
-                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                    className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 transition cursor-pointer"
                     title="Change active solver name"
                   >
                     <Edit3 className="w-3 h-3" />
-                    <span>Change</span>
+                    <span>Switch</span>
                   </button>
                 </div>
               )}
@@ -730,77 +732,101 @@ export const AdminRaisedIssuesTab: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Metric Summary Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80">
-          <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
-              <MessageSquare className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                Total Reported
+        {/* 4 Apple Control Center / Bento Widgets */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-6 mt-6 border-t border-slate-100 dark:border-white/[0.06]">
+          {/* Bento 1: Total */}
+          <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] backdrop-blur-xl transition hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between">
+              <span className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4" />
               </span>
-              <span className="font-extrabold text-slate-900 dark:text-white text-base">
-                {issues.length} Issues
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                Platform Total
+              </span>
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight block">
+                {issues.length}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Total reported tickets
               </span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
-              <AlertCircle className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                Open / Unassigned
+          {/* Bento 2: Open */}
+          <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] backdrop-blur-xl transition hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between">
+              <span className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <AlertCircle className="w-4 h-4" />
               </span>
-              <span className="font-extrabold text-amber-600 dark:text-amber-400 text-base">
-                {openCount} Pending
+              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                Unassigned
+              </span>
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight block">
+                {openCount}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Awaiting team claim
               </span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600">
-              <Sparkles className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                Claimed Issues
+          {/* Bento 3: Claimed */}
+          <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] backdrop-blur-xl transition hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between">
+              <span className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
               </span>
-              <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-base">
-                {inProgressCount} Active
+              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                In Progress
+              </span>
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 tracking-tight block">
+                {inProgressCount}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Actively being worked
               </span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
-              <CheckCircle2 className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
+          {/* Bento 4: Resolved */}
+          <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] backdrop-blur-xl transition hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between">
+              <span className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                 Resolved
               </span>
-              <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-base">
-                {resolvedCount} Resolved
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight block">
+                {resolvedCount}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Successfully fixed
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Controls & Search Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+      {/* 2. Controls & Search Filter Bar - Apple Segmented Control */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-[#121622]/80 backdrop-blur-xl p-3 sm:p-3.5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Segmented Status Filters */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl flex-wrap">
+          <div className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-white/[0.05] border border-slate-200/60 dark:border-white/[0.08] gap-1 overflow-x-auto">
             <button
               type="button"
               onClick={() => setStatusFilter('ALL')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'ALL'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                  ? 'bg-white dark:bg-white/[0.12] text-slate-900 dark:text-white shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -811,7 +837,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
               onClick={() => setStatusFilter('OPEN')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'OPEN'
-                  ? 'bg-amber-500 text-white shadow-xs font-bold'
+                  ? 'bg-white dark:bg-white/[0.12] text-amber-600 dark:text-amber-400 shadow-xs font-bold'
                   : 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
               }`}
             >
@@ -822,7 +848,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
               onClick={() => setStatusFilter('IN_PROGRESS')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'IN_PROGRESS'
-                  ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                  ? 'bg-white dark:bg-white/[0.12] text-indigo-600 dark:text-indigo-400 shadow-xs font-bold'
                   : 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/10'
               }`}
             >
@@ -833,7 +859,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
               onClick={() => setStatusFilter('MINE')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'MINE'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  ? 'bg-white dark:bg-white/[0.12] text-blue-600 dark:text-blue-400 shadow-xs font-bold'
                   : 'text-blue-700 dark:text-blue-400 hover:bg-blue-500/10'
               }`}
               title="Issues assigned to you"
@@ -845,7 +871,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
               onClick={() => setStatusFilter('RESOLVED')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'RESOLVED'
-                  ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                  ? 'bg-white dark:bg-white/[0.12] text-emerald-600 dark:text-emerald-400 shadow-xs font-bold'
                   : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
               }`}
             >
@@ -853,7 +879,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-1 sm:max-w-md">
+          <div className="flex items-center gap-2.5 flex-1 sm:max-w-md">
             {/* Search Input */}
             <div className="relative w-full">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -861,8 +887,8 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search question, student, PRN, solver..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                placeholder="Search question, student, PRN..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/80 dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition"
               />
             </div>
 
@@ -870,14 +896,14 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/80 dark:bg-white/[0.04] text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer shrink-0 transition"
             >
               <option value="ALL">All Categories</option>
               <option value="TEST_CASE_MISMATCH">Test Case Mismatch</option>
               <option value="AMBIGUOUS_DESCRIPTION">Ambiguous Description</option>
               <option value="COMPILER_OR_TIMEOUT">Compiler Anomaly</option>
               <option value="TYPO_OR_CLARITY">Typo / Clarity</option>
-              <option value="OTHER">Other Technical</option>
+              <option value="OTHER">Platform Feedback</option>
             </select>
           </div>
         </div>
@@ -885,7 +911,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
 
       {/* 3. Issues List */}
       {filteredIssues.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3">
+        <div className="rounded-3xl border border-slate-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-[#121622]/80 backdrop-blur-xl p-12 text-center space-y-3 shadow-xs">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7" />
           </div>
@@ -899,7 +925,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredIssues.map((issue) => {
             const cat = CATEGORY_MAP[issue.category] || CATEGORY_MAP.OTHER;
             const ctx = CONTEXT_MAP[issue.contextType] || CONTEXT_MAP.PRACTICE;
@@ -915,60 +941,65 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             return (
               <div
                 key={issue.id}
-                className={`bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-xs transition hover:shadow-md space-y-3.5 ${
+                className={`group rounded-3xl border p-5 sm:p-6 backdrop-blur-xl transition-all duration-200 hover:shadow-lg space-y-4 ${
                   isResolved
-                    ? 'border-slate-200/60 dark:border-slate-800/60 opacity-80'
+                    ? 'border-slate-200/70 dark:border-white/[0.06] bg-white/60 dark:bg-[#121622]/60 opacity-80 hover:opacity-100'
                     : isMine
-                    ? 'border-blue-500/40 dark:border-blue-500/40 bg-blue-500/[0.015]'
+                    ? 'border-blue-500/40 dark:border-blue-500/35 bg-white dark:bg-[#121622] shadow-sm'
                     : isSomeoneElse
-                    ? 'border-amber-400/50 dark:border-amber-500/40 bg-amber-500/[0.02]'
-                    : 'border-slate-200 dark:border-slate-800'
+                    ? 'border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121622]'
+                    : 'border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#121622] shadow-xs'
                 }`}
               >
-                {/* Header Strip */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
+                {/* Header Row: Metadata capsules & Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${cat.color} ${cat.border}`}>
+                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${cat.color} ${cat.border}`}>
                         {cat.label}
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${ctx.color}`}>
+                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${ctx.color}`}>
                         {ctx.label}
                       </span>
 
-                      {/* Main Status Pill */}
+                      {/* Apple Status Capsule */}
                       {isResolved ? (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>✓ RESOLVED</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Resolved</span>
                         </span>
                       ) : isInProgress ? (
-                        <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border ${
                           isMine
-                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
-                            : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30'
+                            ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25'
+                            : 'bg-slate-100 dark:bg-white/[0.08] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10'
                         }`}>
-                          <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 animate-pulse" />
-                          <span>
-                            {isMine
-                              ? `🟡 CLAIMED BY YOU (${issue.assignedTo || activeSolver})`
-                              : `🟡 CLAIMED (${issue.assignedTo || 'Team Member'})`}
-                          </span>
+                          {isMine ? (
+                            <>
+                              <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                              <span>Claimed by You ({issue.assignedTo || activeSolver})</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                              <span>Claimed by {issue.assignedTo || 'Team Member'}</span>
+                            </>
+                          )}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>● OPEN</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-xs font-semibold">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          <span>Open Issue</span>
                         </span>
                       )}
                     </div>
 
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white pt-1">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
                       {issue.questionTitle}
                     </h3>
                   </div>
 
-                  {/* Actions Bar */}
+                  {/* Actions Bar - Apple Cupertino Buttons */}
                   <div className="flex items-center gap-2 shrink-0 self-start flex-wrap">
                     {/* Student WhatsApp Chat */}
                     {issue.studentWhatsapp || issue.studentPhone ? (
@@ -978,14 +1009,15 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition active:scale-95 cursor-pointer shrink-0"
                         title={`Open WhatsApp chat with ${issue.studentName} (${(issue.studentWhatsapp || issue.studentPhone || '').replace(/[^0-9+]/g, '')})`}
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>WhatsApp</span>
+                        <ArrowUpRight className="w-3 h-3 text-emerald-600/70 dark:text-emerald-400/70" />
                       </a>
                     ) : editingPhoneIssueId === issue.id ? (
-                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-emerald-500/30">
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/[0.06] p-1 rounded-xl border border-emerald-500/40">
                         <span className="text-[11px] font-mono pl-1 text-slate-500 dark:text-slate-400 font-bold">+91</span>
                         <input
                           type="tel"
@@ -1017,7 +1049,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                           setEditingPhoneIssueId(issue.id);
                           setTempPhone('');
                         }}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-emerald-500/40 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 transition flex items-center gap-1 cursor-pointer shrink-0"
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-dashed border-emerald-500/40 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 transition flex items-center gap-1 cursor-pointer shrink-0"
                         title="Add student WhatsApp number"
                       >
                         <Phone className="w-3 h-3 text-emerald-500" />
@@ -1031,17 +1063,17 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleClaimIssue(issue)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-xs hover:shadow active:scale-95 transition cursor-pointer shrink-0"
                           title={`Claim this issue as ${activeSolver}`}
                         >
                           <UserCheck className="w-3.5 h-3.5" />
-                          <span>✋ Claim Issue</span>
+                          <span>Claim Issue</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleResolveIssue(issue)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs hover:shadow active:scale-95 transition cursor-pointer shrink-0"
                           title="Directly mark resolved without claiming"
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -1054,30 +1086,26 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                       <>
                         {isMine ? (
                           <>
-                            <GalaxyButton
+                            <button
+                              type="button"
                               onClick={() => handleResolveIssue(issue)}
-                              size="xs"
-                              hue={160}
-                              text="Mark Resolved"
-                              icon={<Check className="w-3.5 h-3.5" />}
-                              iconPosition="left"
-                            />
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs hover:shadow active:scale-95 transition cursor-pointer shrink-0"
+                              title="Mark issue as resolved"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Mark Resolved</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleReleaseIssue(issue)}
-                              className="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                              className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition cursor-pointer"
                               title="Release issue back to Open queue"
                             >
-                              <span>Release</span>
+                              Release
                             </button>
                           </>
                         ) : (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 select-none shadow-xs">
-                              <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              <span>Claimed by {issue.assignedTo || 'Team Member'}</span>
-                            </div>
-
                             <button
                               type="button"
                               onClick={() => {
@@ -1089,7 +1117,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                                   handleClaimIssue(issue, activeSolver);
                                 }
                               }}
-                              className="text-[11px] text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 underline transition cursor-pointer px-1"
+                              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold transition cursor-pointer px-1"
                               title={`Take over from ${issue.assignedTo}`}
                             >
                               Take over
@@ -1102,7 +1130,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                                   handleResolveIssue(issue);
                                 }
                               }}
-                              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition cursor-pointer"
                               title="Resolve on behalf of solver"
                             >
                               <Check className="w-3.5 h-3.5" />
@@ -1117,7 +1145,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleReopenIssue(issue)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-300"
                         title="Reopen issue and return to Open queue"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -1137,20 +1165,30 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Student's explanation callout */}
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-l-4 border-rose-500 font-mono text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
-                  <div className="text-[10px] uppercase font-bold text-slate-400 font-sans mb-1">
-                    Student Issue Description:
+                {/* Student's explanation callout - Apple Notes / Messages Style */}
+                <div className="rounded-2xl bg-slate-50/90 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/[0.06] p-4 sm:p-4.5 transition-colors">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
+                      Student Reported Observation
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-400">
+                      PRN {issue.studentPrn}
+                    </span>
                   </div>
-                  {issue.description}
+                  <p className="text-sm sm:text-base font-normal text-slate-800 dark:text-slate-100 leading-relaxed font-sans select-text">
+                    {issue.description}
+                  </p>
                 </div>
 
                 {/* Footer Info: Student details + Timestamps */}
-                <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/80 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{issue.studentName}</span>
-                    <span className="font-mono text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-white/[0.06] flex-wrap">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200/60 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
+                      {(issue.studentName || 'S').charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-semibold text-slate-900 dark:text-white">{issue.studentName}</span>
+                    <span className="font-mono text-[11px] font-medium bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md text-slate-600 dark:text-slate-300">
                       {issue.studentPrn}
                     </span>
                     {issue.studentEmail && (
@@ -1168,7 +1206,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                         href={`https://wa.me/${(issue.studentWhatsapp || issue.studentPhone || '').replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 hover:underline"
+                        className="text-[11px] font-mono font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 hover:underline"
                         title="Click to WhatsApp"
                       >
                         <MessageCircle className="w-3 h-3 text-emerald-500" />
@@ -1185,18 +1223,22 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   <div className="flex items-center gap-2.5 flex-wrap">
                     {/* Corner Status & Solver Information */}
                     {isResolved ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Issue Solved by <strong className="font-bold text-emerald-900 dark:text-emerald-100 underline decoration-emerald-500/40">{issue.resolvedBy || issue.assignedTo || activeSolver}</strong></span>
+                        <span>
+                          Issue Solved by <strong className="font-bold text-emerald-900 dark:text-emerald-100">{issue.resolvedBy || issue.assignedTo || activeSolver}</strong>
+                        </span>
                         <span className="text-[11px] font-mono text-emerald-600/80 dark:text-emerald-400/80">
                           ({new Date(issue.resolvedAt || issue.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })})
                         </span>
                       </div>
                     ) : isInProgress ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        <span>Claimed by <strong className="font-bold text-amber-900 dark:text-amber-100">{issue.assignedTo || activeSolver}</strong></span>
-                        <span className="text-[11px] font-mono text-amber-700/80 dark:text-amber-400/80">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 text-xs font-medium">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>
+                          Claimed by <strong className="font-bold text-blue-900 dark:text-blue-100">{issue.assignedTo || activeSolver}</strong>
+                        </span>
+                        <span className="text-[11px] font-mono text-blue-600/80 dark:text-blue-400/80">
                           ({new Date(issue.assignedAt || issue.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })})
                         </span>
                       </div>
