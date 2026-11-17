@@ -141,18 +141,26 @@ export const buildIndividualStudentPdfDoc = async (
   const labSubs = allSubs.filter((s) => {
     const type = String(s.submissionType || s.type || s.track || '').toUpperCase();
     const testTitle = String(s.testTitle || '').toLowerCase();
-    const probId = String(s.problemId || s.problemSlug || '').toLowerCase();
-    const isPractice =
-      type === 'PRACTICE' ||
-      testTitle === 'continuous practical lab' ||
-      /^(m\d+-|practice-|topic-|kanetkar-)/i.test(probId) ||
-      (!s.testId && !s.assessmentId && type !== 'ASSESSMENT' && type !== 'TEST' && type !== 'LAB_INTERNAL');
+    const isLabOrTest =
+      Boolean(s.isAssessmentTest) ||
+      s.sourceCollection === 'assessment_test_submissions' ||
+      Boolean(s.testId || s.assessmentId || s.examId) ||
+      type === 'ASSESSMENT' ||
+      type === 'TEST' ||
+      type === 'LAB_INTERNAL' ||
+      type === 'EXAM' ||
+      (testTitle.length > 0 && testTitle !== 'continuous practical lab' && (
+        testTitle.includes('internal') ||
+        testTitle.includes('assessment') ||
+        testTitle.includes('exam') ||
+        testTitle.includes('test')
+      ));
     const isPassed =
       s.verdict === 'ACCEPTED' ||
       s.verdict === 'AC' ||
       s.status === 'PASSED' ||
       (Number(s.academicScore) || 0) > 0;
-    return !isPractice && isPassed;
+    return isLabOrTest && isPassed;
   });
 
   const labSolvedCount = Number(
