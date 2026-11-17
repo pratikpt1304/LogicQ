@@ -137,8 +137,14 @@ export const LoginPage: React.FC = () => {
           colors: ['#10b981', '#06b6d4', '#6366f1'],
         });
       } catch {}
-      toast.success(`Welcome back, ${user.displayName || user.fullName || 'Student'}!`);
-      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN' || user?.role === 'FACULTY') ? '/admin' : (from === '/login' ? '/dashboard' : from);
+      toast.success(`Welcome back, ${user.displayName || user.fullName || 'User'}!`);
+      const isStaffOrAdmin =
+        cleanPrn.toUpperCase() === 'LOGICQARENA' ||
+        cleanPrn.toLowerCase() === 'sectionadmin@gmail.com' ||
+        user?.role === 'ADMIN' ||
+        user?.role === 'FACULTY' ||
+        user?.role === 'INSTITUTIONAL_ADMIN';
+      const dest = isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
     } catch (err: any) {
       setError(
@@ -206,7 +212,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await loginWithOtp(identifier.trim(), codeToVerify);
+      const verifiedUser = await loginWithOtp(identifier.trim(), codeToVerify);
       setIsVerifiedSuccess(true);
       try {
         confetti({
@@ -218,10 +224,17 @@ export const LoginPage: React.FC = () => {
       } catch {}
       toast.success("You're verified! Welcome to LogicQ.");
       const cleanIdent = identifier.trim().toLowerCase();
-      const dest = (cleanIdent === 'logicqarena@gmail.com' || cleanIdent === 'hariprasathset@sanjivani.edu.in' || user?.role === 'ADMIN') ? '/admin' : from;
+      const isStaffOrAdmin =
+        cleanIdent === 'logicqarena@gmail.com' ||
+        cleanIdent === 'hariprasathset@sanjivani.edu.in' ||
+        cleanIdent === 'sectionadmin@gmail.com' ||
+        verifiedUser?.role === 'ADMIN' ||
+        verifiedUser?.role === 'FACULTY' ||
+        verifiedUser?.role === 'INSTITUTIONAL_ADMIN';
+      const dest = isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
       setTimeout(() => {
         navigate(dest, { replace: true });
-      }, 1500);
+      }, 1000);
     } catch (err: any) {
       setError(err?.message || 'Invalid or expired OTP code. Please request a new one.');
     } finally {
@@ -381,8 +394,8 @@ export const LoginPage: React.FC = () => {
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>Student (PRN)</span>
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>PRN / Password</span>
                 </button>
                 <button
                   type="button"
@@ -423,7 +436,7 @@ export const LoginPage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
-                      Institutional PRN
+                      PRN or Faculty / Staff Email
                     </label>
                     <div className="relative">
                       <input
@@ -453,7 +466,7 @@ export const LoginPage: React.FC = () => {
                             passwordInputRef.current.value = '';
                           }
                         }}
-                        placeholder="e.g. 2126PMIF1057"
+                        placeholder="e.g. 2126PMIB1001 or sectionadmin@gmail.com"
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
                       <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
@@ -498,7 +511,7 @@ export const LoginPage: React.FC = () => {
                               } as React.CSSProperties)
                             : undefined
                         }
-                        placeholder="Enter password (default: your PRN)"
+                        placeholder="Enter password (e.g. 123456 or PRN)"
                         className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
                       <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
@@ -526,7 +539,7 @@ export const LoginPage: React.FC = () => {
                     onClick={handlePrnLogin}
                     loading={loading}
                     disabled={loading || !prn.trim()}
-                    label="Sign In as Student"
+                    label="Sign In with Password"
                   />
                 </div>
               )}
@@ -547,7 +560,7 @@ export const LoginPage: React.FC = () => {
                             autoFocus
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
-                            placeholder="e.g. yourname@gmail.com or 2126PMIM1015"
+                            placeholder="e.g. sectionadmin@gmail.com or 2126PMIB1001"
                             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                           />
                           <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />

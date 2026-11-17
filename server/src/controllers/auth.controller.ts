@@ -1868,12 +1868,15 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Whitelist check: faculty@logicq.io, student@logicq.io & logicqarena@gmail.com can authenticate using OTP 123456
+    // Whitelist check: faculty/admin accounts can authenticate using OTP 123456
     const cleanEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
       cleanEmail === 'faculty@logicq.io' ||
       cleanEmail === 'student@logicq.io' ||
       cleanEmail === 'logicqarena@gmail.com' ||
+      cleanEmail === 'sectionadmin@gmail.com' ||
+      isFacultyEmail(cleanEmail) ||
+      isAnyStaffEmail(cleanEmail) ||
       isExplicitAdminEmail(cleanEmail)
     );
 
