@@ -401,7 +401,7 @@ export const RadialActionMenu: React.FC = () => {
             className="transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] inline-flex items-center justify-center text-white"
             style={{ transform: isOpen ? 'rotate(135deg)' : 'rotate(0deg)' }}
           >
-            <Plus className="w-6 h-6 stroke-[2.5]" />
+            <Plus className="w-6 h-6 stroke-[3] text-white" stroke="#ffffff" />
           </span>
         </GalaxyButton>
       </div>

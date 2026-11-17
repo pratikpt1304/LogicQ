@@ -11,7 +11,7 @@
  * 4. Listens for `{ type: 'CLEAR_USER_CACHE' }` on logout to purge runtime caches on shared devices.
  */
 
-const CACHE_VERSION = 'logicq-shell-v54';
+const CACHE_VERSION = 'logicq-shell-v55';
 const PRECACHE_URLS = [
   '/',
   '/index.html',

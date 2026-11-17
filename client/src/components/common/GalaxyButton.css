@@ -95,8 +95,10 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.galaxy-btn-wrapper.theme-black .galaxy-text {
-  color: #ffffff;
+.galaxy-btn-wrapper.theme-black .galaxy-text,
+.galaxy-btn-wrapper.theme-black .galaxy-text * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 /* Sizing variations */
@@ -305,10 +307,15 @@
   position: relative;
   z-index: 2;
   letter-spacing: 0.02em;
-  color: #ffffff;
+  color: #ffffff !important;
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
   font-family: inherit;
   font-weight: 600;
+}
+
+.galaxy-btn .galaxy-text svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }

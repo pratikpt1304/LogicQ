@@ -619,6 +619,12 @@ html[data-theme='light'] .glass-card .text-white:not([class*='bg-indigo-']):not(
 }
 
 /* Explicit protection: text-white inside dark containers or buttons ALWAYS stays white */
+.galaxy-btn,
+.galaxy-btn *,
+.galaxy-btn svg,
+.galaxy-text,
+.galaxy-text *,
+.galaxy-text svg,
 html.light [class*='bg-gray-9'] .text-white,
 html.light [class*='bg-black'] .text-white,
 html.light [class*='bg-indigo-9'] .text-white,
@@ -630,6 +636,11 @@ html[data-theme='light'] [class*='bg-indigo-9'] .text-white,
 html[data-theme='light'] [class*='bg-slate-9'] .text-white,
 html[data-theme='light'] [class*='bg-gradient-'] .text-white {
   color: #FFFFFF !important;
+}
+
+.galaxy-btn svg,
+.galaxy-text svg {
+  stroke: #FFFFFF !important;
 }
 
 /* Terminal Scope Protection: Prevent light theme from inverting dark terminal text in compiler outputs */
