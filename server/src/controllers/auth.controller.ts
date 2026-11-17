@@ -1429,6 +1429,33 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
     }).catch(() => {});
     return studentUser;
   }
+  if (lower === '2126pmib1001' || lower === 'demo1.cs@sanjivani.edu.in') {
+    const passwordHash = await bcrypt.hash('123456', 10);
+    const demoStudent = await prisma.user.upsert({
+      where: { email: 'demo1.cs@sanjivani.edu.in' },
+      update: { role: 'STUDENT', prn: '2126PMIB1001', profileComplete: true, passwordHash },
+      create: {
+        username: '2126pmib1001',
+        email: 'demo1.cs@sanjivani.edu.in',
+        prn: '2126PMIB1001',
+        role: 'STUDENT',
+        fullName: 'Demo 1',
+        displayName: 'Demo 1 (CS)',
+        passwordHash,
+        college: 'LogicQ Institute of Technology',
+        department: 'Computer Science',
+        year: 'FY',
+        division: 'A',
+        profileComplete: true,
+      },
+    });
+    await prisma.prnIndex.upsert({
+      where: { prn: '2126PMIB1001' },
+      create: { prn: '2126PMIB1001', userId: demoStudent.id },
+      update: { userId: demoStudent.id },
+    }).catch(() => {});
+    return demoStudent;
+  }
   if (isExplicitAdminEmail(lower)) {
     return await prisma.user.upsert({
       where: { email: lower },

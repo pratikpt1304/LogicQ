@@ -635,6 +635,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           contextType === 'EXAM' ||
           Boolean(sub.isLabInternal) ||
           Boolean(sub.isAssessment) ||
+          sub.problemTitle?.toLowerCase().includes('largest of three') ||
+          sub.title?.toLowerCase().includes('largest of three') ||
+          sub.testTitle?.toLowerCase().includes('largest of three') ||
           (testTitle.length > 0 && testTitle !== 'continuous practical lab' && (
             testTitle.includes('internal') ||
             testTitle.includes('assessment') ||
@@ -643,7 +646,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           ));
 
         if (isLabOrTest) {
-          tests.push(sub);
+          tests.push({ ...sub, isLabInternal: true, sourceCollection: 'assessment_test_submissions' });
         } else {
           practices.push(sub);
         }
