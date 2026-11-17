@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -56,6 +57,7 @@ interface ModuleConfigItem {
   slug: string;
   title: string;
   shortTitle: string;
+  desc: string;
   description: string;
   problems: PracticeProblemDef[];
   isModule5?: boolean;
@@ -68,6 +70,7 @@ const MODULE_DEFINITIONS: ModuleConfigItem[] = [
     slug: 'control-structures',
     title: 'Control Structures',
     shortTitle: 'Control Flow',
+    desc: 'Decisions & Loops',
     description: 'Branching decisions, loops, switch-case, and iteration flow in C.',
     problems: PRACTICE_MODULE_1_PROBLEMS,
   },
@@ -76,7 +79,8 @@ const MODULE_DEFINITIONS: ModuleConfigItem[] = [
     id: 'module-2',
     slug: 'pointers-and-functions',
     title: 'Pointers and Functions',
-    shortTitle: 'Pointers & Funcs',
+    shortTitle: 'Pointers & Functions',
+    desc: 'Addresses & Recursion',
     description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
     problems: PRACTICE_MODULE_2_PROBLEMS,
   },
@@ -85,7 +89,8 @@ const MODULE_DEFINITIONS: ModuleConfigItem[] = [
     id: 'module-3',
     slug: 'array-and-its-applications',
     title: 'Array and its Applications',
-    shortTitle: 'Arrays & Strings',
+    shortTitle: 'Array & Applications',
+    desc: 'Matrices & Sorting',
     description: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
     problems: PRACTICE_MODULE_3_PROBLEMS,
   },
@@ -95,6 +100,7 @@ const MODULE_DEFINITIONS: ModuleConfigItem[] = [
     slug: 'advanced-data-types-dynamic-memory',
     title: 'Advanced Data Types & Dynamic Memory',
     shortTitle: 'Dynamic Memory',
+    desc: 'Structs & Heap',
     description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
     problems: PRACTICE_MODULE_4_PROBLEMS,
   },
@@ -349,164 +355,227 @@ export const PracticeModulesPage: React.FC = () => {
           </Link>
         </div>
 
-        {/* ========================================================= */}
-        {/* Apple HIG Frosted Header with Live Progress & Quick Links */}
-        {/* ========================================================= */}
-        <div className="relative rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl shadow-xl shadow-slate-900/5 p-6 sm:p-8 overflow-hidden transition-all">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        {/* 1. ANIMATED HERO HEADER (Framer Motion Creative Card) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="relative overflow-hidden rounded-[30px] border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl p-6 sm:p-8 transition-colors"
+        >
+          {/* Ambient Gradient Glows */}
+          <div className="absolute -top-20 -left-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Lab Internal • CIE Continuous Evaluation</span>
-                </span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+            {/* Main Hero Copy & Progress */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Lab Internal Continuous Evaluation</span>
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                <span>C11 GCC 14</span>
                 {isAdmin && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                     <Eye className="w-3 h-3" />
                     <span>Admin Mode</span>
                   </span>
                 )}
               </div>
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Lab Coursework Modules
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[var(--text-main)] leading-tight">
+                Master C Lab Coursework with <br />
+                <span className="text-emerald-600 dark:text-emerald-400">Continuous Evaluation Arena</span>
               </h1>
 
-              <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-                Official proctored coursework modules for continuous internal evaluation (20 Marks).
-                Solve questions sequentially with instant GCC 14 compiler feedback.
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-xl leading-relaxed">
+                Official 4-module practical coursework for continuous internal evaluation (20 Marks).
+                Solve questions sequentially with instant GCC 14 compiler feedback, testcase verification, and zero penalty attempts.
               </p>
-            </div>
 
-            {/* Apple Stat Pills & Quick Navigation */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-              <div className="px-3.5 py-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  CIE Score
-                </div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>{cieMarks}</span>
-                  <span className="text-xs text-slate-400 font-normal">/ 20 M</span>
-                </div>
-              </div>
-
-              <div className="px-3.5 py-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Solved
-                </div>
-                <div className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>{totalLabSolved}</span>
-                  <span className="text-xs text-slate-400 font-normal">/ {totalLabProblems}</span>
-                </div>
-              </div>
-
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 font-semibold text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <Home className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Dashboard</span>
-              </Link>
-
-              <GalaxyButton
-                to="/practice"
-                size="sm"
-                text="Practice Arena →"
-                icon={<Code2 className="w-3.5 h-3.5" />}
-                iconPosition="left"
-              />
-            </div>
-          </div>
-
-          {/* Minimalist Progress Track */}
-          <div className="mt-6 pt-5 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Overall Lab Coursework Progress</span>
-              </span>
-              <span className="font-bold text-slate-700 dark:text-slate-300">
-                {overallPercent}% Completed ({totalLabProblems - totalLabSolved} remaining)
-              </span>
-            </div>
-            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
-                style={{ width: `${Math.max(overallPercent, 2)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* Apple Segmented Module Switcher (0ms, 1-Click Instant Tab) */}
-        {/* ========================================================= */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 px-1">
-            <span className="font-bold tracking-wider uppercase">Select Lab Module</span>
-            <span>4 Sequential Modules • 20 Questions Each</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-3xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner">
-            {moduleCards.map((mod) => {
-              const isSelected = mod.order === selectedModuleOrder;
-              return (
-                <button
-                  key={mod.id}
-                  type="button"
-                  onClick={() => handleSelectModule(mod.order)}
-                  className={`relative flex flex-col items-start justify-between p-3.5 rounded-2xl transition-all duration-200 cursor-pointer text-left select-none ${
-                    isSelected
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md shadow-slate-900/5 ring-1 ring-slate-900/5 dark:ring-white/10'
-                      : 'hover:bg-white/60 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400'
-                  }`}
+              {/* Quick Navigation Action Pills */}
+              <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                <Link
+                  to="/dashboard"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--border-line)] border border-[var(--border-line)] shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
                 >
-                  <div className="w-full flex items-center justify-between gap-1 mb-2">
-                    <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                        isSelected
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      MOD 0{mod.order}
+                  <Home className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Dashboard</span>
+                </Link>
+
+                <GalaxyButton
+                  to="/practice"
+                  size="sm"
+                  text="Practice Arena (100 Problems) →"
+                  icon={<Code2 className="w-3.5 h-3.5" />}
+                  iconPosition="left"
+                />
+              </div>
+            </div>
+
+            {/* Interactive Visual Card with Floating Badges */}
+            <div className="lg:col-span-5 relative flex justify-center items-center">
+              <div className="w-full max-w-[340px] rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] p-4 shadow-lg space-y-3 relative">
+                {/* Progress Bar Inside Card */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-[var(--text-muted)] flex items-center gap-1">
+                      <Target className="w-3.5 h-3.5 text-emerald-500" />
+                      Overall Solved
                     </span>
-
-                    {mod.isCompleted ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                    ) : !mod.isUnlocked ? (
-                      <Lock className="w-3.5 h-3.5 text-amber-500" />
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    )}
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      {totalLabSolved}/{totalLabProblems} ({overallPercent}%)
+                    </span>
                   </div>
-
-                  <div className="w-full min-w-0">
-                    <div className="font-bold text-xs sm:text-sm truncate">
-                      {mod.shortTitle}
-                    </div>
-                    <div className="text-[11px] font-mono mt-0.5 text-slate-400 dark:text-slate-500">
-                      {mod.isUnlocked ? `${mod.solvedCount}/20 solved` : 'Locked'}
-                    </div>
-                  </div>
-
-                  {/* Micro progress bar under active button */}
-                  <div className="w-full h-1 rounded-full bg-slate-200/60 dark:bg-slate-700/60 mt-2.5 overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 rounded-full ${
-                        mod.isCompleted ? 'bg-emerald-500' : mod.isUnlocked ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
-                      }`}
-                      style={{ width: `${mod.progressPercent}%` }}
+                  <div className="w-full bg-[var(--border-line)] h-2 rounded-full overflow-hidden">
+                    <motion.div
+                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${overallPercent}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
                     />
                   </div>
-                </button>
-              );
-            })}
+                </div>
+
+                {/* Next Question Preview if available */}
+                {nextProblem ? (
+                  <div className="p-3 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] space-y-1 text-left">
+                    <div className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-wider">
+                      Recommended Next Problem
+                    </div>
+                    <div className="text-xs font-bold text-[var(--text-main)] truncate">
+                      {nextProblem.title}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)] line-clamp-1">
+                      {nextProblem.category || nextProblem.description}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] space-y-1 text-left">
+                    <div className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-wider">
+                      Coursework Status
+                    </div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      All Questions Completed! 🎉
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)]">
+                      You have solved all coursework problems in this module.
+                    </div>
+                  </div>
+                )}
+
+                {/* Pulse Equalizer */}
+                <div className="flex items-center justify-between pt-1 border-t border-[var(--border-line)] text-[11px] font-mono text-[var(--text-muted)]">
+                  <span className="flex items-center gap-1.5 text-emerald-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    GCC 14 Sandboxed
+                  </span>
+                  <div className="flex items-center gap-0.5 h-3 overflow-hidden">
+                    {[40, 80, 50, 100, 60, 90, 45, 75].map((h, i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ height: [`${h * 0.3}%`, `${h}%`, `${h * 0.3}%`] }}
+                        transition={{
+                          duration: 1.2,
+                          repeat: Number.POSITIVE_INFINITY,
+                          delay: i * 0.1,
+                          ease: 'easeInOut',
+                        }}
+                        className="w-0.5 bg-emerald-500 rounded-full"
+                        style={{ height: `${h}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Top-Right CIE Score Badge */}
+              <motion.div
+                animate={{ y: [-4, 4, -4] }}
+                transition={{ duration: 3.5, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                className="absolute -top-3 -right-2 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-[var(--border-line)] flex items-center gap-2 z-20"
+              >
+                <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                  <Award className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-left">
+                  <div className="text-[11px] font-bold text-[var(--text-main)]">CIE Coursework</div>
+                  <div className="text-[9px] text-amber-500 font-semibold">{cieMarks} / 20.0 Marks</div>
+                </div>
+              </motion.div>
+
+              {/* Floating Bottom-Left Result Badge */}
+              <motion.div
+                animate={{ y: [4, -4, 4] }}
+                transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut', delay: 0.5 }}
+                className="absolute -bottom-3 -left-3 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-[var(--border-line)] flex items-center gap-2 z-20"
+              >
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-left">
+                  <div className="text-[11px] font-bold text-[var(--text-main)]">Zero Penalty</div>
+                  <div className="text-[9px] text-emerald-500 font-semibold">Continuous Evaluation</div>
+                </div>
+              </motion.div>
+            </div>
           </div>
+        </motion.div>
+
+        {/* 2. APPLE SEGMENTED MODULE SWITCHER */}
+        <div className="p-1.5 rounded-2xl bg-slate-200/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+          {moduleCards.map((mod) => {
+            const isCur = mod.order === selectedModuleOrder;
+            const isLocked = !mod.isUnlocked;
+
+            return (
+              <button
+                key={mod.id}
+                type="button"
+                onClick={() => {
+                  if (isLocked) {
+                    toast.warning(`🔒 ${mod.requirementText || 'Complete previous module to unlock.'}`);
+                    return;
+                  }
+                  handleSelectModule(mod.order);
+                }}
+                className={`py-3 px-4 rounded-xl text-left transition-all flex flex-col justify-between gap-1 group active:scale-98 cursor-pointer ${
+                  isCur
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                    : isLocked
+                    ? 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-80'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">
+                    Module 0{mod.order}
+                  </span>
+                  {isLocked ? (
+                    <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-semibold">
+                      <Lock className="w-3 h-3 text-amber-500" />
+                      <span>Locked</span>
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                        isCur
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {mod.solvedCount}/{mod.totalQuestions}
+                    </span>
+                  )}
+                </div>
+                <div className="font-bold text-sm truncate">
+                  {mod.shortTitle}
+                </div>
+                <div className="text-[11px] text-slate-400 truncate hidden sm:block">
+                  {mod.desc}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* ========================================================= */}
