@@ -28,6 +28,7 @@ import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import { FadeUp, StaggerContainer, StaggerItem } from '../common/ScrollAnimations.js';
+import { useAuth } from '../../context/AuthContext.js';
 import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
 import { isRealPersonName } from '../../config/academic.config.js';
 
@@ -73,11 +74,15 @@ export interface AdminStudentRecord {
 }
 
 export const AdminStudentsTab: React.FC = () => {
+  const { user, isAdmin, isFaculty } = useAuth();
+  const isFacultyUser = Boolean(!isAdmin && (user?.role === 'FACULTY' || isFaculty));
+  const facultySection = user?.sectionName || user?.department || 'Computer Science';
+
   const [students, setStudents] = useState<AdminStudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'VERIFIED' | 'UNLOCKED'>('ALL');
-  const [selectedSection, setSelectedSection] = useState<string>('ALL');
+  const [selectedSection, setSelectedSection] = useState<string>(isFacultyUser ? facultySection : 'ALL');
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<AdminStudentRecord | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
@@ -775,6 +780,23 @@ export const AdminStudentsTab: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Section Faculty Banner */}
+        {isFacultyUser && (
+          <div className="mb-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Section Roster for <strong>{facultySection}</strong> ({students.filter((s) => s.section === facultySection).length} student enrolled).</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedSection(selectedSection === facultySection ? 'ALL' : facultySection)}
+              className="text-[11px] underline font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 cursor-pointer"
+            >
+              {selectedSection === facultySection ? 'Show All University Students' : `Filter to My Section (${facultySection})`}
+            </button>
+          </div>
+        )}
 
         {/* Apple Segmented Filter Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">

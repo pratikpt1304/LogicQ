@@ -22,6 +22,7 @@ import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface SectionItem {
   id: string;
@@ -49,6 +50,10 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   onDeleteSection,
   onImportExcelStudents,
 }) => {
+  const { user, isAdmin, isFaculty } = useAuth();
+  const isFacultyUser = Boolean(!isAdmin && (user?.role === 'FACULTY' || isFaculty));
+  const facultySectionName = user?.sectionName || user?.department || 'Computer Science';
+
   // Modal create state (for admins who click "+ New Section" header button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [modalSectionName, setModalSectionName] = useState('');
@@ -211,18 +216,24 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <span className={`p-2 rounded-xl ${isFacultyUser ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
                 <GraduationCap className="w-5 h-5" />
               </span>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Class Sections
+                {isFacultyUser ? `My Assigned Section (${facultySectionName})` : 'Class Sections'}
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border ${
+                isFacultyUser
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+              }`}>
                 {sections.length} {sections.length === 1 ? 'Section' : 'Sections'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Create academic divisions, share 1-click student invite links, or upload student rosters.
+              {isFacultyUser
+                ? `Assigned section: ${facultySectionName}. Share student join code, add students, or create additional division sections.`
+                : 'Create academic divisions, share 1-click student invite links, or upload student rosters.'}
             </p>
           </div>
 

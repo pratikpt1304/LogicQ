@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../context/AuthContext.js';
 import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Users,
@@ -41,21 +42,31 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
   onSelectTab,
   onInspectStudent,
 }) => {
+  const { user, isAdmin, isFaculty } = useAuth();
+  const isFacultyUser = Boolean(!isAdmin && (user?.role === 'FACULTY' || isFaculty));
+  const facultySection = user?.sectionName || user?.department || 'Computer Science';
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in duration-200">
       {/* 1. APPLE EXECUTIVE HERO (Unified, Clean, Zero Noise) */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#0e131d] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-              <span>Platform Active • Autonomous Examination System</span>
+            <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+              isFacultyUser
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isFacultyUser ? 'bg-emerald-600' : 'bg-blue-600'}`} />
+              <span>{isFacultyUser ? `Section Faculty Portal • ${facultySection}` : 'Platform Active • Autonomous Examination System'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Admin &amp; Faculty Console
+              {isFacultyUser ? `${facultySection} • Faculty Portal` : 'Admin & Faculty Console'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Select an action below to manage sections, schedule assessments, or export live accreditation reports in 1 click.
+              {isFacultyUser
+                ? `Welcome, ${user?.displayName || user?.fullName || 'Faculty'}. Manage students, track practice milestones, and orchestrate lab internal exams for your section.`
+                : 'Select an action below to manage sections, schedule assessments, or export live accreditation reports in 1 click.'}
             </p>
           </div>
 

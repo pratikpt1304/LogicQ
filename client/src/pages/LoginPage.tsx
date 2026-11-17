@@ -138,13 +138,12 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'User'}!`);
+      const isFaculty = user?.role === 'FACULTY' || cleanPrn.toLowerCase() === 'sectionadmin@gmail.com';
       const isStaffOrAdmin =
         cleanPrn.toUpperCase() === 'LOGICQARENA' ||
-        cleanPrn.toLowerCase() === 'sectionadmin@gmail.com' ||
         user?.role === 'ADMIN' ||
-        user?.role === 'FACULTY' ||
         user?.role === 'INSTITUTIONAL_ADMIN';
-      const dest = isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
+      const dest = isFaculty ? '/faculty' : isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
     } catch (err: any) {
       setError(
@@ -224,14 +223,13 @@ export const LoginPage: React.FC = () => {
       } catch {}
       toast.success("You're verified! Welcome to LogicQ.");
       const cleanIdent = identifier.trim().toLowerCase();
+      const isFaculty = verifiedUser?.role === 'FACULTY' || cleanIdent === 'sectionadmin@gmail.com';
       const isStaffOrAdmin =
         cleanIdent === 'logicqarena@gmail.com' ||
         cleanIdent === 'hariprasathset@sanjivani.edu.in' ||
-        cleanIdent === 'sectionadmin@gmail.com' ||
         verifiedUser?.role === 'ADMIN' ||
-        verifiedUser?.role === 'FACULTY' ||
         verifiedUser?.role === 'INSTITUTIONAL_ADMIN';
-      const dest = isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
+      const dest = isFaculty ? '/faculty' : isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
       setTimeout(() => {
         navigate(dest, { replace: true });
       }, 1000);

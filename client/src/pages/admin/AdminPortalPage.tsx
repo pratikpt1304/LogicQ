@@ -97,6 +97,14 @@ export const AdminPortalPage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const isDeanOrHod = Boolean(isInstitutionalAdmin || user?.email === 'hod.sanjivani@gmail.com');
+  const isFacultyUser = Boolean(!isSuperAdmin && !isDeanOrHod && (user?.role === 'FACULTY' || isFaculty));
+
+  // Determine faculty assigned section
+  const facultySectionName = user?.sectionName || user?.department || 'Computer Science';
+  const facultySectionCode = user?.sectionId === 'sec-compsci-demo' ? 'LQ-CS101' : 'LQ-CS101';
+
   const [activeTab, setActiveTab] = useState<AdminTabKey>('command-center');
   const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
   const [stats, setStats] = useState(DEFAULT_STATS);
@@ -348,17 +356,23 @@ export const AdminPortalPage: React.FC = () => {
     };
   }, []);
 
-  // Dynamic tabs with live issue count
-  const tabs: TabItem[] = React.useMemo(() => [
-    { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
-    { id: 'sections', label: 'Sections', icon: Layers },
-    { id: 'students', label: 'Students', icon: Users },
-    { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
-    { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
-    { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
-    { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
-    { id: 'raised-issues', label: 'Student Issues', icon: Flag, badge: openIssuesCount > 0 ? String(openIssuesCount) : undefined },
-  ], [openIssuesCount]);
+  // Dynamic tabs with live issue count & role-tailored view
+  const tabs: TabItem[] = React.useMemo(() => {
+    const list: TabItem[] = [
+      { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
+      { id: 'sections', label: isFacultyUser ? 'My Section' : 'Sections', icon: Layers },
+      { id: 'students', label: isFacultyUser ? 'Section Students' : 'Students', icon: Users },
+      { id: 'question-bank', label: isFacultyUser ? 'Practice & Questions' : 'Question Bank', icon: BookOpen },
+      { id: 'test-orchestrator', label: isFacultyUser ? 'Lab Internal Exams' : 'Assessments', icon: Sliders },
+      { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
+      { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
+      { id: 'raised-issues', label: 'Student Issues', icon: Flag, badge: openIssuesCount > 0 ? String(openIssuesCount) : undefined },
+    ];
+    if (isSuperAdmin || isDeanOrHod) {
+      list.push({ id: 'staff', label: 'Faculty & Staff', icon: UserCog });
+    }
+    return list;
+  }, [openIssuesCount, isFacultyUser, isSuperAdmin, isDeanOrHod]);
 
   const saveSections = (updated: any[]) => {
     setSections(updated);
@@ -464,17 +478,38 @@ export const AdminPortalPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand */}
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-black text-xs flex items-center justify-center shadow-sm">
+            <div className={`w-8 h-8 rounded-xl text-white font-black text-xs flex items-center justify-center shadow-sm ${
+              isFacultyUser
+                ? 'bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-500'
+                : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500'
+            }`}>
               LQ
             </div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
                 LogicQ
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                ADMIN CONSOLE
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                isFacultyUser
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : isDeanOrHod
+                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+              }`}>
+                {isFacultyUser ? 'FACULTY PORTAL' : isDeanOrHod ? 'HOD / DEAN CONSOLE' : 'ADMIN CONSOLE'}
               </span>
             </div>
+            {isFacultyUser && (
+              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs ml-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300 text-[11px]">
+                  Section: {facultySectionName}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200">
+                  {facultySectionCode}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right Status & Profile Cluster */}
@@ -485,20 +520,35 @@ export const AdminPortalPage: React.FC = () => {
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">System Online</span>
             </div>
 
-            {/* Admin User Info */}
+            {/* User Profile Info */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-white/10">
-              <div className="w-7 h-7 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center font-mono">
-                A
+              <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center font-mono ${
+                isFacultyUser
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                  : isDeanOrHod
+                  ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                  : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+              }`}>
+                {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : (isFacultyUser ? 'F' : 'A')}
               </div>
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
-                Administrator
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline leading-tight">
+                  {user?.displayName || user?.fullName || (isFacultyUser ? 'CS Faculty' : 'Administrator')}
+                </span>
+                <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline leading-tight">
+                  {isFacultyUser
+                    ? `Faculty • ${facultySectionName}`
+                    : isDeanOrHod
+                    ? 'HOD / Dean'
+                    : 'System Super Admin'}
+                </span>
+              </div>
               <button
                 onClick={async () => {
                   await logout();
                   navigate('/login');
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition ml-1"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition ml-1 cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -549,6 +599,48 @@ export const AdminPortalPage: React.FC = () => {
       {/* 2. MAIN WORKSPACE CONTENT (Full Width, Perfectly Responsive)              */}
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Dedicated Faculty Section Overview Banner */}
+        {isFacultyUser && (
+          <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0 shadow-xs">
+                <Layers className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+                    {facultySectionName} • Section Faculty Portal
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                    Join Code: {facultySectionCode}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    Academic Year 2026–2027
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                  Instructor: <strong>{user?.fullName || user?.displayName || 'CS Faculty'}</strong> ({user?.email}) • Managing student enrollment, custom practice problem modules, and lab internal exams for this section.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setActiveTab('students')}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#1a202c] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-500" />
+                <span>My Students ({stats.totalStudents || 1})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('question-bank')}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Practice / Questions</span>
+              </button>
+            </div>
+          </div>
+        )}
         {activeTab === 'command-center' && (
           <AdminCommandCenterTab
             stats={stats}

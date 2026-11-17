@@ -485,6 +485,24 @@ export const App: React.FC = () => {
             }
           />
 
+          {/* Dedicated Section Faculty Portal */}
+          <Route
+            path="/faculty"
+            element={
+              <FacultyRoute>
+                <AdminPortalPage />
+              </FacultyRoute>
+            }
+          />
+          <Route
+            path="/faculty/dashboard"
+            element={
+              <FacultyRoute>
+                <AdminPortalPage />
+              </FacultyRoute>
+            }
+          />
+
           {/* Faculty & Admin Section Management (Section 11-12) */}
           <Route
             path="/faculty/sections"
