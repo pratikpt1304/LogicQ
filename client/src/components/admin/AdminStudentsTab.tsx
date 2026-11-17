@@ -773,21 +773,6 @@ export const AdminStudentsTab: React.FC = () => {
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition placeholder:text-slate-400"
               />
             </div>
-
-            {/* Apple Export Excel Button */}
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              disabled={filteredStudents.length === 0}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold shadow-xs hover:border-emerald-500/50 transition-all active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed group"
-              title={`Export ${filteredStudents.length} students to Excel Sheet (.xlsx)`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:-translate-y-0.5 transition-transform" />
-              <span>Export Excel (.xlsx)</span>
-              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] font-bold">
-                {filteredStudents.length}
-              </span>
-            </button>
           </div>
         </div>
 
