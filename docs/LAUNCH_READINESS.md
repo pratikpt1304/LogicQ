@@ -142,7 +142,7 @@ The platform enters an institutional **Feature Freeze** for the pilot launch:
 
 ## 9. 14-Day Pilot Plan
 
-- **Cohort Size**: 50–75 First Year (FY) and Second Year (SY) AIML & Computer Engineering students.
+- **Cohort Size**: 50–75 First Year (FY) and Second Year (SY) AIML & Integrated M.Tech students.
 - **Duration**: Exactly 14 Days (2 rolling freeze cycles).
 - **Primary Success Metrics**:
   - Daily Participation Rate: $\ge 60\%$ daily active solvers.

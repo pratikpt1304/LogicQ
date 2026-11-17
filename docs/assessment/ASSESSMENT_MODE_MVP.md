@@ -33,7 +33,7 @@ Under no circumstances may Assessment Mode rules, locks, or monitoring leak into
 ### 2.2 Section Creation Workflow (Section 11)
 Faculty create sections with:
 - Institution Name (default: *Sanjivani University*)
-- Course / Department (e.g., *Computer Engineering*, *AIML*, *AIDS*)
+- Course / Department (e.g., *Integrated M.Tech*, *AIML*, *AIDS*)
 - Subject (e.g., *Programming in C*, *Data Structures in C*)
 - Academic Year (e.g., *2026–2027*) & Semester (e.g., *Sem I*, *Sem II*)
 - Section Name (e.g., *Div A - Batch 1*)

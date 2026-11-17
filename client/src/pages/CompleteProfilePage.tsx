@@ -43,7 +43,7 @@ export const CompleteProfilePage: React.FC = () => {
   const [formData, setFormData] = useState({
     prn: user?.prn || '',
     fullName: user?.fullName || user?.displayName || '',
-    college: user?.college || ALLOWED_COLLEGES[0] || 'Sanjivani University',
+    college: user?.college || ALLOWED_COLLEGES[0] || 'LogicQ',
     department: normalizeDepartment(user?.department) || user?.department || '',
     year: user?.year || '',
     division: user?.division || '',

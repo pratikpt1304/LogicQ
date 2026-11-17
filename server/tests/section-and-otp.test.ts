@@ -163,7 +163,7 @@ describe('Phase 1: Student Identity, Dual OTP & Section Management', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           institution: 'Sanjivani University of Engineering',
-          course: 'B.Tech Computer Engineering',
+          course: 'Integrated M.Tech',
           subject: 'Data Structures & Algorithms',
           academicYear: '2025-2026',
           semester: 'Semester 3',

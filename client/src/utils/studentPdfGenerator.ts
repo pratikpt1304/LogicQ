@@ -51,7 +51,7 @@ export const buildIndividualStudentPdfDoc = async (
     ? student.email
     : (student.boundEmail || student.email || (prn !== 'N/A' ? `${prn.toLowerCase()}@sanjivani.edu.in` : '—'));
 
-  const college = student.college || 'Sanjivani University';
+  const college = student.college || 'LogicQ';
 
   // 1. Gather all actual submissions or fetch dynamically from Firestore
   let allSubs: any[] = [

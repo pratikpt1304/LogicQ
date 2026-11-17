@@ -43,6 +43,24 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
     return 'IT';
   }
 
+  // Integrated M.Tech (Prioritize over generic Computer/B.Tech)
+  if (
+    upper.includes('INTEGRATED M') ||
+    upper.includes('INT M') ||
+    upper.includes('M.TECH') ||
+    upper.includes('MTECH')
+  ) {
+    return 'Integrated M.Tech';
+  }
+
+  // Integrated B.Tech
+  if (
+    upper.includes('INTEGRATED B') ||
+    upper.includes('INT B')
+  ) {
+    return 'Integrated B.Tech';
+  }
+
   // Computer Science & Engineering variations (NEVER include IT here)
   if (
     upper.includes('COMPUTER') ||
@@ -74,24 +92,6 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
     (upper.includes('INTELLIGENCE') && upper.includes('DATA'))
   ) {
     return 'AIDS';
-  }
-
-  // Integrated M.Tech
-  if (
-    upper.includes('INTEGRATED M') ||
-    upper.includes('INT M') ||
-    upper.includes('M.TECH') ||
-    upper.includes('MTECH')
-  ) {
-    return 'Integrated M.Tech';
-  }
-
-  // Integrated B.Tech
-  if (
-    upper.includes('INTEGRATED B') ||
-    upper.includes('INT B')
-  ) {
-    return 'Integrated B.Tech';
   }
 
   // Mechanical

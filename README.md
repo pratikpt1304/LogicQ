@@ -22,7 +22,7 @@
 
 ## 📌 Executive Overview
 
-**LogicQ** is a high-concurrency competitive programming, coursework progression, and institutional continuous evaluation platform designed from the ground up for university computer science and engineering departments (deployed for **Sanjivani University**, Integrated M.Tech / First Year Computer Science).
+**LogicQ** is a high-concurrency competitive programming, coursework progression, and institutional continuous evaluation platform designed from the ground up for engineering departments (Department of Integrated M.Tech).
 
 It integrates **Apple-grade minimalist human interface design** with **institutional-grade exam proctoring**, anti-collusion randomized question distribution, sandboxed GCC 14 compilation, and automated real-time grading with instantaneous feedback.
 
@@ -302,6 +302,6 @@ npx firebase-tools deploy --only hosting --project logicq-clanguage
 
 ## 📄 License & Maintainers
 
-- **Copyright**: © 2026 LogicQ / Sanjivani University. All rights reserved.
+- **Copyright**: © 2026 LogicQ Platform. All rights reserved.
 - **Lead Architect & Developer**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304))
-- **Institutional Partner**: Sanjivani University Department of Integrated M.Tech
+- **Institutional Department**: Department of Integrated M.Tech

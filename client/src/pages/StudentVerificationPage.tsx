@@ -102,7 +102,7 @@ export const StudentVerificationPage: React.FC = () => {
         const prn = cleanTarget || enrData?.prn || cohortData?.prn || cohortFound?.prn || 'UNKNOWN';
         const fullName = enrData?.fullName || enrData?.name || cohortData?.studentName || cohortFound?.fullName || 'Verified Candidate';
         const department = enrData?.department || cohortData?.department || cohortFound?.department || 'Integrated M.Tech';
-        const college = enrData?.college || cohortFound?.college || 'Sanjivani University';
+        const college = enrData?.college || cohortFound?.college || 'LogicQ';
         const section = enrData?.sectionName || enrData?.section || cohortFound?.sectionName || 'Integrated Mtech';
 
         // Count verified lab tests

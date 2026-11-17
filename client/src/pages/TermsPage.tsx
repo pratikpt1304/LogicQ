@@ -53,7 +53,7 @@ export const TermsPage: React.FC = () => {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            These Terms govern your use of the LogicQ Continuous Evaluation Platform, Linux GCC 14 sandbox compiler, Practice Arena, and institutional examination services operated for Sanjivani University.
+            These Terms govern your use of the LogicQ Continuous Evaluation Platform, Linux GCC 14 sandbox compiler, Practice Arena, and institutional examination services operated for the Department of Integrated M.Tech.
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export const TermsPage: React.FC = () => {
           </div>
           <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed pl-9">
             <p>
-              By signing in to LogicQ (via PRN, University Email, or Institutional Join Code), you enter into a binding agreement with the Department of Integrated M.Tech, Sanjivani University, and agree to abide by these Terms of Service.
+              By signing in to LogicQ (via PRN, Institutional Email, or Class Join Code), you enter into a binding agreement with the Department of Integrated M.Tech, and agree to abide by these Terms of Service.
             </p>
             <p>
               LogicQ is an institutional continuous internal evaluation (CIE) system. Any misuse of platform resources, falsification of identity, or disruption of examination schedules constitutes academic misconduct under university ordinances.
@@ -233,7 +233,7 @@ export const TermsPage: React.FC = () => {
             </p>
             <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 font-mono text-xs space-y-1">
               <div className="font-bold text-slate-900 dark:text-white">Academic Grievance &amp; Compliance Cell</div>
-              <div className="text-slate-500 dark:text-slate-400">Department of Integrated M.Tech, Sanjivani University</div>
+              <div className="text-slate-500 dark:text-slate-400">Department of Integrated M.Tech</div>
               <div className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pt-1">
                 <Mail className="w-3.5 h-3.5" />
                 <a href="mailto:logicqarena@gmail.com" className="hover:underline">logicqarena@gmail.com</a>
@@ -245,7 +245,7 @@ export const TermsPage: React.FC = () => {
 
       {/* 4. BOTTOM ACTION FOOTNOTE */}
       <div className="text-center pt-4 border-t border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-400 flex flex-wrap items-center justify-center gap-4">
-        <span>© {new Date().getFullYear()} LogicQ Platform • Sanjivani University</span>
+        <span>© {new Date().getFullYear()} LogicQ Platform</span>
         <span>•</span>
         <Link to="/privacy" className="text-indigo-600 dark:text-indigo-400 hover:underline">
           Privacy &amp; DPDP Policy

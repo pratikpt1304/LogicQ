@@ -93,7 +93,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.setTextColor(100, 116, 139);
   doc.text(opts.email, margin + 5, y + 19);
   doc.text('Section: C Programming', margin + 65, y + 19);
-  doc.text(opts.college || 'Sanjivani University', margin + 115, y + 19);
+  doc.text(opts.college || 'LogicQ', margin + 115, y + 19);
 
   y += 30;
 

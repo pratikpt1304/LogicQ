@@ -31,7 +31,7 @@ export class SectionController {
 
       const currentYear = new Date().getFullYear();
       institution = institution?.trim() || 'Sanjivani University';
-      course = course?.trim() || 'Computer Science & Engineering';
+      course = course?.trim() || 'Integrated M.Tech';
       academicYear = academicYear?.trim() || `${currentYear}-${currentYear + 1}`;
       semester = semester?.trim() || 'Semester 1';
       sectionName = sectionName?.trim() || subject;

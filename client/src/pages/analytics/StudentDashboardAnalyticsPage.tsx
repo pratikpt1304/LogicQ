@@ -571,7 +571,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         prn: user?.prn || '2126PMIM1039',
         email: user?.email || '',
         department: studentDepartment,
-        college: user?.college || 'Sanjivani University',
+        college: user?.college && user.college !== 'Sanjivani University' ? user.college : 'LogicQ',
         cieMarks,
         labSolvedCount,
         practiceSolvedCount: solvedTopicIds.length,
@@ -1341,7 +1341,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px] block uppercase">Institution</span>
-                  <span>{user?.college || 'Sanjivani University'} • {studentDepartment}</span>
+                  <span>{user?.college && user.college !== 'Sanjivani University' ? user.college : 'LogicQ'} • {studentDepartment}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px] block uppercase">Generated On</span>

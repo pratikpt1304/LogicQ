@@ -110,7 +110,7 @@ export class NotificationDispatchService {
 
     <!-- Footer -->
     <div style="text-align: center; font-size: 11px; color: #64748b; margin-top: 26px; border-top: 1px solid #1e293b; padding-top: 18px; line-height: 1.6;">
-      Sanjivani University • Department of Computer Science &amp; Engineering<br>
+      LogicQ Platform • Department of Integrated M.Tech<br>
       LogicQ Academic Automated Examination Board<br>
       <span style="color: #475569;">Have queries? Contact your course faculty instructor.</span>
     </div>

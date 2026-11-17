@@ -2456,11 +2456,11 @@ export const DashboardPage: React.FC = () => {
                 {/* Institution & Classroom Details */}
                 <div className="grid grid-cols-2 gap-3 font-mono">
                   <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">
-                    <div className="text-[10px] text-slate-400 uppercase font-bold">Institution</div>
+                    <div className="text-[10px] text-slate-400 uppercase font-bold">Department</div>
                     <div className="font-bold text-slate-900 dark:text-white mt-1 text-xs truncate">
-                      Sanjivani University
+                      Department of Integrated M.Tech
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">Integrated M.Tech / FY</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">LogicQ Platform • FY</div>
                   </div>
 
                   <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">

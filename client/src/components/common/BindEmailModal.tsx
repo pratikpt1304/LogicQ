@@ -262,7 +262,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               displayName: effectiveName,
               sectionId: user.sectionId || 'sec-mw6l4r2s',
               sectionName: user.sectionName || 'Integrated Mtech',
-              college: 'Sanjivani University',
+              college: 'LogicQ',
               status: 'ACTIVE',
               updatedAt: serverTimestamp(),
             }, { merge: true }).catch((err) => console.warn('Direct enrolled_students write notice:', err));

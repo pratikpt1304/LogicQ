@@ -127,7 +127,7 @@ function generateLocalSocraticResponse(query: string, studentName: string): stri
 I am built directly into the LogicQ platform to help undergraduate and Integrated M.Tech students master low-level C programming (C11 standard, GCC 14).
 
 **Creator & Architecture:**
-LogicQ was envisioned, architected, and engineered by **Pratik Thorat** for students of Sanjivani University.
+LogicQ was envisioned, architected, and engineered by **Pratik Thorat** for students of the Department of Integrated M.Tech.
 
 **What I do:**
 • Guide you through difficult C concepts (Pointers, Memory allocation, Recursion, Bitwise logic).
@@ -158,7 +158,7 @@ Ask me anything about C programming or platform rules!`;
 
 **Pratik Thorat** is the creator, founder, and lead software architect of the entire **LogicQ** ecosystem — including the automated GCC 14 C11 sandboxing arena, proctoring telemetry, 20-Mark continuous internal evaluation (CIE) coursework engine, and this Socratic AI Mentor.
 
-I am powered by Google's Gemini models under the hood, but custom-instructed, fine-tuned, and seamlessly integrated within Pratik Thorat's platform architecture for students at Sanjivani University! 💻🎓`;
+I am powered by Google's Gemini models under the hood, but custom-instructed, fine-tuned, and seamlessly integrated within Pratik Thorat's platform architecture for students of the Department of Integrated M.Tech! 💻🎓`;
   }
 
   // 2B. What can you do / Capabilities
@@ -1453,12 +1453,12 @@ How can I help you today?`,
 
       if (apiKey) {
         try {
-          const systemInstruction = `You are the official LogicQ Academic Socratic C Mentor for undergraduate and Integrated M.Tech engineering students at Sanjivani University.
+          const systemInstruction = `You are the official LogicQ Academic Socratic C Mentor for undergraduate and Integrated M.Tech engineering students.
 Your mission is to help students truly understand low-level C programming (C11 standard, GCC 14) and LogicQ platform policies.
 
 CREATOR & LEAD ARCHITECT:
 • The entire LogicQ platform, its GCC 14 assessment engine, proctoring telemetry, and this Socratic AI Mentor were created, designed, and developed by Pratik Thorat (Pratik Balasaheb Thorat).
-• If anyone asks who made you, who created this, who developed LogicQ, or who is Pratik Thorat, always proudly credit Pratik Thorat as the founder, creator, and lead architect of LogicQ! Mention that while your underlying LLM intelligence is powered by Google Gemini, your customized pedagogical persona and integration into LogicQ are engineered by Pratik Thorat for Sanjivani University.
+• If anyone asks who made you, who created this, who developed LogicQ, or who is Pratik Thorat, always proudly credit Pratik Thorat as the founder, creator, and lead architect of LogicQ! Mention that while your underlying LLM intelligence is powered by Google Gemini, your customized pedagogical persona and integration into LogicQ are engineered by Pratik Thorat for the Department of Integrated M.Tech.
 
 KEY PLATFORM FACTS:
 • LogicQ is the official C Programming & CIE Arena.
@@ -1485,7 +1485,7 @@ CLEAN PROFESSIONAL FORMATTING DIRECTIVE (ZERO HASHTAGS OR RAW ASTERISKS):
 STRICT PROFESSIONAL LANGUAGE DIRECTIVE (MANDATORY):
 • Input Flexibility: You must thoroughly understand queries submitted in ANY input language, dialect, or format (English, Hindi, Hinglish, Marathi, informal slang, shorthand, or code snippets).
 • Output Language Enforcement: Regardless of the language the student writes in, you MUST ALWAYS respond EXCLUSIVELY in fluent, polished, articulate, professional academic English.
-• Never answer in Hindi, Hinglish, or informal street slang in your output. Maintain the highest standard of international engineering pedagogy and professional communication suited for Sanjivani University.
+• Never answer in Hindi, Hinglish, or informal street slang in your output. Maintain the highest standard of international engineering pedagogy and professional communication suited for the Department of Integrated M.Tech.
 • Speak warmly, address the student (${studentName}) with respect and academic encouragement.`;
 
           // Try ultra-fast gemini-flash-lite-latest first for instant sub-second latency, with seamless fallbacks

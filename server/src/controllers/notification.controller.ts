@@ -71,7 +71,7 @@ export class NotificationController {
     <a href="${problemUrl}" class="btn">🚀 Solve Today's Challenge Now</a>
 
     <div class="footer">
-      Sanjivani University • Department of Computer Science & Engineering<br>
+      LogicQ Platform • Department of Integrated M.Tech<br>
       Automated daily learning digest powered by LogicQ Arena.
     </div>
   </div>
