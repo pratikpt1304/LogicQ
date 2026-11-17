@@ -564,17 +564,17 @@ export const HistoryPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterTab('ALL')}
-            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
+            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'ALL'
                 ? 'text-slate-900 dark:text-white'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            All ({totalSubmissions})
+            <span className="relative z-10">All ({totalSubmissions})</span>
             {filterTab === 'ALL' && (
               <motion.div
                 layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
                 transition={{ type: 'spring', stiffness: 450, damping: 35 }}
               />
             )}
@@ -582,17 +582,17 @@ export const HistoryPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterTab('ACCEPTED')}
-            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
+            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'ACCEPTED'
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'
             }`}
           >
-            Passed ({acceptedSubmissions})
+            <span className="relative z-10">Passed ({acceptedSubmissions})</span>
             {filterTab === 'ACCEPTED' && (
               <motion.div
                 layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
                 transition={{ type: 'spring', stiffness: 450, damping: 35 }}
               />
             )}
@@ -600,17 +600,17 @@ export const HistoryPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterTab('FAILED')}
-            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
+            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'FAILED'
                 ? 'text-rose-600 dark:text-rose-400'
                 : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400'
             }`}
           >
-            Failed ({failedSubmissions})
+            <span className="relative z-10">Failed ({failedSubmissions})</span>
             {filterTab === 'FAILED' && (
               <motion.div
                 layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
                 transition={{ type: 'spring', stiffness: 450, damping: 35 }}
               />
             )}

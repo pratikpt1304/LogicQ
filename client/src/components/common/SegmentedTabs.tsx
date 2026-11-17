@@ -50,25 +50,27 @@ export const SegmentedTabs: React.FC<SegmentedTabsProps> = ({
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
-            {tab.icon && <span className="shrink-0">{tab.icon}</span>}
-            <span>{tab.label}</span>
-            {tab.count !== undefined && (
-              <span
-                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full transition-colors ${
-                  isActive
-                    ? 'bg-blue-600/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300'
-                    : 'bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-400'
-                }`}
-              >
-                {tab.count}
-              </span>
-            )}
+            <span className="relative z-10 flex items-center gap-2">
+              {tab.icon && <span className="shrink-0">{tab.icon}</span>}
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full transition-colors ${
+                    isActive
+                      ? 'bg-blue-600/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300'
+                      : 'bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-400'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </span>
 
             {/* Apple / Linear Spring Sliding Pill */}
             {isActive && (
               <motion.div
                 layoutId={layoutId}
-                className="absolute inset-0 bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                className="absolute inset-0 bg-white dark:bg-slate-900 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
                 transition={{
                   type: 'spring',
                   stiffness: 450,
