@@ -783,15 +783,16 @@ export const AdminReportsTab: React.FC = () => {
           </div>
 
           <div className="pt-3 border-t border-slate-100 dark:border-white/5">
-            <button
-              type="button"
+            <GalaxyButton
               onClick={handleDownloadExcelDataset}
               disabled={isExportingExcel}
-              className="w-full py-2.5 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-            >
-              <Download className={`w-3.5 h-3.5 ${isExportingExcel ? 'animate-bounce' : ''}`} />
-              <span>{isExportingExcel ? 'Syncing & Generating Live Excel...' : 'Export Live Excel (.xlsx) Dataset'}</span>
-            </button>
+              size="sm"
+              hue={160}
+              text={isExportingExcel ? 'Syncing & Generating Live Excel...' : 'Export Live Excel (.xlsx) Dataset'}
+              icon={<Download className={`w-3.5 h-3.5 ${isExportingExcel ? 'animate-bounce' : ''}`} />}
+              iconPosition="left"
+              className="w-full"
+            />
           </div>
         </div>
       </div>

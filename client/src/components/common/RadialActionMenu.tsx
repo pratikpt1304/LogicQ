@@ -392,6 +392,7 @@ export const RadialActionMenu: React.FC = () => {
         <GalaxyButton
           onClick={handleToggle}
           variant="circle"
+          theme="black"
           title={isOpen ? 'Close Quick Menu' : 'Quick Action Radial Menu'}
           ariaLabel="Toggle Quick Actions Radial Menu"
           className="shadow-2xl"

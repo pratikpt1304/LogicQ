@@ -14,6 +14,7 @@ interface GalaxyButtonProps {
   type?: 'button' | 'submit' | 'reset';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   variant?: 'pill' | 'circle';
+  theme?: 'cosmic' | 'black';
   hue?: number;
   title?: string;
   ariaLabel?: string;
@@ -38,6 +39,7 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   type = 'button',
   size = 'md',
   variant = 'pill',
+  theme = 'cosmic',
   hue,
   title,
   ariaLabel,
@@ -105,7 +107,7 @@ export const GalaxyButton: React.FC<GalaxyButtonProps> = ({
   const btnClass = `galaxy-btn size-${size} variant-${variant} ${disabled ? 'disabled' : ''}`;
 
   return (
-    <div className={`galaxy-button galaxy-btn-wrapper ${className}`} style={wrapperStyle}>
+    <div className={`galaxy-button galaxy-btn-wrapper theme-${theme} ${className}`} style={wrapperStyle}>
       {to && !disabled ? (
         <Link to={to} className={btnClass} onClick={onClick} title={title} aria-label={ariaLabel}>
           {content}

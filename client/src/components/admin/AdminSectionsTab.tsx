@@ -320,28 +320,15 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                     </div>
 
                     {/* 1-Click Copy Link Button */}
-                    <button
-                      type="button"
+                    <GalaxyButton
                       onClick={() => handleCopyLink(sec)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
-                        isJustCopied
-                          ? 'bg-emerald-500 text-white shadow-xs'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'
-                      }`}
+                      size="xs"
+                      hue={isJustCopied ? 160 : 245}
+                      text={isJustCopied ? 'Copied!' : 'Copy Link'}
+                      icon={isJustCopied ? <Check className="w-3.5 h-3.5" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                      iconPosition="left"
                       title="Copy Student Join Link"
-                    >
-                      {isJustCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <LinkIcon className="w-3.5 h-3.5" />
-                          <span>Copy Link</span>
-                        </>
-                      )}
-                    </button>
+                    />
                   </div>
                 </div>
 
@@ -507,14 +494,13 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <button
-                type="button"
+              <GalaxyButton
                 onClick={() => handleCopyLink(activeSectionForQr)}
-                className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
-              >
-                <LinkIcon className="w-3.5 h-3.5" />
-                <span>Copy Link</span>
-              </button>
+                size="sm"
+                text="Copy Link"
+                icon={<LinkIcon className="w-3.5 h-3.5" />}
+                iconPosition="left"
+              />
 
               <button
                 type="button"

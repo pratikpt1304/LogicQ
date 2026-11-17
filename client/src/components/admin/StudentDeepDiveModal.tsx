@@ -1850,15 +1850,15 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
+                <GalaxyButton
                   onClick={handleUnlockStudentProctoring}
                   disabled={isUnlocking}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />
-                  <span>{isUnlocking ? 'Unlocking...' : 'Unlock Student & Clear Locks'}</span>
-                </button>
+                  size="sm"
+                  hue={160}
+                  text={isUnlocking ? 'Unlocking...' : 'Unlock Student & Clear Locks'}
+                  icon={<Unlock className={`w-3.5 h-3.5 ${isUnlocking ? 'animate-spin' : ''}`} />}
+                  iconPosition="left"
+                />
               </div>
             </div>
 
