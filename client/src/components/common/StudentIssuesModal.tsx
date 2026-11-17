@@ -417,6 +417,11 @@ export const StudentIssuesModal: React.FC<StudentIssuesModalProps> = ({ isOpen, 
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Resolved by Faculty</span>
                         </span>
+                      ) : issue.status === 'IN_PROGRESS' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>In Progress • Reviewing</span>
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse">
                           <Clock className="w-3.5 h-3.5" />

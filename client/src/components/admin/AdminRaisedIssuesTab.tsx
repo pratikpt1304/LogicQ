@@ -14,6 +14,10 @@ import {
   Sparkles,
   BookOpen,
   User,
+  UserCheck,
+  UserPlus,
+  ShieldAlert,
+  Edit3,
   Filter,
   Layers,
   MessageSquare,
@@ -21,11 +25,13 @@ import {
   Phone,
   X,
   Mail,
+  ChevronDown,
 } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface RaisedIssue {
   id: string;
@@ -42,6 +48,11 @@ export interface RaisedIssue {
   studentWhatsapp?: string;
   createdAt: string;
   status: 'OPEN' | 'RESOLVED' | 'IN_PROGRESS';
+  assignedTo?: string;
+  assignedEmail?: string;
+  assignedAt?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
 }
 
 const CATEGORY_MAP: Record<string, { label: string; color: string; border: string }> = {
@@ -97,6 +108,8 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
         uniqueMap.set(sig, item);
       } else if (item.status === 'RESOLVED' && existing.status !== 'RESOLVED') {
         uniqueMap.set(sig, item);
+      } else if (item.status === 'IN_PROGRESS' && existing.status === 'OPEN') {
+        uniqueMap.set(sig, item);
       }
     }
   }
@@ -104,13 +117,44 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
 };
 
 export const AdminRaisedIssuesTab: React.FC = () => {
+  const { user } = useAuth();
   const [issues, setIssues] = useState<RaisedIssue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'MINE' | 'RESOLVED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+
+  // Support Agent Identity
+  const [activeSolver, setActiveSolver] = useState<string>(() => {
+    const saved = localStorage.getItem('logicq_support_agent_name');
+    if (saved && saved.trim()) return saved.trim();
+    const authName = (user?.fullName || user?.displayName || '').trim();
+    if (authName) return authName;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Pratik Thorat';
+  });
+  const [isEditingSolver, setIsEditingSolver] = useState(false);
+  const [tempSolverName, setTempSolverName] = useState('');
+
+  // Inline WhatsApp phone editing
   const [editingPhoneIssueId, setEditingPhoneIssueId] = useState<string | null>(null);
   const [tempPhone, setTempPhone] = useState('');
+
+  // Inline Assignee editing
+  const [assigningIssueId, setAssigningIssueId] = useState<string | null>(null);
+  const [tempAssignee, setTempAssignee] = useState('');
+
+  const handleSaveActiveSolver = (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error('Please enter a valid solver name.');
+      return;
+    }
+    setActiveSolver(trimmed);
+    localStorage.setItem('logicq_support_agent_name', trimmed);
+    setIsEditingSolver(false);
+    toast.success(`Active support solver set to: ${trimmed}`);
+  };
 
   const handleSavePhone = async (issueId: string, rawDigits: string) => {
     const cleanDigits = rawDigits.replace(/[^0-9]/g, '');
@@ -164,6 +208,11 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
             createdAt: data.createdAt || new Date().toISOString(),
             status: data.status || 'OPEN',
+            assignedTo: data.assignedTo || '',
+            assignedEmail: data.assignedEmail || '',
+            assignedAt: data.assignedAt || '',
+            resolvedBy: data.resolvedBy || '',
+            resolvedAt: data.resolvedAt || '',
           });
         });
       }
@@ -193,6 +242,11 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                 studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
                 createdAt: item.createdAt || new Date().toISOString(),
                 status: item.status || 'OPEN',
+                assignedTo: item.assignedTo || '',
+                assignedEmail: item.assignedEmail || '',
+                assignedAt: item.assignedAt || '',
+                resolvedBy: item.resolvedBy || '',
+                resolvedAt: item.resolvedAt || '',
               });
             }
           });
@@ -235,6 +289,11 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
             createdAt: data.createdAt || new Date().toISOString(),
             status: data.status || 'OPEN',
+            assignedTo: data.assignedTo || '',
+            assignedEmail: data.assignedEmail || '',
+            assignedAt: data.assignedAt || '',
+            resolvedBy: data.resolvedBy || '',
+            resolvedAt: data.resolvedAt || '',
           });
         });
 
@@ -262,6 +321,11 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
                   createdAt: item.createdAt || new Date().toISOString(),
                   status: item.status || 'OPEN',
+                  assignedTo: item.assignedTo || '',
+                  assignedEmail: item.assignedEmail || '',
+                  assignedAt: item.assignedAt || '',
+                  resolvedBy: item.resolvedBy || '',
+                  resolvedAt: item.resolvedAt || '',
                 });
               }
             });
@@ -284,22 +348,32 @@ export const AdminRaisedIssuesTab: React.FC = () => {
     };
   }, []);
 
-  // Toggle status
-  const handleToggleStatus = async (issue: RaisedIssue) => {
-    const nextStatus = issue.status === 'RESOLVED' ? 'OPEN' : 'RESOLVED';
+  // 1. Claim or Reassign Issue
+  const handleClaimIssue = async (issue: RaisedIssue, specificSolver?: string) => {
+    const solver = (specificSolver || activeSolver || 'Support Team').trim();
+    const assignedAt = new Date().toISOString();
+
     setIssues((prev) =>
       prev.map((i) =>
         i.id === issue.id ||
         (i.studentPrn && issue.studentPrn && i.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() && i.description.trim() === issue.description.trim())
-          ? { ...i, status: nextStatus }
+          ? { ...i, status: 'IN_PROGRESS', assignedTo: solver, assignedAt }
           : i
       )
     );
+    setAssigningIssueId(null);
+    setTempAssignee('');
 
     try {
       if (!issue.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'raised_issues', issue.id), { status: nextStatus }).catch(() => {});
-        // Also update any matching duplicate docs in Firestore
+        await updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'IN_PROGRESS',
+          assignedTo: solver,
+          assignedEmail: user?.email || '',
+          assignedAt,
+        }).catch(() => {});
+
+        // Sync duplicates
         try {
           const snap = await getDocs(collection(db, 'raised_issues'));
           for (const d of snap.docs) {
@@ -311,33 +385,171 @@ export const AdminRaisedIssuesTab: React.FC = () => {
               data.description &&
               issue.description &&
               data.description.trim() === issue.description.trim();
-            if (isMatch && d.id !== issue.id && data.status !== nextStatus) {
-              await updateDoc(d.ref, { status: nextStatus }).catch(() => {});
+            if (isMatch && d.id !== issue.id) {
+              await updateDoc(d.ref, {
+                status: 'IN_PROGRESS',
+                assignedTo: solver,
+                assignedEmail: user?.email || '',
+                assignedAt,
+              }).catch(() => {});
             }
           }
         } catch {}
       }
-      // Update local storage
+
       const storedKey = 'logicq_faculty_raised_issues';
       const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
       const updated = existing.map((i: any) =>
         i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
-          ? { ...i, status: nextStatus }
+          ? { ...i, status: 'IN_PROGRESS', assignedTo: solver, assignedAt }
           : i
       );
       localStorage.setItem(storedKey, JSON.stringify(updated));
       realtimeSync.emit('ISSUES');
 
-      toast.success(
-        nextStatus === 'RESOLVED' ? 'Issue marked as resolved!' : 'Issue reopened.'
-      );
+      toast.success(`Claimed by ${solver}! Status set to In Progress.`);
     } catch (err) {
-      console.warn('Update issue status error:', err);
-      toast.success(nextStatus === 'RESOLVED' ? 'Issue marked as resolved!' : 'Issue reopened.');
+      console.warn('handleClaimIssue error:', err);
+      toast.success(`Claimed by ${solver}!`);
     }
   };
 
-  // Delete issue
+  // 2. Release / Unassign Issue back to OPEN
+  const handleReleaseIssue = async (issue: RaisedIssue) => {
+    setIssues((prev) =>
+      prev.map((i) =>
+        i.id === issue.id ||
+        (i.studentPrn && issue.studentPrn && i.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() && i.description.trim() === issue.description.trim())
+          ? { ...i, status: 'OPEN', assignedTo: '', assignedAt: '', assignedEmail: '' }
+          : i
+      )
+    );
+
+    try {
+      if (!issue.id.startsWith('local-')) {
+        await updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'OPEN',
+          assignedTo: '',
+          assignedEmail: '',
+          assignedAt: '',
+        }).catch(() => {});
+      }
+
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      const updated = existing.map((i: any) =>
+        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
+          ? { ...i, status: 'OPEN', assignedTo: '', assignedAt: '', assignedEmail: '' }
+          : i
+      );
+      localStorage.setItem(storedKey, JSON.stringify(updated));
+      realtimeSync.emit('ISSUES');
+
+      toast.info('Issue released back to Open queue.');
+    } catch (err) {
+      console.warn('handleReleaseIssue error:', err);
+    }
+  };
+
+  // 3. Mark Issue Resolved
+  const handleResolveIssue = async (issue: RaisedIssue) => {
+    const solver = (issue.assignedTo || activeSolver || 'Support Team').trim();
+    const resolvedAt = new Date().toISOString();
+
+    setIssues((prev) =>
+      prev.map((i) =>
+        i.id === issue.id ||
+        (i.studentPrn && issue.studentPrn && i.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() && i.description.trim() === issue.description.trim())
+          ? { ...i, status: 'RESOLVED', resolvedBy: solver, resolvedAt }
+          : i
+      )
+    );
+
+    try {
+      if (!issue.id.startsWith('local-')) {
+        await updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'RESOLVED',
+          resolvedBy: solver,
+          resolvedAt,
+        }).catch(() => {});
+
+        // Sync duplicates
+        try {
+          const snap = await getDocs(collection(db, 'raised_issues'));
+          for (const d of snap.docs) {
+            const data = d.data();
+            const isMatch =
+              data.studentPrn &&
+              issue.studentPrn &&
+              data.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() &&
+              data.description &&
+              issue.description &&
+              data.description.trim() === issue.description.trim();
+            if (isMatch && d.id !== issue.id) {
+              await updateDoc(d.ref, {
+                status: 'RESOLVED',
+                resolvedBy: solver,
+                resolvedAt,
+              }).catch(() => {});
+            }
+          }
+        } catch {}
+      }
+
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      const updated = existing.map((i: any) =>
+        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
+          ? { ...i, status: 'RESOLVED', resolvedBy: solver, resolvedAt }
+          : i
+      );
+      localStorage.setItem(storedKey, JSON.stringify(updated));
+      realtimeSync.emit('ISSUES');
+
+      toast.success(`Issue marked as resolved by ${solver}!`);
+    } catch (err) {
+      console.warn('handleResolveIssue error:', err);
+      toast.success(`Issue marked as resolved by ${solver}!`);
+    }
+  };
+
+  // 4. Reopen Issue
+  const handleReopenIssue = async (issue: RaisedIssue) => {
+    setIssues((prev) =>
+      prev.map((i) =>
+        i.id === issue.id ||
+        (i.studentPrn && issue.studentPrn && i.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() && i.description.trim() === issue.description.trim())
+          ? { ...i, status: 'OPEN', resolvedBy: '', resolvedAt: '' }
+          : i
+      )
+    );
+
+    try {
+      if (!issue.id.startsWith('local-')) {
+        await updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'OPEN',
+          resolvedBy: '',
+          resolvedAt: '',
+        }).catch(() => {});
+      }
+
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      const updated = existing.map((i: any) =>
+        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
+          ? { ...i, status: 'OPEN', resolvedBy: '', resolvedAt: '' }
+          : i
+      );
+      localStorage.setItem(storedKey, JSON.stringify(updated));
+      realtimeSync.emit('ISSUES');
+
+      toast.info('Issue reopened and returned to Open queue.');
+    } catch (err) {
+      console.warn('handleReopenIssue error:', err);
+    }
+  };
+
+  // 5. Delete issue
   const handleDeleteIssue = async (issueId: string) => {
     if (!confirm('Are you sure you want to delete this reported issue?')) return;
     const target = issues.find((i) => i.id === issueId);
@@ -387,22 +599,32 @@ export const AdminRaisedIssuesTab: React.FC = () => {
           item.studentPrn.toLowerCase().includes(q) ||
           item.questionTitle.toLowerCase().includes(q) ||
           item.description.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q);
+          item.category.toLowerCase().includes(q) ||
+          (item.assignedTo && item.assignedTo.toLowerCase().includes(q)) ||
+          (item.resolvedBy && item.resolvedBy.toLowerCase().includes(q));
         if (!matches) return false;
       }
 
-      // Status
+      // Status Filter
       if (statusFilter === 'OPEN' && item.status !== 'OPEN') return false;
+      if (statusFilter === 'IN_PROGRESS' && item.status !== 'IN_PROGRESS') return false;
       if (statusFilter === 'RESOLVED' && item.status !== 'RESOLVED') return false;
+      if (statusFilter === 'MINE') {
+        const myName = activeSolver.toLowerCase().trim();
+        const assigned = (item.assignedTo || '').toLowerCase().trim();
+        if (item.status !== 'IN_PROGRESS' || !assigned.includes(myName)) return false;
+      }
 
       // Category
       if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
 
       return true;
     });
-  }, [issues, searchQuery, statusFilter, categoryFilter]);
+  }, [issues, searchQuery, statusFilter, categoryFilter, activeSolver]);
 
   const openCount = issues.filter((i) => i.status === 'OPEN').length;
+  const inProgressCount = issues.filter((i) => i.status === 'IN_PROGRESS').length;
+  const myAssignedCount = issues.filter((i) => i.status === 'IN_PROGRESS' && (i.assignedTo || '').toLowerCase().includes(activeSolver.toLowerCase().trim())).length;
   const resolvedCount = issues.filter((i) => i.status === 'RESOLVED').length;
 
   return (
@@ -421,18 +643,76 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                 </h2>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 text-[10px] font-bold">
                   <Sparkles className="w-3 h-3" />
-                  Live Sync
+                  Live Team Sync
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Questions flagged by students during practice or examination sessions with descriptions &amp; test case mismatch reports.
+                Multi-agent ticket claiming &amp; resolution system. Prevents duplicate effort across faculty and support team members.
               </p>
+            </div>
+          </div>
+
+          {/* Active Support Solver Identity Badge / Switcher */}
+          <div className="flex items-center gap-2 self-start md:self-auto bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
+                You Are Acting As:
+              </span>
+              {isEditingSolver ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={tempSolverName}
+                    onChange={(e) => setTempSolverName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="w-36 px-2 py-0.5 text-xs font-bold rounded-lg border border-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveActiveSolver(tempSolverName);
+                      if (e.key === 'Escape') setIsEditingSolver(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveActiveSolver(tempSolverName)}
+                    className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-bold cursor-pointer hover:bg-blue-500"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingSolver(false)}
+                    className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                    {activeSolver}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempSolverName(activeSolver);
+                      setIsEditingSolver(true);
+                    }}
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                    title="Change active solver name"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Change</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* 3 Metric Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80">
+        {/* 4 Metric Summary Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80">
           <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
             <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
               <MessageSquare className="w-4 h-4" />
@@ -453,10 +733,24 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </span>
             <div>
               <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                Open / In Review
+                Open / Unassigned
               </span>
               <span className="font-extrabold text-amber-600 dark:text-amber-400 text-base">
                 {openCount} Pending
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
+                In Progress (Claimed)
+              </span>
+              <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-base">
+                {inProgressCount} Active
               </span>
             </div>
           </div>
@@ -467,7 +761,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </span>
             <div>
               <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                Resolved by Faculty
+                Resolved
               </span>
               <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-base">
                 {resolvedCount} Resolved
@@ -479,9 +773,9 @@ export const AdminRaisedIssuesTab: React.FC = () => {
 
       {/* 2. Controls & Search Filter Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Segmented Status Filters */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl flex-wrap">
             <button
               type="button"
               onClick={() => setStatusFilter('ALL')}
@@ -506,6 +800,29 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </button>
             <button
               type="button"
+              onClick={() => setStatusFilter('IN_PROGRESS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                statusFilter === 'IN_PROGRESS'
+                  ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                  : 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/10'
+              }`}
+            >
+              In Progress ({inProgressCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('MINE')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                statusFilter === 'MINE'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-blue-700 dark:text-blue-400 hover:bg-blue-500/10'
+              }`}
+              title="Issues assigned to you"
+            >
+              Claimed by Me ({myAssignedCount})
+            </button>
+            <button
+              type="button"
               onClick={() => setStatusFilter('RESOLVED')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 statusFilter === 'RESOLVED'
@@ -517,7 +834,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+          <div className="flex items-center gap-2 flex-1 sm:max-w-md">
             {/* Search Input */}
             <div className="relative w-full">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -525,7 +842,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search question, student, PRN..."
+                placeholder="Search question, student, PRN, solver..."
                 className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
               />
             </div>
@@ -555,10 +872,10 @@ export const AdminRaisedIssuesTab: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Zero Issues Pending Review
+              Zero Issues Found
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              No reported anomalies found matching the current filter. When students click &quot;Raise Issue&quot; during practice or exams, issues will stream here live.
+              No reported anomalies found matching the current filter. When students click &quot;Raise Issue&quot; during practice or exams, issues stream here live.
             </p>
           </div>
         </div>
@@ -568,6 +885,15 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             const cat = CATEGORY_MAP[issue.category] || CATEGORY_MAP.OTHER;
             const ctx = CONTEXT_MAP[issue.contextType] || CONTEXT_MAP.PRACTICE;
             const isResolved = issue.status === 'RESOLVED';
+            const isInProgress = issue.status === 'IN_PROGRESS';
+            const isOpen = issue.status === 'OPEN' || (!isResolved && !isInProgress);
+
+            const isMine =
+              isInProgress &&
+              Boolean(issue.assignedTo && issue.assignedTo.toLowerCase().trim() === activeSolver.toLowerCase().trim());
+            const isSomeoneElse =
+              isInProgress &&
+              Boolean(issue.assignedTo && issue.assignedTo.toLowerCase().trim() !== activeSolver.toLowerCase().trim());
 
             return (
               <div
@@ -575,6 +901,10 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                 className={`bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-xs transition hover:shadow-md space-y-3.5 ${
                   isResolved
                     ? 'border-slate-200/60 dark:border-slate-800/60 opacity-80'
+                    : isMine
+                    ? 'border-blue-500/40 dark:border-blue-500/40 bg-blue-500/[0.015]'
+                    : isSomeoneElse
+                    ? 'border-amber-400/50 dark:border-amber-500/40 bg-amber-500/[0.02]'
                     : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
@@ -588,15 +918,46 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${ctx.color}`}>
                         {ctx.label}
                       </span>
-                      <span
-                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                          isResolved
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
-                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40'
-                        }`}
-                      >
-                        {isResolved ? '✓ RESOLVED' : '● OPEN'}
-                      </span>
+
+                      {/* Main Status Pill */}
+                      {isResolved ? (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>✓ RESOLVED</span>
+                        </span>
+                      ) : isInProgress ? (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+                          <span>🟡 IN PROGRESS</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>● OPEN (Unassigned)</span>
+                        </span>
+                      )}
+
+                      {/* Solver Sub-Badge */}
+                      {isInProgress && (
+                        isMine ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-emerald-600" />
+                            <span>Claimed by You ({issue.assignedTo})</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100/70 text-amber-900 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                            <ShieldAlert className="w-3 h-3 text-amber-600" />
+                            <span>Handled by: {issue.assignedTo || 'Teammate'}</span>
+                          </span>
+                        )
+                      )}
+
+                      {isResolved && issue.resolvedBy && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                          <UserCheck className="w-3 h-3 text-emerald-500" />
+                          <span>By: {issue.resolvedBy}</span>
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white pt-1">
@@ -604,8 +965,9 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                     </h3>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions Bar */}
                   <div className="flex items-center gap-2 shrink-0 self-start flex-wrap">
+                    {/* Student WhatsApp Chat */}
                     {issue.studentWhatsapp || issue.studentPhone ? (
                       <a
                         href={`https://wa.me/${(issue.studentWhatsapp || issue.studentPhone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
@@ -617,7 +979,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                         title="Direct WhatsApp chat with student"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        <span>WhatsApp ({issue.studentWhatsapp || issue.studentPhone})</span>
+                        <span>WhatsApp ({(issue.studentWhatsapp || issue.studentPhone || '').replace(/[^0-9+]/g, '')})</span>
                       </a>
                     ) : editingPhoneIssueId === issue.id ? (
                       <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-emerald-500/30">
@@ -659,29 +1021,161 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                         <span>+ Add WhatsApp Number</span>
                       </button>
                     )}
-                    {isResolved ? (
+
+                    {/* Inline Assignee Popover / Input */}
+                    {assigningIssueId === issue.id ? (
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-blue-500/40">
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="Teammate name"
+                          value={tempAssignee}
+                          onChange={(e) => setTempAssignee(e.target.value)}
+                          className="w-32 px-2 py-1 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleClaimIssue(issue, tempAssignee);
+                            if (e.key === 'Escape') setAssigningIssueId(null);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleClaimIssue(issue, tempAssignee)}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition cursor-pointer"
+                        >
+                          Assign
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssigningIssueId(null)}
+                          className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {/* Dynamic Action Buttons based on Issue Status & Ownership */}
+                    {isOpen && assigningIssueId !== issue.id && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleClaimIssue(issue)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition active:scale-95 cursor-pointer"
+                          title={`Claim this issue as ${activeSolver}`}
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>✋ Claim Issue</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssigningIssueId(issue.id);
+                            setTempAssignee(activeSolver);
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition flex items-center gap-1 cursor-pointer"
+                          title="Assign this issue to another teammate"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Assign...</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleResolveIssue(issue)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition cursor-pointer"
+                          title="Directly mark resolved without claiming"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Resolve</span>
+                        </button>
+                      </>
+                    )}
+
+                    {isInProgress && assigningIssueId !== issue.id && (
+                      <>
+                        {isMine ? (
+                          <>
+                            <GalaxyButton
+                              onClick={() => handleResolveIssue(issue)}
+                              size="xs"
+                              hue={160}
+                              text="Mark Resolved"
+                              icon={<Check className="w-3.5 h-3.5" />}
+                              iconPosition="left"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleReleaseIssue(issue)}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                              title="Release issue back to Open queue"
+                            >
+                              <span>Release</span>
+                            </button>
+                          </>
+                        ) : isSomeoneElse ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `This issue is currently being worked on by "${issue.assignedTo}".\n\nAre you sure you want to take over and claim it for yourself (${activeSolver})?`
+                                  )
+                                ) {
+                                  handleClaimIssue(issue, activeSolver);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-amber-400/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 transition flex items-center gap-1 cursor-pointer"
+                              title={`Currently locked by ${issue.assignedTo}. Click to reassign to yourself.`}
+                            >
+                              <UserCheck className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Take Over / Reassign</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Mark this issue resolved on behalf of "${issue.assignedTo}"?`)) {
+                                  handleResolveIssue(issue);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Resolve</span>
+                            </button>
+                          </>
+                        ) : (
+                          <GalaxyButton
+                            onClick={() => handleResolveIssue(issue)}
+                            size="xs"
+                            hue={160}
+                            text="Mark Resolved"
+                            icon={<Check className="w-3.5 h-3.5" />}
+                            iconPosition="left"
+                          />
+                        )}
+                      </>
+                    )}
+
+                    {isResolved && (
                       <button
                         type="button"
-                        onClick={() => handleToggleStatus(issue)}
+                        onClick={() => handleReopenIssue(issue)}
                         className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                        title="Reopen issue and return to Open queue"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Reopen</span>
                       </button>
-                    ) : (
-                      <GalaxyButton
-                        onClick={() => handleToggleStatus(issue)}
-                        size="xs"
-                        hue={160}
-                        text="Mark Resolved"
-                        icon={<Check className="w-3.5 h-3.5" />}
-                        iconPosition="left"
-                      />
                     )}
+
+                    {/* Delete trash button */}
                     <button
                       type="button"
                       onClick={() => handleDeleteIssue(issue.id)}
-                      title="Delete issue"
+                      title="Delete reported issue"
                       className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -697,9 +1191,9 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   {issue.description}
                 </div>
 
-                {/* Footer Info: Student details + Timestamp */}
+                {/* Footer Info: Student details + Timestamps */}
                 <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/80 flex-wrap">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <User className="w-3.5 h-3.5 text-slate-400" />
                     <span className="font-bold text-slate-800 dark:text-slate-200">{issue.studentName}</span>
                     <span className="font-mono text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
@@ -734,16 +1228,44 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>
-                      {new Date(issue.createdAt).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+                  <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 flex-wrap">
+                    <div className="flex items-center gap-1" title="Reported at">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        {new Date(issue.createdAt).toLocaleString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+
+                    {issue.assignedAt && (
+                      <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold" title="Claimed at">
+                        <Sparkles className="w-3 h-3" />
+                        <span>
+                          Claimed:{' '}
+                          {new Date(issue.assignedAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    )}
+
+                    {issue.resolvedAt && (
+                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title="Resolved at">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>
+                          Resolved:{' '}
+                          {new Date(issue.resolvedAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
