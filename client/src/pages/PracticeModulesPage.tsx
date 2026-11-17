@@ -300,9 +300,8 @@ export const PracticeModulesPage: React.FC = () => {
 
   // Next up unsolved problem in active module
   const nextProblem = useMemo(() => {
-    if (!activeModule.isUnlocked) return null;
     return activeProblems.find((p) => !p.isSolved) || null;
-  }, [activeModule.isUnlocked, activeProblems]);
+  }, [activeProblems]);
 
   // Filter & search questions
   const displayedProblems = useMemo(() => {
@@ -437,7 +436,20 @@ export const PracticeModulesPage: React.FC = () => {
                 </div>
 
                 {/* Next Question Preview if available */}
-                {nextProblem ? (
+                {!activeModule.isUnlocked ? (
+                  <div className="p-3 rounded-xl bg-[var(--bg-panel)] border border-amber-500/30 space-y-1 text-left">
+                    <div className="text-[10px] font-mono text-amber-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500" />
+                      Module 0{activeModule.order} Locked
+                    </div>
+                    <div className="text-xs font-bold text-[var(--text-main)] truncate">
+                      {activeModule.shortTitle}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                      {activeModule.requirementText || 'Complete previous module coursework to unlock.'}
+                    </div>
+                  </div>
+                ) : nextProblem ? (
                   <div className="p-3 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] space-y-1 text-left">
                     <div className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-wider">
                       Recommended Next Problem
@@ -458,7 +470,7 @@ export const PracticeModulesPage: React.FC = () => {
                       All Questions Completed! 🎉
                     </div>
                     <div className="text-[11px] text-[var(--text-muted)]">
-                      You have solved all coursework problems in this module.
+                      You have solved all {activeModule.totalQuestions} coursework problems in this module.
                     </div>
                   </div>
                 )}

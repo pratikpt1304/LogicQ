@@ -125,35 +125,16 @@ export function getLabModuleUnlockInfo(
   if (isPrivileged) return { isUnlocked: true, lockReason: '' };
 
   if (moduleOrder === 1) {
-    if (!isPracticeModuleComplete(1, solvedTopicIds)) {
-      const solved = getPracticeModuleSolvedCount(1, solvedTopicIds);
-      return {
-        isUnlocked: false,
-        lockReason: `Solve all 25 practice questions in Module 1 (${solved}/25 solved) on the Practice tab to unlock Lab Internal Module 1.`,
-      };
-    }
+    // Module 1 is always unlocked from Day 1 for all students
     return { isUnlocked: true, lockReason: '' };
   }
 
   if (moduleOrder === 2) {
-    if (!isPracticeModuleComplete(1, solvedTopicIds)) {
-      return {
-        isUnlocked: false,
-        lockReason: `Complete Module 1 Practice and Lab Internal Module 1 first.`,
-      };
-    }
     if (!isLabModuleComplete(1, solvedTopicIds)) {
       const lab1Solved = getLabModuleSolvedCount(1, solvedTopicIds);
       return {
         isUnlocked: false,
         lockReason: `Complete all 20 questions in Lab Internal Module 1 (${lab1Solved}/20 solved) to unlock Lab Internal Module 2.`,
-      };
-    }
-    if (!isPracticeModuleComplete(2, solvedTopicIds)) {
-      const p2Solved = getPracticeModuleSolvedCount(2, solvedTopicIds);
-      return {
-        isUnlocked: false,
-        lockReason: `Solve all 25 practice questions in Module 2 (${p2Solved}/25 solved) on the Practice tab to unlock Lab Internal Module 2.`,
       };
     }
     return { isUnlocked: true, lockReason: '' };
@@ -167,13 +148,6 @@ export function getLabModuleUnlockInfo(
         lockReason: `Complete all 20 questions in Lab Internal Module 2 (${lab2Solved}/20 solved) to unlock Lab Internal Module 3.`,
       };
     }
-    if (!isPracticeModuleComplete(3, solvedTopicIds)) {
-      const p3Solved = getPracticeModuleSolvedCount(3, solvedTopicIds);
-      return {
-        isUnlocked: false,
-        lockReason: `Solve all 25 practice questions in Module 3 (${p3Solved}/25 solved) on the Practice tab to unlock Lab Internal Module 3.`,
-      };
-    }
     return { isUnlocked: true, lockReason: '' };
   }
 
@@ -183,13 +157,6 @@ export function getLabModuleUnlockInfo(
       return {
         isUnlocked: false,
         lockReason: `Complete all 20 questions in Lab Internal Module 3 (${lab3Solved}/20 solved) to unlock Lab Internal Module 4.`,
-      };
-    }
-    if (!isPracticeModuleComplete(4, solvedTopicIds)) {
-      const p4Solved = getPracticeModuleSolvedCount(4, solvedTopicIds);
-      return {
-        isUnlocked: false,
-        lockReason: `Solve all 25 practice questions in Module 4 (${p4Solved}/25 solved) on the Practice tab to unlock Lab Internal Module 4.`,
       };
     }
     return { isUnlocked: true, lockReason: '' };
