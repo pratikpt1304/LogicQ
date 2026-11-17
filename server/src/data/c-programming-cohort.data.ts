@@ -153,10 +153,34 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 118, prn: "2126PMIM1090", fullName: "Sairaj Nilesh Gunjal", department: "Integrated M.Tech", year: "FY", college: "LogicQ", sectionId: "sec-mw6l4r2s", sectionName: "Integrated Mtech", joinCode: "LQ-INTE34", email: "2126pmim1090@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
 ];
 
-export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [];
+export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [
+  {
+    index: 119,
+    prn: "2126PMIB1001",
+    fullName: "Demo 1",
+    department: "Computer Science",
+    year: "FY",
+    college: "LogicQ",
+    sectionId: "sec-compsci-demo",
+    sectionName: "Computer Science",
+    joinCode: "LQ-CS101",
+    email: "demo1.cs@logicq.io",
+    role: 'STUDENT',
+    profileComplete: true,
+    password: '123456',
+    totalPoints: 350,
+    totalSolved: 6,
+    currentStreak: 4,
+    labCompletedModules: 1,
+    labInternalScore: 18,
+    cieScore: 18,
+    tabSwitchCount: 0,
+  },
+];
 
 export const ALL_COHORT_STUDENTS = [
   ...C_PROGRAMMING_COHORT_STUDENTS,
+  ...DEMO_SECTION_COHORT_STUDENTS,
 ];
 
 /**

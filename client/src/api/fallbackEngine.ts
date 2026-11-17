@@ -302,6 +302,7 @@ export const INSTITUTIONAL_ADMIN_EMAILS = [
 export const FACULTY_EMAILS = [
   'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
+  'sectionadmin@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
@@ -450,6 +451,27 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
+  const sectionAdminFaculty: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'faculty-cs-sectionadmin',
+    username: 'sectionadmin',
+    email: 'sectionadmin@gmail.com',
+    fullName: 'Computer Science Faculty',
+    displayName: 'CS Faculty (Section Admin)',
+    role: 'FACULTY',
+    college: 'LogicQ',
+    department: 'Computer Science',
+    sectionId: 'sec-compsci-demo',
+    sectionName: 'Computer Science',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: '123456',
+    isBanned: false,
+    shortId: 'CSADM',
+    createdAt: new Date().toISOString(),
+  };
+
   const hariAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
     id: 'admin-hariprasath-1',
     username: 'hariprasathset',
@@ -469,7 +491,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hariAdmin, hodAdmin, faculty1, faculty2];
+  const allStaff = [arenaAdmin, hariAdmin, hodAdmin, faculty1, faculty2, sectionAdminFaculty];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));
@@ -974,7 +996,7 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
           totalPoints: 0,
           currentStreak: 0,
           longestStreak: 0,
-          password: cohortSt.prn,
+          password: cohortSt.password || cohortSt.prn,
           isBanned: false,
           shortId: String(cohortSt.prn || '0000').slice(-4),
           createdAt: '2026-11-01T00:00:00.000Z',
@@ -1020,6 +1042,7 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
         (prnKey && cleanPwd.toUpperCase() === prnKey) ||
         cleanPwd.toUpperCase() === cleanId.toUpperCase();
       const isMasterPwd =
+        cleanPwd === '123456' ||
         cleanPwd === 'password123' ||
         cleanPwd === 'StudentPassword123!' ||
         cleanPwd.toLowerCase() === 'dummy';
@@ -1029,13 +1052,16 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
         throw new Error('Invalid password. Please enter your password or institutional PRN.');
       }
     } else {
-      isValidPassword =
+      isValidPassword = Boolean(
+        (found.password && cleanPwd === found.password) ||
         (found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
         (prnKey && cleanPwd.toUpperCase() === prnKey) ||
         cleanPwd.toUpperCase() === cleanId.toUpperCase() ||
+        cleanPwd === '123456' ||
         cleanPwd === 'password123' ||
         cleanPwd === 'StudentPassword123!' ||
-        (found.role === 'FACULTY' && (cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty'));
+        (found.role === 'FACULTY' && (cleanPwd === '123456' || cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty' || (found.password && cleanPwd === found.password)))
+      );
       if (!isValidPassword) {
         throw new Error('Invalid email/PRN or password. Default password is your PRN.');
       }
@@ -4086,7 +4112,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
     const currentUser = getCurrentUser();
     const studentIdentifier = currentUser?.prn || (currentUser as any)?.rollNo || currentUser?.id || currentUser?.email || '1001';
-    const studentSection = (currentUser as any)?.sectionName || (currentUser as any)?.enrolledSection || (currentUser as any)?.section;
+    const studentSection = (currentUser as any)?.sectionName || (currentUser as any)?.enrolledSection || (currentUser as any)?.section || (currentUser as any)?.department;
 
     const safeTests = Array.isArray(tests) ? tests : [];
     // Filter tests by student section if targeted (matching case-insensitively or 'All')
@@ -4098,7 +4124,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
       return target === sec || target.includes(sec) || sec.includes(target);
     });
 
-    const activePool = eligibleTests.length > 0 ? eligibleTests : tests;
+    const activePool = studentSection ? eligibleTests : (eligibleTests.length > 0 ? eligibleTests : tests);
 
     // Anti-Cheating: Return rotated personalized questions for current student
     const personalizedTests = activePool.map((t: any) => {

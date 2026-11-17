@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
 
 export interface QuestionBankItem {
   id: string;
@@ -146,11 +148,41 @@ export const AdminQuestionBankTab: React.FC = () => {
     hiddenOutput: '',
   });
 
+  // Bi-directional live sync with Firestore system_config/question_bank
+  React.useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'system_config', 'question_bank'));
+        if (snap.exists() && isMounted) {
+          const cloud = snap.data()?.questions;
+          if (Array.isArray(cloud) && cloud.length > 0) {
+            setQuestions(cloud);
+            try {
+              localStorage.setItem('logicq_admin_questions', JSON.stringify(cloud));
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch cloud question bank:', err);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
   const saveQuestions = (updated: QuestionBankItem[]) => {
     setQuestions(updated);
     try {
       localStorage.setItem('logicq_admin_questions', JSON.stringify(updated));
     } catch {}
+    setDoc(
+      doc(db, 'system_config', 'question_bank'),
+      {
+        questions: updated,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    ).catch(() => {});
   };
 
   // Download Sample Excel Template

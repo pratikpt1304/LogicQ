@@ -2171,9 +2171,35 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   },
 ];
 
-export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [];
+export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [
+  {
+    index: 119,
+    prn: '2126PMIB1001',
+    fullName: 'Demo 1',
+    department: 'Computer Science',
+    year: 'FY',
+    college: 'LogicQ',
+    sectionId: 'sec-compsci-demo',
+    sectionName: 'Computer Science',
+    joinCode: 'LQ-CS101',
+    email: 'demo1.cs@logicq.io',
+    role: 'STUDENT',
+    profileComplete: true,
+    password: '123456',
+    totalPoints: 350,
+    totalSolved: 6,
+    currentStreak: 4,
+    labCompletedModules: 1,
+    labInternalScore: 18,
+    cieScore: 18,
+    tabSwitchCount: 0,
+  },
+];
 
-export const ALL_COHORT_STUDENTS: EnrolledCohortStudent[] = [...C_PROGRAMMING_COHORT_STUDENTS];
+export const ALL_COHORT_STUDENTS: EnrolledCohortStudent[] = [
+  ...C_PROGRAMMING_COHORT_STUDENTS,
+  ...DEMO_SECTION_COHORT_STUDENTS,
+];
 
 /**
  * Fast lookup map by PRN (case-insensitive)
@@ -2182,9 +2208,13 @@ export const COHORT_STUDENT_BY_PRN = new Map<string, EnrolledCohortStudent>();
 
 export const COHORT_STUDENT_BY_EMAIL = new Map<string, EnrolledCohortStudent>();
 
-C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
+ALL_COHORT_STUDENTS.forEach((st) => {
   COHORT_STUDENT_BY_PRN.set(st.prn.toUpperCase().trim(), st);
   COHORT_STUDENT_BY_EMAIL.set(st.email.toLowerCase().trim(), st);
+  const defaultEduEmail = `${st.prn.toLowerCase().trim()}@sanjivani.edu.in`;
+  if (!COHORT_STUDENT_BY_EMAIL.has(defaultEduEmail)) {
+    COHORT_STUDENT_BY_EMAIL.set(defaultEduEmail, st);
+  }
 });
 
 /**

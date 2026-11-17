@@ -189,11 +189,13 @@ export const StudentTestListPage: React.FC = () => {
   const completedCount = safeAssignments.filter((a: any) => a?.status === 'SUBMITTED' || a?.status === 'CONCLUDED').length;
 
   const enrolledSections = Array.from(
-    new Set(
-      safeAssignments
+    new Set([
+      ...safeAssignments
         .map((a: any) => a?.test?.section?.sectionName || a?.test?.sectionTarget || a?.sectionName)
-        .filter(Boolean)
-    )
+        .filter(Boolean),
+      (user as any)?.sectionName,
+      (user as any)?.department,
+    ].filter(Boolean))
   );
 
   const filteredAssignments = safeAssignments.filter((a: any) => {

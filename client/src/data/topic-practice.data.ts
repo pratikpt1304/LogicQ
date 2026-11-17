@@ -10,6 +10,7 @@ export interface TopicPracticeItem {
   moduleTitle: string;
   topicTitle: string;
   summary: string;
+  sectionTarget?: string;
   tipBox: {
     syntax: string;
     application: string;
@@ -1971,12 +1972,196 @@ int main() {
   },
 ];
 
+export const COMPUTER_SCIENCE_PRACTICE_TOPICS: TopicPracticeItem[] = [
+  {
+    id: 'cs-demo-p1',
+    moduleIndex: 1,
+    moduleSlug: 'control-structures',
+    moduleTitle: 'Module 1: Control Structures',
+    topicTitle: 'Bitwise Parity & Power of Two Validator',
+    summary: 'Determine if an integer N is a non-zero power of two using pure bitwise operations without loops.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `// Power-of-two trick in C\nint isPowerOfTwo(int n) {\n    return (n > 0) && ((n & (n - 1)) == 0);\n}`,
+      application: 'Operating systems, memory managers, and paging algorithms require powers of 2 for memory alignment and bitmask indexing.',
+      example: `#include <stdio.h>\nint main() {\n    int n = 16;\n    printf("%s\\n", (n > 0 && !(n & (n - 1))) ? "YES" : "NO");\n    return 0;\n}`,
+    },
+    problem: {
+      title: 'Bitwise Parity & Power of Two Validator',
+      difficulty: 'EASY',
+      description: `### Problem Description\nWrite a C program to check whether a given integer $N$ is a power of 2 using pure bitwise operations.\n\n### Input Format\nA single integer $N$.\n\n### Output Format\nPrint **YES** if $N$ is a non-zero power of two, otherwise print **NO**.`,
+      starterCode: `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    // TODO: Print YES if n is power of 2, else NO\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    if (n > 0 && (n & (n - 1)) == 0) {\n        printf("YES\\n");\n    } else {\n        printf("NO\\n");\n    }\n    return 0;\n}`,
+      openTestCase: {
+        input: '16',
+        expectedOutput: 'YES',
+        explanation: '16 is 2^4, which is a power of two.',
+      },
+      hiddenTestCase: {
+        input: '18',
+        expectedOutput: 'NO',
+      },
+    },
+  },
+  {
+    id: 'cs-demo-p2',
+    moduleIndex: 2,
+    moduleSlug: 'pointers-and-functions',
+    moduleTitle: 'Module 2: Pointers and Functions',
+    topicTitle: 'Safe Pointer Swapper & Address Offset Calculator',
+    summary: 'Implement memory address swapping using double pointers and verify byte offset between two contiguous heap blocks.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `void swapPointers(int **p1, int **p2) {\n    int *temp = *p1;\n    *p1 = *p2;\n    *p2 = temp;\n}`,
+      application: 'Pointer re-linking is the foundation of high-performance data structures such as linked lists, B-Trees, and lock-free queues.',
+      example: `#include <stdio.h>\nvoid swap(int *a, int *b) {\n    int t = *a; *a = *b; *b = t;\n}`,
+    },
+    problem: {
+      title: 'Safe Pointer Swapper & Address Offset Calculator',
+      difficulty: 'MEDIUM',
+      description: `### Problem Description\nWrite a program that takes two integers, swaps their values via pointer references, and prints the swapped values.\n\n### Input Format\nTwo space-separated integers $A$ and $B$.\n\n### Output Format\nPrint the swapped values separated by a space.`,
+      starterCode: `#include <stdio.h>\n\nvoid swap(int *a, int *b) {\n    // TODO: Swap values\n}\n\nint main() {\n    int x, y;\n    if (scanf("%d %d", &x, &y) != 2) return 0;\n    swap(&x, &y);\n    printf("%d %d\\n", x, y);\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n\nvoid swap(int *a, int *b) {\n    int temp = *a;\n    *a = *b;\n    *b = temp;\n}\n\nint main() {\n    int x, y;\n    if (scanf("%d %d", &x, &y) != 2) return 0;\n    swap(&x, &y);\n    printf("%d %d\\n", x, y);\n    return 0;\n}`,
+      openTestCase: {
+        input: '10 20',
+        expectedOutput: '20 10',
+        explanation: 'Values swapped successfully.',
+      },
+      hiddenTestCase: {
+        input: '-5 99',
+        expectedOutput: '99 -5',
+      },
+    },
+  },
+  {
+    id: 'cs-demo-p3',
+    moduleIndex: 3,
+    moduleSlug: 'array-and-its-applications',
+    moduleTitle: 'Module 3: Array and its Applications',
+    topicTitle: 'Dynamic Array Deduplication with In-Place Compaction',
+    summary: 'Given dynamically allocated array of N integers, remove duplicates in-place with O(1) auxiliary space and realloc to minimal footprint.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `int removeDuplicates(int arr[], int n) {\n    if (n == 0) return 0;\n    int j = 0;\n    for (int i = 1; i < n; i++) {\n        if (arr[i] != arr[j]) arr[++j] = arr[i];\n    }\n    return j + 1;\n}`,
+      application: 'In-memory database compaction and columnar data stores (e.g. Parquet, BigQuery) compress repeated contiguous values.',
+      example: `#include <stdio.h>\n// In-place two-pointer array compaction`,
+    },
+    problem: {
+      title: 'Dynamic Array Deduplication with In-Place Compaction',
+      difficulty: 'HARD',
+      description: `### Problem Description\nGiven a sorted array of $N$ integers, remove duplicates in-place such that each element appears only once, and print the resulting unique elements.\n\n### Input Format\nFirst line: integer $N$.\nSecond line: $N$ sorted integers.\n\n### Output Format\nPrint the unique elements space-separated on a single line.`,
+      starterCode: `#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1 || n <= 0) return 0;\n    // TODO: Read array and compact duplicates in-place\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1 || n <= 0) return 0;\n    int *arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);\n    int j = 0;\n    for (int i = 1; i < n; i++) {\n        if (arr[i] != arr[j]) {\n            arr[++j] = arr[i];\n        }\n    }\n    for (int i = 0; i <= j; i++) {\n        printf("%d%s", arr[i], i < j ? " " : "\\n");\n    }\n    free(arr);\n    return 0;\n}`,
+      openTestCase: {
+        input: `5\n1 2 2 3 4`,
+        expectedOutput: '1 2 3 4',
+        explanation: 'Duplicates of 2 removed.',
+      },
+      hiddenTestCase: {
+        input: `4\n7 7 7 7`,
+        expectedOutput: '7',
+      },
+    },
+  },
+  {
+    id: 'cs-demo-p4',
+    moduleIndex: 3,
+    moduleSlug: 'array-and-its-applications',
+    moduleTitle: 'Module 3: Array and its Applications',
+    topicTitle: 'In-Place String Reversal & Palindrome Checker',
+    summary: 'Reverse an ASCII string in-place using two-pointer swap and determine if it forms a case-insensitive palindrome.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `void reverseString(char *s) {\n    int i = 0, j = strlen(s) - 1;\n    while (i < j) { char t = s[i]; s[i++] = s[j]; s[j--] = t; }\n}`,
+      application: 'String algorithms form the core of lexical tokenizers, bioinformatics genome sequence alignment, and compression.',
+      example: `#include <stdio.h>\n#include <string.h>\n// Reversal via bidirectional pointers`,
+    },
+    problem: {
+      title: 'In-Place String Reversal & Palindrome Checker',
+      difficulty: 'EASY',
+      description: `### Problem Description\nWrite a program to reverse a single-word string in-place and print the reversed string.\n\n### Input Format\nA single string with no spaces (max length 100).\n\n### Output Format\nPrint the reversed string.`,
+      starterCode: `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char str[105];\n    if (scanf("%s", str) != 1) return 0;\n    // TODO: Reverse string in-place and print\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char str[105];\n    if (scanf("%s", str) != 1) return 0;\n    int i = 0, j = (int)strlen(str) - 1;\n    while (i < j) {\n        char t = str[i];\n        str[i] = str[j];\n        str[j] = t;\n        i++; j--;\n    }\n    printf("%s\\n", str);\n    return 0;\n}`,
+      openTestCase: {
+        input: 'logicq',
+        expectedOutput: 'qcigol',
+        explanation: 'Reversed logicq = qcigol.',
+      },
+      hiddenTestCase: {
+        input: 'racecar',
+        expectedOutput: 'racecar',
+      },
+    },
+  },
+  {
+    id: 'cs-demo-p5',
+    moduleIndex: 3,
+    moduleSlug: 'array-and-its-applications',
+    moduleTitle: 'Module 3: Array and its Applications',
+    topicTitle: 'Binary Search with Exact Insertion Index',
+    summary: 'Find target integer in sorted array in O(log N) time, or return insertion index where it should be placed.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `int binarySearch(int arr[], int n, int target) {\n    int l = 0, r = n - 1;\n    while (l <= r) {\n        int mid = l + (r - l) / 2;\n        if (arr[mid] == target) return mid;\n        if (arr[mid] < target) l = mid + 1; else r = mid - 1;\n    }\n    return l;\n}`,
+      application: 'Binary search is the fundamental search algorithm behind database index lookups (B+ Trees) and sorted collection lookups.',
+      example: `#include <stdio.h>\n// O(log N) binary search`,
+    },
+    problem: {
+      title: 'Binary Search with Exact Insertion Index',
+      difficulty: 'MEDIUM',
+      description: `### Problem Description\nGiven a sorted array of distinct integers and a target value, return the index if the target is found. If not, return the index where it would be if it were inserted in order.\n\n### Input Format\nFirst line: integer $N$ and target $K$.\nSecond line: $N$ sorted integers.\n\n### Output Format\nPrint the index (0-indexed).`,
+      starterCode: `#include <stdio.h>\n\nint main() {\n    int n, target;\n    if (scanf("%d %d", &n, &target) != 2) return 0;\n    // TODO: Binary search for target or insertion index\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n\nint main() {\n    int n, target;\n    if (scanf("%d %d", &n, &target) != 2) return 0;\n    int arr[1000];\n    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);\n    int l = 0, r = n - 1, ans = n;\n    while (l <= r) {\n        int mid = l + (r - l) / 2;\n        if (arr[mid] >= target) {\n            ans = mid;\n            r = mid - 1;\n        } else {\n            l = mid + 1;\n        }\n    }\n    printf("%d\\n", ans);\n    return 0;\n}`,
+      openTestCase: {
+        input: `4 5\n1 3 5 6`,
+        expectedOutput: '2',
+        explanation: '5 is at index 2.',
+      },
+      hiddenTestCase: {
+        input: `4 2\n1 3 5 6`,
+        expectedOutput: '1',
+      },
+    },
+  },
+  {
+    id: 'cs-demo-p6',
+    moduleIndex: 4,
+    moduleSlug: 'advanced-data-types-dynamic-memory',
+    moduleTitle: 'Module 4: Advanced Data Types & Dynamic Memory',
+    topicTitle: 'Singly Linked List Node Insertion & Traversal',
+    summary: 'Dynamically allocate nodes with malloc, insert at tail, and print elements in forward traversal.',
+    sectionTarget: 'Computer Science',
+    tipBox: {
+      syntax: `typedef struct Node {\n    int data;\n    struct Node *next;\n} Node;\n\nNode* createNode(int val) {\n    Node* n = (Node*)malloc(sizeof(Node));\n    n->data = val; n->next = NULL;\n    return n;\n}`,
+      application: 'Dynamic node linking enables heap data structures like symbol tables, hash chains, and graph adjacency lists.',
+      example: `#include <stdio.h>\n#include <stdlib.h>\n// Linked list creation and traversal`,
+    },
+    problem: {
+      title: 'Singly Linked List Node Insertion & Traversal',
+      difficulty: 'HARD',
+      description: `### Problem Description\nCreate a singly linked list from $N$ space-separated integers and print the elements linked with arrows (e.g. \`1 -> 2 -> 3 -> NULL\`).\n\n### Input Format\nFirst line: integer $N$.\nSecond line: $N$ integers.\n\n### Output Format\nPrint elements separated by \` -> \` and ending with \` -> NULL\`. If $N = 0$, print \`NULL\`.`,
+      starterCode: `#include <stdio.h>\n#include <stdlib.h>\n\ntypedef struct Node {\n    int data;\n    struct Node *next;\n} Node;\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    // TODO: Build linked list and print\n    return 0;\n}`,
+      solutionCode: `#include <stdio.h>\n#include <stdlib.h>\n\ntypedef struct Node {\n    int data;\n    struct Node *next;\n} Node;\n\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    Node *head = NULL, *tail = NULL;\n    for (int i = 0; i < n; i++) {\n        int val;\n        scanf("%d", &val);\n        Node *newNode = (Node*)malloc(sizeof(Node));\n        newNode->data = val;\n        newNode->next = NULL;\n        if (!head) {\n            head = tail = newNode;\n        } else {\n            tail->next = newNode;\n            tail = newNode;\n        }\n    }\n    Node *curr = head;\n    while (curr) {\n        printf("%d -> ", curr->data);\n        Node *temp = curr;\n        curr = curr->next;\n        free(temp);\n    }\n    printf("NULL\\n");\n    return 0;\n}`,
+      openTestCase: {
+        input: `3\n10 20 30`,
+        expectedOutput: '10 -> 20 -> 30 -> NULL',
+        explanation: 'Three nodes linked in forward traversal.',
+      },
+      hiddenTestCase: {
+        input: `1\n99`,
+        expectedOutput: '99 -> NULL',
+      },
+    },
+  },
+];
+
 export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
   ...BASE_TOPIC_PRACTICE_DATA,
   ...ADDITIONAL_PRACTICE_TOPICS,
   ...HARD_PRACTICE_TOPICS,
   ...EXPANSION_PRACTICE_TOPICS_1,
   ...EXPANSION_PRACTICE_TOPICS_2,
+  ...COMPUTER_SCIENCE_PRACTICE_TOPICS,
 ].sort((a, b) => {
   if (a.moduleIndex !== b.moduleIndex) {
     return a.moduleIndex - b.moduleIndex;

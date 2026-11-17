@@ -54,7 +54,8 @@ export type AdminTabKey =
   | 'test-orchestrator'
   | 'integrity'
   | 'reports'
-  | 'raised-issues';
+  | 'raised-issues'
+  | 'staff';
 
 interface TabItem {
   id: AdminTabKey;
@@ -72,6 +73,7 @@ const TABS: TabItem[] = [
   { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
   { id: 'raised-issues', label: 'Student Issues', icon: Flag },
+  { id: 'staff', label: 'Faculty & Staff', icon: UserCog },
 ];
 
 const DEFAULT_STATS = {
@@ -444,6 +446,8 @@ export const AdminPortalPage: React.FC = () => {
         'test-orchestrator',
         'integrity',
         'reports',
+        'raised-issues',
+        'staff',
       ].includes(rawTab)
     ) {
       setActiveTab(rawTab as AdminTabKey);
@@ -567,6 +571,7 @@ export const AdminPortalPage: React.FC = () => {
         {activeTab === 'integrity' && <AdminIntegrityTab />}
         {activeTab === 'reports' && <AdminReportsTab />}
         {activeTab === 'raised-issues' && <AdminRaisedIssuesTab />}
+        {activeTab === 'staff' && <AdminStaffTab />}
       </main>
 
       {/* Candidate Deep-Dive Modal (1-Click Inspection) */}

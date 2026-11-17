@@ -749,7 +749,7 @@ export const DashboardPage: React.FC = () => {
           test: {
             ...raw,
             questions: raw.questions || [],
-            section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || 'Integrated Mtech' },
+            section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || (user as any)?.sectionName || (user as any)?.department || 'Integrated Mtech' },
           },
           attempts: t.attempts || [],
         };
@@ -775,7 +775,7 @@ export const DashboardPage: React.FC = () => {
             test: {
               ...raw,
               questions: raw.questions || [],
-              section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || 'Integrated Mtech' },
+              section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || (user as any)?.sectionName || (user as any)?.department || 'Integrated Mtech' },
             },
             attempts: t.attempts || [],
           };
