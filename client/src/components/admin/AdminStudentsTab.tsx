@@ -31,6 +31,27 @@ import { FadeUp, StaggerContainer, StaggerItem } from '../common/ScrollAnimation
 import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
 import { isRealPersonName } from '../../config/academic.config.js';
 
+function formatLastActiveWithDate(rawTime?: any): string {
+  if (!rawTime) return 'Recent';
+  try {
+    const d = new Date(rawTime);
+    if (isNaN(d.getTime())) return String(rawTime);
+    const datePart = d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const timePart = d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+    return `${datePart}, ${timePart}`;
+  } catch {
+    return 'Recent';
+  }
+}
+
 export interface AdminStudentRecord {
   id: string;
   name: string;
@@ -299,8 +320,8 @@ export const AdminStudentsTab: React.FC = () => {
                 bannedAt: anyUser.bannedAt || cData.bannedAt || null,
                 banReason: anyUser.banReason || cData.banReason || null,
                 lastActive: mod.lastActiveTime
-                  ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : (anyUser.lastLoginAt ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
+                  ? formatLastActiveWithDate(mod.lastActiveTime)
+                  : (anyUser.lastLoginAt ? formatLastActiveWithDate(anyUser.lastLoginAt) : 'Recent'),
               };
             });
 
@@ -379,7 +400,7 @@ export const AdminStudentsTab: React.FC = () => {
           integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
           problemsSolved: Number(raw.totalSolved) || 0,
           miniProjectUnlocked: isUnlocked,
-          lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+          lastActive: raw.enrolledAt ? formatLastActiveWithDate(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt) : 'Recent',
         });
       });
 
@@ -481,7 +502,7 @@ export const AdminStudentsTab: React.FC = () => {
                         ? Boolean(data.miniProjectUnlocked)
                         : Boolean(data.miniProjectActive)),
                   lastActive: data?.moduleProgress?.lastActiveTime
-                    ? new Date(data.moduleProgress.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    ? formatLastActiveWithDate(data.moduleProgress.lastActiveTime)
                     : s.lastActive,
                 };
               }
@@ -645,22 +666,24 @@ export const AdminStudentsTab: React.FC = () => {
           'Questions Solved': s.problemsSolved ?? 0,
           'Academic Score (%)': s.academicScore ?? 0,
           'Integrity Score (%)': s.integrityScore ?? 100,
+          'Last Active Date & Time': s.lastActive || 'Recent',
         };
       });
 
       const worksheet = XLSX.utils.json_to_sheet(studentRows);
 
-      // Auto-fit generous column widths so no header or content gets cut in Excel Online or desktop Excel
+      // Auto-fit generous, comfortable column widths with extra padding
       const defaultWidths: Record<string, number> = {
         'Sr. No': 10,
-        'PRN': 18,
-        'Student Name': 28,
-        'Email Address': 32,
-        'Section': 20,
-        'Email Verified': 16,
-        'Questions Solved': 18,
-        'Academic Score (%)': 20,
-        'Integrity Score (%)': 20,
+        'PRN': 22,
+        'Student Name': 36,
+        'Email Address': 40,
+        'Section': 24,
+        'Email Verified': 18,
+        'Questions Solved': 20,
+        'Academic Score (%)': 22,
+        'Integrity Score (%)': 22,
+        'Last Active Date & Time': 28,
       };
 
       const columnKeys = Object.keys(studentRows[0] || {});
@@ -673,8 +696,8 @@ export const AdminStudentsTab: React.FC = () => {
             maxLen = str.length;
           }
         });
-        const defaultW = defaultWidths[key] || 15;
-        return { wch: Math.max(maxLen + 4, defaultW) };
+        const defaultW = defaultWidths[key] || 20;
+        return { wch: Math.max(maxLen + 6, defaultW) };
       });
       worksheet['!cols'] = colWidths;
 
