@@ -622,25 +622,47 @@ export const AdminStudentsTab: React.FC = () => {
     }
 
     try {
-      const studentRows = filteredStudents.map((s, idx) => ({
-        'Sr. No': idx + 1,
-        'PRN': s.prn || '—',
-        'Student Name': s.name || '—',
-        'Email Address': s.email || '—',
-        'Section / Department': s.section || 'Integrated Mtech',
-        'Activity Status': (s.problemsSolved ?? 0) >= 1 ? 'Active' : 'Inactive',
-        'Email Verification': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
-        'Problems Solved': s.problemsSolved ?? 0,
-        'Academic Score (%)': s.academicScore ?? 0,
-        'Integrity Score (%)': s.integrityScore ?? 100,
-        'Mini-Project Access': s.miniProjectUnlocked ? 'Unlocked' : 'Locked',
-        'Account Status': s.isBanned ? 'Banned' : 'Normal',
-        'Last Active': s.lastActive || 'Recent',
-      }));
+      const studentRows = filteredStudents.map((s, idx) => {
+        if (activeFilter === 'INACTIVE') {
+          return {
+            'Sr. No': idx + 1,
+            'PRN': s.prn || '—',
+            'Student Name': s.name || '—',
+            'Email Address': s.email || '—',
+            'Section': s.section || 'Integrated Mtech',
+            'Email Verified': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
+            'Questions Solved': s.problemsSolved ?? 0,
+          };
+        }
+
+        return {
+          'Sr. No': idx + 1,
+          'PRN': s.prn || '—',
+          'Student Name': s.name || '—',
+          'Email Address': s.email || '—',
+          'Section': s.section || 'Integrated Mtech',
+          'Email Verified': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
+          'Questions Solved': s.problemsSolved ?? 0,
+          'Academic Score (%)': s.academicScore ?? 0,
+          'Integrity Score (%)': s.integrityScore ?? 100,
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(studentRows);
 
-      // Auto-fit tight column widths: column border ends right at the last letter of header/content
+      // Auto-fit generous column widths so no header or content gets cut in Excel Online or desktop Excel
+      const defaultWidths: Record<string, number> = {
+        'Sr. No': 10,
+        'PRN': 18,
+        'Student Name': 28,
+        'Email Address': 32,
+        'Section': 20,
+        'Email Verified': 16,
+        'Questions Solved': 18,
+        'Academic Score (%)': 20,
+        'Integrity Score (%)': 20,
+      };
+
       const columnKeys = Object.keys(studentRows[0] || {});
       const colWidths = columnKeys.map((key) => {
         let maxLen = key.length;
@@ -651,7 +673,8 @@ export const AdminStudentsTab: React.FC = () => {
             maxLen = str.length;
           }
         });
-        return { wch: maxLen + 3 };
+        const defaultW = defaultWidths[key] || 15;
+        return { wch: Math.max(maxLen + 4, defaultW) };
       });
       worksheet['!cols'] = colWidths;
 
