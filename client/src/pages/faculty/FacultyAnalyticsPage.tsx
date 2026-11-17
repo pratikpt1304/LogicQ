@@ -1554,7 +1554,7 @@ Generated On   : ${new Date().toLocaleString()}`;
                         </h4>
                       </div>
                       <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                        {inspectTelemetry?.matchedStudent?.department || 'Computer Engineering'}
+                        {inspectTelemetry?.matchedStudent?.department || 'Integrated M.Tech'}
                       </span>
                     </div>
 

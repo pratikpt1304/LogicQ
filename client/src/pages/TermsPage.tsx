@@ -113,7 +113,7 @@ export const TermsPage: React.FC = () => {
           </div>
           <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed pl-9">
             <p>
-              By signing in to LogicQ (via PRN, University Email, or Institutional Join Code), you enter into a binding agreement with the Department of Computer Engineering, Sanjivani University, and agree to abide by these Terms of Service.
+              By signing in to LogicQ (via PRN, University Email, or Institutional Join Code), you enter into a binding agreement with the Department of Integrated M.Tech, Sanjivani University, and agree to abide by these Terms of Service.
             </p>
             <p>
               LogicQ is an institutional continuous internal evaluation (CIE) system. Any misuse of platform resources, falsification of identity, or disruption of examination schedules constitutes academic misconduct under university ordinances.
@@ -233,7 +233,7 @@ export const TermsPage: React.FC = () => {
             </p>
             <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 font-mono text-xs space-y-1">
               <div className="font-bold text-slate-900 dark:text-white">Academic Grievance &amp; Compliance Cell</div>
-              <div className="text-slate-500 dark:text-slate-400">Department of Computer Engineering, Sanjivani University</div>
+              <div className="text-slate-500 dark:text-slate-400">Department of Integrated M.Tech, Sanjivani University</div>
               <div className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pt-1">
                 <Mail className="w-3.5 h-3.5" />
                 <span>support.logicq@sanjivani.edu.in</span>

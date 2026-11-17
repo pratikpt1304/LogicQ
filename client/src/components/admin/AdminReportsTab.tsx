@@ -906,7 +906,7 @@ export const AdminReportsTab: React.FC = () => {
                   Continuous Evaluation & Examination Platform
                 </h4>
                 <p className="text-[11px] text-slate-500">
-                  Department of Computer Engineering • Academic Year 2026–2027
+                  Department of Integrated M.Tech • Academic Year 2026–2027
                 </p>
                 <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-600">
                   Official Master Accreditation Report
@@ -948,7 +948,7 @@ export const AdminReportsTab: React.FC = () => {
               <div className="pt-3 border-t border-slate-200/60 dark:border-white/10 grid grid-cols-3 gap-2 text-center text-[10px]">
                 <div className="p-2 rounded-lg border border-dashed border-slate-200 dark:border-white/10">
                   <span className="block font-semibold text-slate-700 dark:text-slate-300">Head of Department</span>
-                  <span className="text-[9px] text-slate-400">Computer Engineering</span>
+                  <span className="text-[9px] text-slate-400">Integrated M.Tech</span>
                 </div>
                 <div className="p-2 rounded-lg border border-dashed border-slate-200 dark:border-white/10">
                   <span className="block font-semibold text-slate-700 dark:text-slate-300">Course Coordinator</span>

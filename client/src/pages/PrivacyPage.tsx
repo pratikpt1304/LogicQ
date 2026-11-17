@@ -396,7 +396,7 @@ export const PrivacyPage: React.FC = () => {
               <span>Data Fiduciary &amp; Purpose Limitation</span>
             </span>
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-              <strong>Data Fiduciary:</strong> Sanjivani University, Department of Computer Engineering / LogicQ. Personal data (PRN, Name, Institutional Email, Section) is collected strictly on lawful educational grounds for academic performance evaluation, anti-cheat audit certification, and CIE internal marks compilation under university curriculum guidelines.
+              <strong>Data Fiduciary:</strong> Sanjivani University, Department of Integrated M.Tech / LogicQ. Personal data (PRN, Name, Institutional Email, Section) is collected strictly on lawful educational grounds for academic performance evaluation, anti-cheat audit certification, and CIE internal marks compilation under university curriculum guidelines.
             </p>
           </div>
 

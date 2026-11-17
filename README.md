@@ -304,4 +304,4 @@ npx firebase-tools deploy --only hosting --project logicq-clanguage
 
 - **Copyright**: © 2026 LogicQ / Sanjivani University. All rights reserved.
 - **Lead Architect & Developer**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304))
-- **Institutional Partner**: Sanjivani University Department of Computer Engineering
+- **Institutional Partner**: Sanjivani University Department of Integrated M.Tech

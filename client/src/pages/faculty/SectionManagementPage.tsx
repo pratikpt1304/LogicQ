@@ -885,7 +885,7 @@ export const SectionManagementPage: React.FC = () => {
       const boundStorage = prn ? localStorage.getItem(`logicq_bound_email_${prn.toUpperCase()}`) : null;
       const name = item.student?.fullName || item.student?.displayName || item.name || item.fullName || cohort?.fullName || `Student ${idx + 1}`;
       const email = boundStorage || cohort?.email || item.student?.email || item.email || '';
-      const dept = normalizeDepartment(item.department || item.student?.department || sec.course) || 'Computer Engineering';
+      const dept = normalizeDepartment(item.department || item.student?.department || sec.course) || 'Integrated M.Tech';
       const year = item.year || item.student?.year || 'FY';
       const solved = Number(item.student?.solvedCount || item.solvedCount || 0);
       const labCompleted = Number(item.labCompletedModules || 0);
@@ -953,7 +953,7 @@ export const SectionManagementPage: React.FC = () => {
       const boundStorage = prn ? localStorage.getItem(`logicq_bound_email_${prn.toUpperCase()}`) : null;
       const name = item.student?.fullName || item.student?.displayName || item.name || item.fullName || cohort?.fullName || `Student ${idx + 1}`;
       const email = boundStorage || cohort?.email || item.student?.email || item.email || '';
-      const dept = normalizeDepartment(item.department || item.student?.department || sec.course) || 'Computer Engineering';
+      const dept = normalizeDepartment(item.department || item.student?.department || sec.course) || 'Integrated M.Tech';
       const year = item.year || item.student?.year || 'FY';
       const solved = Number(item.student?.solvedCount || item.solvedCount || 0);
       const labCompleted = Number(item.labCompletedModules || 0);
@@ -1295,7 +1295,7 @@ export const SectionManagementPage: React.FC = () => {
             grade,
             isQualified,
             isActive,
-            dept: normalizeDepartment(st.department || st.student?.department || selectedSection.course) || 'Computer Engineering',
+            dept: normalizeDepartment(st.department || st.student?.department || selectedSection.course) || 'Integrated M.Tech',
             year: st.year || st.student?.year || 'FY',
           };
         });
