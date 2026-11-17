@@ -21,7 +21,7 @@ const cohortStudents = studentBlocks.map(block => {
     fullName: getField('fullName'),
     department: getField('department') || 'Integrated Mtech',
     year: getField('year') || 'FY',
-    college: getField('college') || 'Sanjivani University',
+    college: getField('college') || 'LogicQ',
     sectionId: getField('sectionId') || 'sec-mw6l4r2s',
     sectionName: getField('sectionName') || 'Integrated Mtech',
     joinCode: getField('joinCode') || 'LQ-INTE34',
@@ -78,7 +78,7 @@ for (const student of cohortStudents) {
     department: { stringValue: student.department || 'Integrated Mtech' },
     year: { stringValue: student.year || 'FY' },
     division: { stringValue: 'A' },
-    college: { stringValue: student.college || 'Sanjivani University' },
+    college: { stringValue: student.college || 'LogicQ' },
     sectionId: { stringValue: 'sec-mw6l4r2s' },
     sectionName: { stringValue: 'Integrated Mtech' },
     joinCode: { stringValue: 'LQ-INTE34' },
@@ -128,7 +128,7 @@ const secRes = await fetch(`${BASE_URL}/sections/sec-mw6l4r2s?updateMask.fieldPa
       joinCode: { stringValue: 'LQ-INTE34' },
       course: { stringValue: 'Integrated M.Tech' },
       subject: { stringValue: 'C Programming' },
-      institution: { stringValue: 'Sanjivani University' },
+      institution: { stringValue: 'LogicQ' },
       academicYear: { stringValue: '2026-2027' },
     }
   })
