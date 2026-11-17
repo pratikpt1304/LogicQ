@@ -17,6 +17,8 @@ import { PRACTICE_MODULE_1_PROBLEMS } from '../../data/practice-module1.data.js'
 import { PRACTICE_MODULE_2_PROBLEMS } from '../../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../../data/practice-module4.data.js';
+import { SpotlightCard } from '../../components/common/SpotlightCard.js';
+import { NumberCounter } from '../../components/common/NumberCounter.js';
 import {
   Award,
   ShieldCheck,
@@ -642,67 +644,83 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Clean Actionable Metric Tiles */}
+        {/* 4 Clean Actionable Metric Tiles with Interactive Cursor Spotlight & Rolling Counters */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
           {/* Tile 1: Problems Solved */}
-          <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(16, 185, 129, 0.12)"
+            borderColor="rgba(16, 185, 129, 0.45)"
+            className="p-4 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20"
+          >
             <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
               Problems Mastered
             </span>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
-              <span>{totalMastered}</span>
+              <NumberCounter value={totalMastered} />
               <span className="text-xs text-slate-400 font-sans font-normal">/ {curriculumTotal}</span>
             </div>
             <span className="text-[10px] text-slate-400 mt-1 block">
               {solvedTopicIds.length} Practice • {labSolvedCount} Lab
             </span>
-          </div>
+          </SpotlightCard>
 
           {/* Tile 2: CIE Lab Internal Marks */}
-          <div className="p-4 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(99, 102, 241, 0.12)"
+            borderColor="rgba(129, 140, 248, 0.45)"
+            className="p-4 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20"
+          >
             <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 block mb-0.5">
               CIE Lab Internal
             </span>
             <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1">
-              <span>{cieMarks.toFixed(1)}</span>
+              <NumberCounter value={cieMarks} decimals={1} />
               <span className="text-xs text-slate-400 font-sans font-normal">/ 20.0 M</span>
             </div>
             <span className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 block font-medium">
               Continuous Evaluation
             </span>
-          </div>
+          </SpotlightCard>
 
           {/* Tile 3: Compiler Accuracy */}
-          <div className="p-4 rounded-2xl bg-cyan-500/5 dark:bg-cyan-500/10 border border-cyan-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(6, 182, 212, 0.12)"
+            borderColor="rgba(6, 182, 212, 0.45)"
+            className="p-4 bg-cyan-500/5 dark:bg-cyan-500/10 border border-cyan-500/20"
+          >
             <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400 block mb-0.5">
               Compiler Accuracy
             </span>
             <div className="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono flex items-center gap-1">
-              <span>{verdictStats.accuracy}%</span>
+              <NumberCounter value={verdictStats.accuracy} suffix="%" />
               <Target className="w-4 h-4 ml-0.5" />
             </div>
             <span className="text-[10px] text-slate-400 mt-1 block">
               {verdictStats.ac} Accepted Solutions
             </span>
-          </div>
+          </SpotlightCard>
 
           {/* Tile 4: Curriculum Coverage */}
-          <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(168, 85, 247, 0.12)"
+            borderColor="rgba(168, 85, 247, 0.45)"
+            className="p-4 bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/20"
+          >
             <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 block mb-0.5">
               Curriculum Mastery
             </span>
             <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 font-mono">
-              {curriculumPercent}%
+              <NumberCounter value={curriculumPercent} suffix="%" />
             </div>
             <span className="text-[10px] text-slate-400 mt-1 block">
               4 Core Syllabus Modules
             </span>
-          </div>
+          </SpotlightCard>
         </div>
       </div>
 
-      {/* 2. APPLE SEGMENTED TAB SWITCHER */}
-      <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-3 gap-1.5">
+      {/* 2. APPLE SEGMENTED TAB SWITCHER (SPRING GLIDING PILL) */}
+      <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-3 gap-1.5 relative select-none">
         {[
           { id: 'mastery' as const, label: 'Syllabus Mastery', icon: Layers },
           { id: 'standing' as const, label: 'Academic Standing', icon: ShieldCheck },
@@ -715,14 +733,21 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`relative z-10 py-2 px-3 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer ${
                 isCur
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  ? 'text-slate-900 dark:text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
+              {isCur && (
+                <motion.div
+                  layoutId="analyticsTabPill"
+                  className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
             </button>
           );
         })}

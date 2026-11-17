@@ -31,6 +31,8 @@ import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
 import { DraftSyncService } from '../services/draftSync.service.js';
 import { StudentIssuesModal } from '../components/common/StudentIssuesModal.js';
+import { SpotlightCard } from '../components/common/SpotlightCard.js';
+import { NumberCounter } from '../components/common/NumberCounter.js';
 
 type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
 
@@ -501,89 +503,122 @@ export const HistoryPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Apple Fitness-Style Metric Tiles */}
+        {/* Apple Fitness-Style Metric Tiles with Interactive Cursor Spotlight & Rolling Counters */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
-          <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
+          <SpotlightCard className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
             <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
               Total Submissions
             </span>
             <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              {totalSubmissions}
+              <NumberCounter value={totalSubmissions} />
             </div>
-          </div>
+          </SpotlightCard>
 
-          <div className="p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(16, 185, 129, 0.12)"
+            borderColor="rgba(16, 185, 129, 0.45)"
+            className="p-3.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20"
+          >
             <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
               Passed (Accepted)
             </span>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
-              <span>{acceptedSubmissions}</span>
+              <NumberCounter value={acceptedSubmissions} />
               <CheckCircle2 className="w-4 h-4" />
             </div>
-          </div>
+          </SpotlightCard>
 
-          <div className="p-3.5 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(244, 63, 94, 0.12)"
+            borderColor="rgba(244, 63, 94, 0.45)"
+            className="p-3.5 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20"
+          >
             <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400 block mb-0.5">
               Failed / Re-attempts
             </span>
             <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1.5">
-              <span>{failedSubmissions}</span>
+              <NumberCounter value={failedSubmissions} />
               <XCircle className="w-4 h-4" />
             </div>
-          </div>
+          </SpotlightCard>
 
-          <div className="p-3.5 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20">
+          <SpotlightCard
+            spotlightColor="rgba(59, 130, 246, 0.12)"
+            borderColor="rgba(59, 130, 246, 0.45)"
+            className="p-3.5 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20"
+          >
             <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 block mb-0.5">
               Pass Accuracy
             </span>
             <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
-              {accuracyRate}%
+              <NumberCounter value={accuracyRate} suffix="%" />
             </div>
-          </div>
+          </SpotlightCard>
         </div>
       </div>
 
-      {/* 2. APPLE SEGMENTED CONTROL & FILTER BAR */}
+      {/* 2. APPLE SEGMENTED CONTROL & FILTER BAR (SPRING GLIDING PILL) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Apple Segmented Pills */}
-        <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 inline-flex items-center gap-1">
+        {/* Apple Segmented Pills with Spring layoutId */}
+        <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 inline-flex items-center gap-1 relative select-none">
           <button
             type="button"
             onClick={() => setFilterTab('ALL')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'ALL'
-                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                ? 'text-slate-900 dark:text-white'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             All ({totalSubmissions})
+            {filterTab === 'ALL' && (
+              <motion.div
+                layoutId="historyFilterTabPill"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+              />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('ACCEPTED')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'ACCEPTED'
-                ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'
             }`}
           >
             Passed ({acceptedSubmissions})
+            {filterTab === 'ACCEPTED' && (
+              <motion.div
+                layoutId="historyFilterTabPill"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+              />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('FAILED')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`relative z-10 px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               filterTab === 'FAILED'
-                ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs'
+                ? 'text-rose-600 dark:text-rose-400'
                 : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400'
             }`}
           >
             Failed ({failedSubmissions})
+            {filterTab === 'FAILED' && (
+              <motion.div
+                layoutId="historyFilterTabPill"
+                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+              />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setIsMyIssuesOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-1.5 ml-1 border-l border-slate-300 dark:border-slate-700 pl-2.5"
+            className="relative z-10 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-1.5 ml-1 border-l border-slate-300 dark:border-slate-700 pl-2.5"
             title="View questions you flagged for faculty review"
           >
             <Flag className="w-3.5 h-3.5" />

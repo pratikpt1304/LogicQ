@@ -9,6 +9,7 @@ import { CodeEditor } from '../../components/editor/CodeEditor.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
 import { RaiseIssueModal } from '../../components/common/RaiseIssueModal.js';
+import { ProctoringRadarDot } from '../../components/common/ProctoringRadarDot.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { DraftSyncService, getDeviceLabel } from '../../services/draftSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -1143,11 +1144,11 @@ export const ExamWorkspacePage: React.FC = () => {
             </span>
           </div>
 
-          {/* Proctored Live Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-sans font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Proctored</span>
-          </div>
+          {/* Proctored Live Radar Indicator */}
+          <ProctoringRadarDot
+            label="Proctored"
+            status={proctorIncidentsLog.length > 0 ? 'warning' : 'active'}
+          />
 
           {/* Subtle Issue Flag */}
           <button

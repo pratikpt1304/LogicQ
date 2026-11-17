@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { GalaxyButton } from '../components/common/GalaxyButton.js';
+import { SpotlightCard } from '../components/common/SpotlightCard.js';
+import { NumberCounter } from '../components/common/NumberCounter.js';
 import { FadeUp, StaggerContainer, StaggerItem } from '../components/common/ScrollAnimations.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -1597,196 +1600,214 @@ export const DashboardPage: React.FC = () => {
           </div>
           </FadeUp>
 
-          {/* 2. APPLE FITNESS-STYLE STATS TRIO */}
+          {/* 2. APPLE FITNESS-STYLE STATS TRIO WITH SPOTLIGHT & ROLLING COUNTERS */}
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Stat 1: Topic Practice Mastery */}
-            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                    <Code2 className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Practice
-                  </span>
-                </div>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {practiceOverallPercent}%
-                </span>
-              </div>
-
-              <div className="my-3 flex items-center justify-between gap-1.5">
-                <div className="flex items-baseline gap-1.5 shrink-0">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {practiceTotalSolved}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">
-                    / {practiceTopicsTotal} Solved
-                  </span>
-                </div>
-
-                {/* 4 Modules Status Strip with Green Light on Complete */}
-                <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
-                  {[
-                    { num: 1, isDone: isM1PracticeComplete, solved: m1PracticeSolved },
-                    { num: 2, isDone: isM2PracticeComplete, solved: m2PracticeSolved },
-                    { num: 3, isDone: isM3PracticeComplete, solved: m3PracticeSolved },
-                    { num: 4, isDone: isM4PracticeComplete, solved: m4PracticeSolved },
-                  ].map((m) => (
-                    <span
-                      key={m.num}
-                      title={`Module ${m.num}: ${m.solved}/25 Solved ${m.isDone ? '(Completed)' : ''}`}
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
-                        m.isDone
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
-                          : m.solved > 0
-                          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold'
-                          : 'text-slate-400 dark:text-slate-500 opacity-60'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          m.isDone
-                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
-                            : m.solved > 0
-                            ? 'bg-indigo-500'
-                            : 'bg-slate-300 dark:bg-slate-600'
-                        }`}
-                      />
-                      <span>M{m.num}</span>
+            <StaggerItem>
+              <SpotlightCard
+                spotlightColor="rgba(16, 185, 129, 0.12)"
+                borderColor="rgba(16, 185, 129, 0.45)"
+                className="p-5 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                      <Code2 className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Practice
                     </span>
-                  ))}
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    <NumberCounter value={practiceOverallPercent} suffix="%" />
+                  </span>
                 </div>
-              </div>
 
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(practiceOverallPercent > 0 ? 4 : 0, practiceOverallPercent)}%` }}
-                />
-              </div>
+                <div className="my-3 flex items-center justify-between gap-1.5">
+                  <div className="flex items-baseline gap-1.5 shrink-0">
+                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                      <NumberCounter value={practiceTotalSolved} />
+                    </span>
+                    <span className="text-xs font-mono text-slate-400 font-medium">
+                      / {practiceTopicsTotal} Solved
+                    </span>
+                  </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
-                <span>Easy {practiceEasySolved}/{practiceEasyTotal}</span>
-                <span>Med {practiceMedSolved}/{practiceMedTotal}</span>
-                <span>Hard {practiceHardSolved}/{practiceHardTotal}</span>
-              </div>
-            </div></StaggerItem>
+                  {/* 4 Modules Status Strip with Green Light on Complete */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
+                    {[
+                      { num: 1, isDone: isM1PracticeComplete, solved: m1PracticeSolved },
+                      { num: 2, isDone: isM2PracticeComplete, solved: m2PracticeSolved },
+                      { num: 3, isDone: isM3PracticeComplete, solved: m3PracticeSolved },
+                      { num: 4, isDone: isM4PracticeComplete, solved: m4PracticeSolved },
+                    ].map((m) => (
+                      <span
+                        key={m.num}
+                        title={`Module ${m.num}: ${m.solved}/25 Solved ${m.isDone ? '(Completed)' : ''}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
+                          m.isDone
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
+                            : m.solved > 0
+                            ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold'
+                            : 'text-slate-400 dark:text-slate-500 opacity-60'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            m.isDone
+                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
+                              : m.solved > 0
+                              ? 'bg-indigo-500'
+                              : 'bg-slate-300 dark:bg-slate-600'
+                          }`}
+                        />
+                        <span>M{m.num}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(practiceOverallPercent > 0 ? 4 : 0, practiceOverallPercent)}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span>Easy {practiceEasySolved}/{practiceEasyTotal}</span>
+                  <span>Med {practiceMedSolved}/{practiceMedTotal}</span>
+                  <span>Hard {practiceHardSolved}/{practiceHardTotal}</span>
+                </div>
+              </SpotlightCard>
+            </StaggerItem>
 
             {/* Stat 2: Lab Internal Evaluation */}
-            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-500/20">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Lab Internal
-                  </span>
-                </div>
-                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                  {labInternalScore} / 20 M
-                </span>
-              </div>
-
-              <div className="my-3 flex items-center justify-between gap-1.5">
-                <div className="flex items-baseline gap-1.5 shrink-0">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {labTotalSolved}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">
-                    / {labTotal} Solved
-                  </span>
-                </div>
-
-                {/* 4 Lab Modules Status Strip with Green Light on Complete */}
-                <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
-                  {[
-                    { num: 1, isDone: isLab1Complete, solved: m1LabSolved, total: m1LabSlugs.length || 20 },
-                    { num: 2, isDone: isLab2Complete, solved: m2LabSolved, total: m2LabSlugs.length || 20 },
-                    { num: 3, isDone: isLab3Complete, solved: m3LabSolved, total: m3LabSlugs.length || 20 },
-                    { num: 4, isDone: isLab4Complete, solved: m4LabSolved, total: m4LabSlugs.length || 20 },
-                  ].map((m) => (
-                    <span
-                      key={m.num}
-                      title={`Lab Module ${m.num}: ${m.solved}/${m.total} Solved ${m.isDone ? '(Completed)' : ''}`}
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
-                        m.isDone
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
-                          : m.solved > 0
-                          ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-semibold'
-                          : 'text-slate-400 dark:text-slate-500 opacity-60'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          m.isDone
-                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
-                            : m.solved > 0
-                            ? 'bg-cyan-500'
-                            : 'bg-slate-300 dark:bg-slate-600'
-                        }`}
-                      />
-                      <span>M{m.num}</span>
+            <StaggerItem>
+              <SpotlightCard
+                spotlightColor="rgba(6, 182, 212, 0.12)"
+                borderColor="rgba(6, 182, 212, 0.45)"
+                className="p-5 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-500/20">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Lab Internal
                     </span>
-                  ))}
+                  </div>
+                  <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                    <NumberCounter value={labInternalScore} decimals={1} suffix=" / 20 M" />
+                  </span>
                 </div>
-              </div>
 
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-cyan-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(labTotalSolved > 0 ? 4 : 0, (labTotalSolved / labTotal) * 100)}%` }}
-                />
-              </div>
+                <div className="my-3 flex items-center justify-between gap-1.5">
+                  <div className="flex items-baseline gap-1.5 shrink-0">
+                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                      <NumberCounter value={labTotalSolved} />
+                    </span>
+                    <span className="text-xs font-mono text-slate-400 font-medium">
+                      / {labTotal} Solved
+                    </span>
+                  </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
-                <span>Easy {labEasySolved}/{labEasyTotal}</span>
-                <span>Med {labMedSolved}/{labMedTotal}</span>
-                <span>Hard {labHardSolved}/{labHardTotal}</span>
-              </div>
-            </div></StaggerItem>
+                  {/* 4 Lab Modules Status Strip with Green Light on Complete */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
+                    {[
+                      { num: 1, isDone: isLab1Complete, solved: m1LabSolved, total: m1LabSlugs.length || 20 },
+                      { num: 2, isDone: isLab2Complete, solved: m2LabSolved, total: m2LabSlugs.length || 20 },
+                      { num: 3, isDone: isLab3Complete, solved: m3LabSolved, total: m3LabSlugs.length || 20 },
+                      { num: 4, isDone: isLab4Complete, solved: m4LabSolved, total: m4LabSlugs.length || 20 },
+                    ].map((m) => (
+                      <span
+                        key={m.num}
+                        title={`Lab Module ${m.num}: ${m.solved}/${m.total} Solved ${m.isDone ? '(Completed)' : ''}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
+                          m.isDone
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
+                            : m.solved > 0
+                            ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-semibold'
+                            : 'text-slate-400 dark:text-slate-500 opacity-60'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            m.isDone
+                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
+                              : m.solved > 0
+                              ? 'bg-cyan-500'
+                              : 'bg-slate-300 dark:bg-slate-600'
+                          }`}
+                        />
+                        <span>M{m.num}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-cyan-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(labTotalSolved > 0 ? 4 : 0, (labTotalSolved / labTotal) * 100)}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span>Easy {labEasySolved}/{labEasyTotal}</span>
+                  <span>Med {labMedSolved}/{labMedTotal}</span>
+                  <span>Hard {labHardSolved}/{labHardTotal}</span>
+                </div>
+              </SpotlightCard>
+            </StaggerItem>
 
             {/* Stat 3: Submissions & Accuracy */}
-            <StaggerItem><div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-                    <Trophy className="w-4 h-4" />
+            <StaggerItem>
+              <SpotlightCard
+                spotlightColor="rgba(99, 102, 241, 0.12)"
+                borderColor="rgba(129, 140, 248, 0.45)"
+                className="p-5 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Submissions</span>
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Submissions</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                  {stats?.accuracy ? `${stats.accuracy}% Acc` : '100% Acc'}
-                </span>
-              </div>
-
-              <div className="my-3 flex items-center justify-between gap-1.5">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {studentTotalSubmissions}
+                  <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <NumberCounter value={stats?.accuracy ?? 100} suffix="% Acc" />
                   </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">Total Submissions</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold font-mono text-[10px]">
-                  Verified
-                </span>
-              </div>
 
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-indigo-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${stats?.accuracy ?? 100}%` }}
-                />
-              </div>
+                <div className="my-3 flex items-center justify-between gap-1.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                      <NumberCounter value={studentTotalSubmissions} />
+                    </span>
+                    <span className="text-xs font-mono text-slate-400 font-medium">Total Submissions</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold font-mono text-[10px]">
+                    Verified
+                  </span>
+                </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
-                <Link to="/history" className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition">Submissions →</Link>
-                <Link to="/analytics" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
-                  Analytics →
-                </Link>
-              </div>
-            </div></StaggerItem>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${stats?.accuracy ?? 100}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
+                  <Link to="/history" className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition">Submissions →</Link>
+                  <Link to="/analytics" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                    Analytics →
+                  </Link>
+                </div>
+              </SpotlightCard>
+            </StaggerItem>
           </StaggerContainer>
 
           {/* 3. APPLE SEGMENTED CONTROL & MODULES SECTION */}
@@ -1824,37 +1845,51 @@ export const DashboardPage: React.FC = () => {
             )}
 
             <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
-              <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800">
+              <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 relative select-none">
                 <button
                   type="button"
                   onClick={() => setStudentTab('practice')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`relative z-10 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-2 cursor-pointer ${
                     studentTab === 'practice'
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                      ? 'text-slate-900 dark:text-white'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
                   <Code2 className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Practice</span>
+                  {studentTab === 'practice' && (
+                    <motion.div
+                      layoutId="dashboardStudentTabPill"
+                      className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setStudentTab('lab')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`relative z-10 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-2 cursor-pointer ${
                     studentTab === 'lab'
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                      ? 'text-slate-900 dark:text-white'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
                   <BookOpen className="w-3.5 h-3.5 text-cyan-500" />
                   <span>Lab Internal</span>
+                  {studentTab === 'lab' && (
+                    <motion.div
+                      layoutId="dashboardStudentTabPill"
+                      className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setStudentTab('tests')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`relative z-10 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-2 cursor-pointer ${
                     studentTab === 'tests'
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                      ? 'text-slate-900 dark:text-white'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
@@ -1865,14 +1900,21 @@ export const DashboardPage: React.FC = () => {
                       {studentAssignedList.length}
                     </span>
                   )}
+                  {studentTab === 'tests' && (
+                    <motion.div
+                      layoutId="dashboardStudentTabPill"
+                      className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 -z-1"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
                 </button>
                 {isMiniProjectUnlocked && (
                   <button
                     type="button"
                     onClick={() => setStudentTab('project')}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                    className={`relative z-10 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-200 flex items-center gap-2 cursor-pointer ${
                       studentTab === 'project'
-                        ? 'bg-purple-600 text-white shadow-xs'
+                        ? 'text-white'
                         : 'text-purple-600 hover:bg-purple-500/10'
                     }`}
                   >
@@ -1881,6 +1923,13 @@ export const DashboardPage: React.FC = () => {
                     <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
                       Active
                     </span>
+                    {studentTab === 'project' && (
+                      <motion.div
+                        layoutId="dashboardStudentTabPill"
+                        className="absolute inset-0 bg-purple-600 rounded-xl shadow-xs -z-1"
+                        transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                      />
+                    )}
                   </button>
                 )}
               </div>

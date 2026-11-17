@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { GalaxyButton } from '../components/common/GalaxyButton.js';
+import { ProctoringRadarDot } from '../components/common/ProctoringRadarDot.js';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -2398,8 +2400,16 @@ export const PracticeWorkspacePage: React.FC = () => {
                                 : '0.01';
 
                               return (
-                                <div
+                                <motion.div
                                   key={idx}
+                                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  transition={{
+                                    delay: idx * 0.08,
+                                    type: 'spring',
+                                    stiffness: 420,
+                                    damping: 26,
+                                  }}
                                   className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
                                     isPassed
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
@@ -2422,14 +2432,24 @@ export const PracticeWorkspacePage: React.FC = () => {
                                   <span className="text-[11px] text-[var(--text-muted)]">
                                     ({runtimeSec}s)
                                   </span>
-                                </div>
+                                </motion.div>
                               );
                             })}
                           </div>
 
                           {/* Hidden Use Cases */}
                           {hiddenTotal > 0 && (
-                            <div className="space-y-2">
+                            <motion.div
+                              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{
+                                delay: sampleResults.length * 0.08,
+                                type: 'spring',
+                                stiffness: 420,
+                                damping: 26,
+                              }}
+                              className="space-y-2"
+                            >
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2491,7 +2511,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </motion.div>
                           )}
                         </div>
                       );

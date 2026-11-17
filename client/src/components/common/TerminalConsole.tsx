@@ -21,6 +21,7 @@ import {
   analyzeOutputMismatch,
   OutputMismatchAnalysis,
 } from '../../utils/gccErrorTranslator.js';
+import { TerminalLaserScan } from './TerminalLaserScan.js';
 
 export interface TestCaseResult {
   passed?: boolean;
@@ -281,6 +282,9 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Laser Scan Compilation Pulse */}
+      <TerminalLaserScan active={isLoading} />
 
       {/* 2. Interactive Terminal Sub-Header Tabs */}
       <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#0a101f] border-b border-slate-800/70 text-[11px]">
