@@ -643,32 +643,16 @@ export const AdminStudentsTab: React.FC = () => {
     }
 
     try {
-      const studentRows = filteredStudents.map((s, idx) => {
-        if (activeFilter === 'INACTIVE') {
-          return {
-            'Sr. No': idx + 1,
-            'PRN': s.prn || '—',
-            'Student Name': s.name || '—',
-            'Email Address': s.email || '—',
-            'Section': s.section || 'Integrated Mtech',
-            'Email Verified': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
-            'Questions Solved': s.problemsSolved ?? 0,
-          };
-        }
-
-        return {
-          'Sr. No': idx + 1,
-          'PRN': s.prn || '—',
-          'Student Name': s.name || '—',
-          'Email Address': s.email || '—',
-          'Section': s.section || 'Integrated Mtech',
-          'Email Verified': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
-          'Questions Solved': s.problemsSolved ?? 0,
-          'Academic Score (%)': s.academicScore ?? 0,
-          'Integrity Score (%)': s.integrityScore ?? 100,
-          'Last Active Date & Time': s.lastActive || 'Recent',
-        };
-      });
+      const studentRows = filteredStudents.map((s, idx) => ({
+        'Sr. No': idx + 1,
+        'PRN': s.prn || '—',
+        'Student Name': s.name || '—',
+        'Email Address': s.email || '—',
+        'Section': s.section || 'Integrated Mtech',
+        'Email Verified': s.identityStatus === 'BOUND' ? 'Verified' : 'Pending',
+        'Questions Solved': s.problemsSolved ?? 0,
+        'Last Active Date & Time': s.lastActive || 'Recent',
+      }));
 
       const worksheet = XLSX.utils.json_to_sheet(studentRows);
 
@@ -681,8 +665,6 @@ export const AdminStudentsTab: React.FC = () => {
         'Section': 24,
         'Email Verified': 18,
         'Questions Solved': 20,
-        'Academic Score (%)': 22,
-        'Integrity Score (%)': 22,
         'Last Active Date & Time': 28,
       };
 
