@@ -1,18 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.js';
 import { GalaxyButton } from '../components/common/GalaxyButton.js';
 import {
-  Play,
+  BookOpen,
   ArrowRight,
   Sparkles,
-  Terminal,
-  Cpu,
   HelpCircle,
   CheckCircle2,
-  Code2,
-  Zap,
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -109,39 +104,24 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Floating Left Mini-Toolbar */}
+            {/* Floating "Socratic AI Mentor" Badge (Top-Right) */}
             <motion.div
-              animate={floatingAnimation(0.2)}
-              className="absolute -left-3 sm:-left-5 top-1/4 bg-[var(--bg-panel)]/90 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-[var(--border-line)] flex flex-col gap-2.5 z-20"
+              animate={floatingAnimation(0.6)}
+              className="absolute -right-2 sm:-right-5 top-6 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-xl border border-[var(--border-line)] flex items-center gap-2.5 z-20"
             >
-              {[Code2, Terminal, Cpu, Zap].map((Icon, idx) => (
-                <div
-                  key={idx}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--text-muted)] hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors"
-                >
-                  <Icon className="w-4 h-4" />
-                </div>
-              ))}
-            </motion.div>
-
-            {/* Floating "Question? Socratic AI" Badge (Top-Right) */}
-            <motion.div
-              animate={floatingAnimation(0.9)}
-              className="absolute -right-2 sm:-right-5 top-8 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-xl border border-[var(--border-line)] flex items-center gap-2.5 z-20"
-            >
-              <div className="w-8 h-8 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-500 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
                 <HelpCircle className="w-4 h-4" />
               </div>
               <div className="text-left">
                 <div className="text-xs font-bold text-[var(--text-main)]">Socratic AI Mentor</div>
-                <div className="text-[10px] text-[var(--text-muted)]">C11 Memory Guidance</div>
+                <div className="text-[10px] text-[var(--text-muted)]">C11 Guidance</div>
               </div>
             </motion.div>
 
-            {/* Floating "Result: 100% Passed" Badge (Middle-Right) */}
+            {/* Floating "Test Suite Passed" Badge (Bottom-Right) */}
             <motion.div
               animate={floatingAnimation(1.4)}
-              className="absolute -right-3 sm:-right-6 bottom-16 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-xl border border-[var(--border-line)] flex items-center gap-2.5 z-20"
+              className="absolute -right-3 sm:-right-6 bottom-8 bg-[var(--bg-panel)]/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-xl border border-[var(--border-line)] flex items-center gap-2.5 z-20"
             >
               <div className="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
                 <CheckCircle2 className="w-4 h-4" />
@@ -149,35 +129,6 @@ export const LandingPage: React.FC = () => {
               <div className="text-left">
                 <div className="text-xs font-bold text-[var(--text-main)]">Test Suite Passed</div>
                 <div className="text-[10px] text-emerald-500 font-semibold">100% Accuracy Score</div>
-              </div>
-            </motion.div>
-
-            {/* Floating Execution Equalizer Bars (Bottom-Left) */}
-            <motion.div
-              animate={floatingAnimation(1.8)}
-              className="absolute -left-2 sm:-left-4 -bottom-4 bg-[var(--bg-panel)]/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-[var(--border-line)] flex items-center gap-3 w-48 z-20"
-            >
-              <div className="w-8 h-8 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shrink-0 font-bold">
-                <Cpu className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1">Execution Pulse</div>
-                <div className="flex items-center gap-1 h-3.5 overflow-hidden">
-                  {[40, 70, 95, 60, 100, 45, 80, 50, 90, 65, 85, 30].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      animate={{ height: [`${h * 0.3}%`, `${h}%`, `${h * 0.3}%`] }}
-                      transition={{
-                        duration: 1.3,
-                        repeat: Infinity,
-                        delay: i * 0.08,
-                        ease: 'easeInOut',
-                      }}
-                      className="w-1 bg-cyan-500 rounded-full"
-                      style={{ height: `${h}%` }}
-                    />
-                  ))}
-                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -242,7 +193,7 @@ export const LandingPage: React.FC = () => {
                 className="px-6 py-3.5 rounded-full border border-[var(--border-line)] hover:bg-[var(--bg-surface)] text-[var(--text-main)] font-semibold text-sm transition-all flex items-center gap-2.5 cursor-pointer bg-[var(--bg-panel)] active:scale-95"
               >
                 <div className="w-6 h-6 rounded-full bg-cyan-500/15 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
-                  <Play className="w-3 h-3 fill-current ml-0.5" />
+                  <BookOpen className="w-3.5 h-3.5" />
                 </div>
                 <span>Student Manual</span>
               </a>

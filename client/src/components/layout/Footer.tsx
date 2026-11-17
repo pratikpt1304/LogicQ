@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Col 1: Platform Branding */}
           <div className="space-y-3">
-            <Logo size="sm" showTagline={true} />
+            <Logo size="sm" showTagline={false} />
             <p className="text-[var(--text-muted)] text-xs leading-relaxed font-sans mt-2">
               Official continuous evaluation and low-level systems programming arena.
             </p>
@@ -28,22 +28,22 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-[var(--text-muted)]">
               <li>
                 <Link to="/practice" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Practice Modules
+                  Practice Modules
                 </Link>
               </li>
               <li>
                 <Link to="/compiler" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • GCC C11 Sandbox
+                  GCC C11 Sandbox
                 </Link>
               </li>
               <li>
                 <Link to="/instant-join" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Instant Test Join
+                  Instant Test Join
                 </Link>
               </li>
               <li>
                 <Link to="/verify-report" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Verify Student Report
+                  Verify Student Report
                 </Link>
               </li>
             </ul>
@@ -58,17 +58,17 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-[var(--text-muted)]">
               <li>
                 <Link to="/privacy" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Privacy &amp; DPDP Policy
+                  Privacy &amp; DPDP Policy
                 </Link>
               </li>
               <li>
                 <Link to="/terms" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Terms of Service &amp; Honor Code
+                  Terms of Service &amp; Honor Code
                 </Link>
               </li>
               <li>
                 <Link to="/how-to-install" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Install Desktop / Mobile PWA
+                  Install Desktop / Mobile PWA
                 </Link>
               </li>
               <li>
@@ -79,7 +79,7 @@ export const Footer: React.FC = () => {
                   className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors inline-flex items-center gap-1"
                 >
                   <BookOpen className="w-3 h-3 text-cyan-400" />
-                  <span>• C11 Reference</span>
+                  <span>C11 Reference</span>
                 </a>
               </li>
             </ul>
