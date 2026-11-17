@@ -82,11 +82,11 @@ export const LandingPage: React.FC = () => {
               {/* Code Snippet in Terminal */}
               <div className="p-4 sm:p-5 font-mono text-xs leading-relaxed text-[var(--text-muted)] bg-[var(--bg-surface)] select-none">
                 <div className="text-slate-400 dark:text-slate-500">// O(1) in-place transpose</div>
-                <div><span className="text-cyan-500">#include</span> &lt;stdio.h&gt;</div>
-                <div className="pt-1.5"><span className="text-purple-500">void</span> <span className="text-[var(--text-main)] font-semibold">transpose</span>(<span className="text-purple-500">int</span> n, <span className="text-purple-500">int</span> m[n][n]) &#123;</div>
-                <div className="pl-4"><span className="text-purple-500">for</span> (<span className="text-purple-500">int</span> i = <span className="text-amber-500">0</span>; i &lt; n; i++) &#123;</div>
-                <div className="pl-8"><span className="text-purple-500">for</span> (<span className="text-purple-500">int</span> j = i + <span className="text-amber-500">1</span>; j &lt; n; j++) &#123;</div>
-                <div className="pl-12"><span className="text-purple-500">int</span> tmp = m[i][j];</div>
+                <div><span className="text-cyan-700 dark:text-cyan-400 font-semibold">#include</span> &lt;stdio.h&gt;</div>
+                <div className="pt-1.5"><span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">void</span> <span className="text-[var(--text-main)] font-semibold">transpose</span>(<span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">int</span> n, <span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">int</span> m[n][n]) &#123;</div>
+                <div className="pl-4"><span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">for</span> (<span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">int</span> i = <span className="text-amber-600 dark:text-amber-400 font-semibold">0</span>; i &lt; n; i++) &#123;</div>
+                <div className="pl-8"><span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">for</span> (<span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">int</span> j = i + <span className="text-amber-600 dark:text-amber-400 font-semibold">1</span>; j &lt; n; j++) &#123;</div>
+                <div className="pl-12"><span className="text-[#5A54D6] dark:text-[#a5b4fc] font-semibold">int</span> tmp = m[i][j];</div>
                 <div className="pl-12">m[i][j] = m[j][i];</div>
                 <div className="pl-12">m[j][i] = tmp;</div>
                 <div className="pl-8">&#125;</div>
@@ -161,7 +161,7 @@ export const LandingPage: React.FC = () => {
               variants={itemVariants}
               className="text-base sm:text-lg text-[var(--text-muted)] max-w-xl leading-relaxed"
             >
-              The premier engineering platform for low-level systems programming, algorithmic rigor, automated GCC 14 compiler sandboxing, and proctored CIE evaluation.
+              The premier platform for low-level programming. Master C with automated compiler feedback, algorithmic challenges, and secure proctored evaluations.
             </motion.p>
 
             {/* Action Buttons */}

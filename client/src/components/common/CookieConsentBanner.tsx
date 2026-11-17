@@ -46,7 +46,7 @@ export const CookieConsentBanner: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>Essential Academic Storage</span>
+                <span>Privacy &amp; Data Storage</span>
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   DPDP Act Compliant
                 </span>

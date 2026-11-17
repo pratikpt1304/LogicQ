@@ -68,7 +68,7 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link to="/how-to-install" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  Install Desktop / Mobile PWA
+                  Install as Desktop / Mobile App
                 </Link>
               </li>
               <li>
