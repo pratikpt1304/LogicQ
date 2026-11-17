@@ -742,7 +742,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
             </span>
             <div>
               <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">
-                In Progress (Claimed)
+                Claimed Issues
               </span>
               <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-base">
                 {inProgressCount} Active
@@ -802,7 +802,7 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                   : 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/10'
               }`}
             >
-              In Progress ({inProgressCount})
+              Claimed ({inProgressCount})
             </button>
             <button
               type="button"
@@ -921,36 +921,14 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                           <span>✓ RESOLVED</span>
                         </span>
                       ) : isInProgress ? (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
-                          <span>🟡 IN PROGRESS</span>
+                        <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 animate-pulse" />
+                          <span>🟡 CLAIMED ({issue.assignedTo || 'In Progress'})</span>
                         </span>
                       ) : (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          <span>● OPEN (Unassigned)</span>
-                        </span>
-                      )}
-
-                      {/* Solver Sub-Badge */}
-                      {isInProgress && (
-                        isMine ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
-                            <UserCheck className="w-3 h-3 text-emerald-600" />
-                            <span>Claimed by You ({issue.assignedTo})</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100/70 text-amber-900 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
-                            <ShieldAlert className="w-3 h-3 text-amber-600" />
-                            <span>Handled by: {issue.assignedTo || 'Teammate'}</span>
-                          </span>
-                        )
-                      )}
-
-                      {isResolved && issue.resolvedBy && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
-                          <UserCheck className="w-3 h-3 text-emerald-500" />
-                          <span>By: {issue.resolvedBy}</span>
+                          <span>● OPEN</span>
                         </span>
                       )}
                     </div>
@@ -1178,40 +1156,35 @@ export const AdminRaisedIssuesTab: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 flex-wrap">
-                    <div className="flex items-center gap-1" title="Reported at">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>
-                        {new Date(issue.createdAt).toLocaleString([], {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-
-                    {issue.assignedAt && (
-                      <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold" title="Claimed at">
-                        <Sparkles className="w-3 h-3" />
-                        <span>
-                          Claimed:{' '}
-                          {new Date(issue.assignedAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Corner Status & Solver Information */}
+                    {isResolved ? (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Issue Solved by <strong className="font-bold text-emerald-900 dark:text-emerald-100 underline decoration-emerald-500/40">{issue.resolvedBy || issue.assignedTo || activeSolver}</strong></span>
+                        <span className="text-[11px] font-mono text-emerald-600/80 dark:text-emerald-400/80">
+                          ({new Date(issue.resolvedAt || issue.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })})
                         </span>
                       </div>
-                    )}
-
-                    {issue.resolvedAt && (
-                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title="Resolved at">
-                        <CheckCircle2 className="w-3 h-3" />
+                    ) : isInProgress ? (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-semibold">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>Claimed by <strong className="font-bold text-amber-900 dark:text-amber-100">{issue.assignedTo || activeSolver}</strong></span>
+                        <span className="text-[11px] font-mono text-amber-700/80 dark:text-amber-400/80">
+                          ({new Date(issue.assignedAt || issue.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })})
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400" title="Reported at">
+                        <Clock className="w-3.5 h-3.5" />
                         <span>
-                          Resolved:{' '}
-                          {new Date(issue.resolvedAt).toLocaleTimeString([], {
+                          Reported:{' '}
+                          {new Date(issue.createdAt).toLocaleString([], {
+                            month: 'short',
+                            day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
+                            hour12: true,
                           })}
                         </span>
                       </div>
