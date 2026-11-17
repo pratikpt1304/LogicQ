@@ -357,7 +357,82 @@ export const PrivacyPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. APPLE ACTION CARD (MANAGE PROFILE & PRIVACY) */}
+      {/* 4. DPDP ACT 2023 (INDIA) COMPLIANCE FRAMEWORK */}
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/70 via-white/80 to-purple-50/70 dark:from-[#131728] dark:via-[#101424] dark:to-[#1a1532] backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 dark:border-white/5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-500/20">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                  Digital Personal Data Protection Act (DPDP Act, 2023) Compliance
+                </h2>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Verified
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Statutory framework safeguarding student data principals across Indian higher education institutions.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/terms"
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>Read Terms of Service</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+              <ShieldCheck className="w-4 h-4 text-indigo-500" />
+              <span>Data Fiduciary &amp; Purpose Limitation</span>
+            </span>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+              <strong>Data Fiduciary:</strong> Sanjivani University, Department of Computer Engineering / LogicQ. Personal data (PRN, Name, Institutional Email, Section) is collected strictly on lawful educational grounds for academic performance evaluation, anti-cheat audit certification, and CIE internal marks compilation under university curriculum guidelines.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+              <UserCheck className="w-4 h-4 text-emerald-500" />
+              <span>Your Statutory Rights as Data Principal</span>
+            </span>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+              Under Chapter III of the DPDP Act, 2023, you hold the <strong>Right to Access</strong> summary records of your processed data, <strong>Right to Correction</strong> of inaccurate identity fields, and <strong>Right to Erasure</strong> upon academic degree completion. You can exercise these 24/7 via Profile Settings or through our Grievance Redressal cell.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+              <Ban className="w-4 h-4 text-rose-500" />
+              <span>Zero Cross-Site Tracking &amp; Advertising</span>
+            </span>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+              LogicQ employs zero third-party advertising cookies, cross-site telemetry pixels, or commercial data brokers. Storage is strictly limited to essential operational state (client-side C editor drafts in IndexedDB and secure Firebase Auth session tokens).
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+            <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+              <Lock className="w-4 h-4 text-purple-500" />
+              <span>Institutional Grievance Redressal</span>
+            </span>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+              Students have the right to register concerns or request privacy audits. Written requests are resolved within 72 hours by the Academic Data Protection Coordinator at <strong className="text-indigo-600 dark:text-indigo-400">support.logicq@sanjivani.edu.in</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. APPLE ACTION CARD (MANAGE PROFILE & PRIVACY) */}
       <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="space-y-1 text-center sm:text-left">
           <h3 className="font-bold text-sm text-slate-900 dark:text-white">

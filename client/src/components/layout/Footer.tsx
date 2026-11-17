@@ -58,7 +58,12 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-[var(--text-muted)]">
               <li>
                 <Link to="/privacy" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
-                  • Privacy &amp; Security Policy
+                  • Privacy &amp; DPDP Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">
+                  • Terms of Service &amp; Honor Code
                 </Link>
               </li>
               <li>

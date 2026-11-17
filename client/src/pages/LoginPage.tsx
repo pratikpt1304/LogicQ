@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/common/Logo.js';
 import { StickmanLoginButton } from '../components/common/StickmanLoginButton.js';
@@ -642,6 +642,18 @@ export const LoginPage: React.FC = () => {
 
             </>
           )}
+        </div>
+
+        {/* Legal & DPDP Compliance Footnote */}
+        <div className="mt-5 text-center text-[11px] text-[var(--text-muted)] space-x-1.5 font-sans">
+          <span>By signing in, you agree to LogicQ</span>
+          <Link to="/terms" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+            Terms of Service
+          </Link>
+          <span>&amp;</span>
+          <Link to="/privacy" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+            Privacy &amp; DPDP Policy
+          </Link>
         </div>
       </div>
     </div>

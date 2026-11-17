@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage.js';
 import { RegisterPage } from './pages/RegisterPage.js';
 import { CompleteProfilePage } from './pages/CompleteProfilePage.js';
 import { PrivacyPage } from './pages/PrivacyPage.js';
+import { TermsPage } from './pages/TermsPage.js';
 import { HowToInstallPage } from './pages/HowToInstallPage.js';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/ForgotPasswordPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
@@ -43,6 +44,7 @@ import { BindEmailModal } from './components/common/BindEmailModal.js';
 import { ChangePasswordModal } from './components/common/ChangePasswordModal.js';
 import { StudentLiveAlertListener } from './components/common/StudentLiveAlertListener.js';
 import { RadialActionMenu } from './components/common/RadialActionMenu.js';
+import { CookieConsentBanner } from './components/common/CookieConsentBanner.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -316,6 +318,7 @@ export const App: React.FC = () => {
           />
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/how-to-install" element={<HowToInstallPage />} />
           <Route path="/verify" element={<StudentVerificationPage />} />
           <Route path="/verify/:identifier" element={<StudentVerificationPage />} />
@@ -593,6 +596,9 @@ export const App: React.FC = () => {
 
       {/* 360 Radial Neumorphic Bubble Quick Action Menu */}
       <RadialActionMenu />
+
+      {/* Global DPDP & Essential Storage Consent Notice */}
+      <CookieConsentBanner />
     </div>
   );
 };
