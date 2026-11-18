@@ -707,6 +707,66 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     }
 
     // Demo student synthetic login
+    if (!user && (cleanId.toUpperCase() === '2026BCSE101' || cleanId.toLowerCase() === 'rahul.sharma@sanjivani.edu.in')) {
+      user = {
+        id: 'X7ctr3CrQlPdu15VvjLcb1hYjFq1',
+        username: '2026bcse101',
+        email: 'rahul.sharma@sanjivani.edu.in',
+        prn: '2026BCSE101',
+        role: 'STUDENT',
+        fullName: 'Rahul Sharma',
+        displayName: 'Rahul Sharma',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        sectionId: 'sec-demo-section',
+        sectionName: 'Demo Section',
+        joinCode: 'LQ-DEMO',
+        profileComplete: true,
+        totalPoints: 100,
+        totalSolved: 2,
+        currentStreak: 1,
+        longestStreak: 1,
+        password: '123456',
+        isBanned: false,
+        shortId: 'E101',
+        createdAt: new Date().toISOString(),
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
+    if (!user && (cleanId.toUpperCase() === '2026BCSE102' || cleanId.toLowerCase() === 'sakshi.sonawane@sanjivani.edu.in')) {
+      user = {
+        id: 'VikpJkKDOUMbLv7kPgroqk8B2ep1',
+        username: '2026bcse102',
+        email: 'sakshi.sonawane@sanjivani.edu.in',
+        prn: '2026BCSE102',
+        role: 'STUDENT',
+        fullName: 'Sakshi Sonawane',
+        displayName: 'Sakshi Sonawane',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        sectionId: 'sec-demo-section',
+        sectionName: 'Demo Section',
+        joinCode: 'LQ-DEMO',
+        profileComplete: true,
+        totalPoints: 150,
+        totalSolved: 3,
+        currentStreak: 2,
+        longestStreak: 2,
+        password: '123456',
+        isBanned: false,
+        shortId: 'E102',
+        createdAt: new Date().toISOString(),
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
     if (!user && (cleanId.toUpperCase() === '2126PMIB1001' || cleanId.toLowerCase() === 'demo1.cs@sanjivani.edu.in')) {
       user = {
         id: 'cohort-2126pmib1001',
@@ -902,6 +962,66 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     }
 
     // Demo student synthetic login
+    if (!user && (cleanId.toUpperCase() === '2026BCSE101' || cleanId.toLowerCase() === 'rahul.sharma@sanjivani.edu.in')) {
+      user = {
+        id: 'X7ctr3CrQlPdu15VvjLcb1hYjFq1',
+        username: '2026bcse101',
+        email: 'rahul.sharma@sanjivani.edu.in',
+        prn: '2026BCSE101',
+        role: 'STUDENT',
+        fullName: 'Rahul Sharma',
+        displayName: 'Rahul Sharma',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        sectionId: 'sec-demo-section',
+        sectionName: 'Demo Section',
+        joinCode: 'LQ-DEMO',
+        profileComplete: true,
+        totalPoints: 100,
+        totalSolved: 2,
+        currentStreak: 1,
+        longestStreak: 1,
+        password: '123456',
+        isBanned: false,
+        shortId: 'E101',
+        createdAt: new Date().toISOString(),
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
+    if (!user && (cleanId.toUpperCase() === '2026BCSE102' || cleanId.toLowerCase() === 'sakshi.sonawane@sanjivani.edu.in')) {
+      user = {
+        id: 'VikpJkKDOUMbLv7kPgroqk8B2ep1',
+        username: '2026bcse102',
+        email: 'sakshi.sonawane@sanjivani.edu.in',
+        prn: '2026BCSE102',
+        role: 'STUDENT',
+        fullName: 'Sakshi Sonawane',
+        displayName: 'Sakshi Sonawane',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        sectionId: 'sec-demo-section',
+        sectionName: 'Demo Section',
+        joinCode: 'LQ-DEMO',
+        profileComplete: true,
+        totalPoints: 150,
+        totalSolved: 3,
+        currentStreak: 2,
+        longestStreak: 2,
+        password: '123456',
+        isBanned: false,
+        shortId: 'E102',
+        createdAt: new Date().toISOString(),
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
     if (!user && (cleanId.toUpperCase() === '2126PMIB1001' || cleanId.toLowerCase() === 'demo1.cs@sanjivani.edu.in')) {
       user = {
         id: 'cohort-2126pmib1001',
