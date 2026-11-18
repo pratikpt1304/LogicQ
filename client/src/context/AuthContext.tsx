@@ -1333,15 +1333,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!validFacultyPwd) {
             throw new Error('Invalid credentials. Please enter your correct faculty password.');
           }
+          const isDemoStaff = cleanId.toLowerCase() === 'demostaff@gmail.com';
           authUser = {
-            id: `faculty-${cleanId.split('@')[0]}`,
+            id: isDemoStaff ? 'YC3vYkbbjkc4UpCED1SLHyZmB5o2' : `faculty-${cleanId.split('@')[0]}`,
             username: cleanId.split('@')[0],
             email: cleanId.toLowerCase(),
             role: 'FACULTY',
-            fullName: 'Faculty Instructor',
-            displayName: 'Faculty Instructor',
-            college: 'LogicQ',
-            department: 'Integrated M.Tech',
+            fullName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+            displayName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+            college: 'Sanjivani University',
+            department: isDemoStaff ? 'Computer Science' : 'Integrated M.Tech',
+            sectionName: isDemoStaff ? 'Demo Section' : undefined,
+            sectionId: isDemoStaff ? 'sec-demo-section' : undefined,
             profileComplete: true,
             totalPoints: 0,
             currentStreak: 0,
@@ -1844,7 +1847,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
     }
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com' || cleanLower === 'demostaff@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if (isSectionFaculty || isDemoStudent) {
@@ -1896,7 +1899,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com' || cleanLower === 'demostaff@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if ((isSectionFaculty || isDemoStudent) && (cleanCode === '123456' || cleanCode.length === 6)) {

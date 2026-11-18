@@ -300,6 +300,7 @@ export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 export const FACULTY_EMAILS = [
   'hariprasad.logicq@gmail.com',
   'faculty2.logicq@gmail.com',
+  'demostaff@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
@@ -451,7 +452,28 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hariAdmin, faculty2, facultyDemo2];
+  const facultyDemoStaff: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'YC3vYkbbjkc4UpCED1SLHyZmB5o2',
+    username: 'demostaff',
+    email: 'demostaff@gmail.com',
+    fullName: 'Demo Faculty',
+    displayName: 'Demo Faculty',
+    role: 'FACULTY',
+    college: 'Sanjivani University',
+    department: 'Computer Science',
+    sectionName: 'Demo Section',
+    sectionId: 'sec-demo-section',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: '123456',
+    isBanned: false,
+    shortId: 'DEMOSTAFF',
+    createdAt: new Date().toISOString(),
+  };
+
+  const allStaff = [arenaAdmin, hariAdmin, faculty2, facultyDemo2, facultyDemoStaff];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));
@@ -659,22 +681,25 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
 
     // Demo faculty synthetic login
     if (!user && isFacultyEmail(cleanId)) {
+      const isDemoStaff = cleanId.toLowerCase() === 'demostaff@gmail.com';
       user = {
-        id: `faculty-${cleanId.split('@')[0]}`,
+        id: isDemoStaff ? 'YC3vYkbbjkc4UpCED1SLHyZmB5o2' : `faculty-${cleanId.split('@')[0]}`,
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'FACULTY',
-        fullName: 'Faculty Instructor',
-        displayName: 'Faculty Instructor',
-        college: 'LogicQ',
-        department: 'Integrated M.Tech',
+        fullName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+        displayName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+        college: 'Sanjivani University',
+        department: isDemoStaff ? 'Computer Science' : 'Integrated M.Tech',
+        sectionName: isDemoStaff ? 'Demo Section' : undefined,
+        sectionId: isDemoStaff ? 'sec-demo-section' : undefined,
         profileComplete: true,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
-        password: 'LogicQ@Faculty2026',
+        password: isDemoStaff ? '123456' : 'LogicQ@Faculty2026',
         isBanned: false,
-        shortId: 'FAC',
+        shortId: isDemoStaff ? 'DEMOSTAFF' : 'FAC',
         createdAt: new Date().toISOString(),
       } as any;
       if (user) users.push(user as any);
@@ -851,22 +876,25 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
 
     // Demo faculty synthetic login
     if (!user && isFacultyEmail(cleanId)) {
+      const isDemoStaff = cleanId.toLowerCase() === 'demostaff@gmail.com';
       user = {
-        id: `faculty-${cleanId.split('@')[0]}`,
+        id: isDemoStaff ? 'YC3vYkbbjkc4UpCED1SLHyZmB5o2' : `faculty-${cleanId.split('@')[0]}`,
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'FACULTY',
-        fullName: 'Faculty Instructor',
-        displayName: 'Faculty Instructor',
-        college: 'LogicQ',
-        department: 'Integrated M.Tech',
+        fullName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+        displayName: isDemoStaff ? 'Demo Faculty' : 'Faculty Instructor',
+        college: 'Sanjivani University',
+        department: isDemoStaff ? 'Computer Science' : 'Integrated M.Tech',
+        sectionName: isDemoStaff ? 'Demo Section' : undefined,
+        sectionId: isDemoStaff ? 'sec-demo-section' : undefined,
         profileComplete: true,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
-        password: 'LogicQ@Faculty2026',
+        password: isDemoStaff ? '123456' : 'LogicQ@Faculty2026',
         isBanned: false,
-        shortId: 'FAC',
+        shortId: isDemoStaff ? 'DEMOSTAFF' : 'FAC',
         createdAt: new Date().toISOString(),
       } as any;
       if (user) users.push(user as any);
