@@ -247,9 +247,10 @@ export const PracticeWorkspacePage: React.FC = () => {
   const inactivityPromptTimeoutRef = useRef<any>(null);
 
   // Anti-Screenshot & Screen Capture Shield (Practice Proctoring Layer)
+  const isMobileScreen = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
   const { isBlurred, setIsBlurred } = useAntiScreenshot({
     enabled: true,
-    blackoutOnBlur: true,
+    blackoutOnBlur: !isMobileScreen,
     wipeClipboard: true,
     blockPrint: true,
   });
@@ -539,10 +540,26 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
 
     const handleWindowBlur = () => {
+      // Ignore blur if student is typing in code editor, input, or on mobile with document still visible
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const isInputActive = Boolean(
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.classList?.contains('inputarea') ||
+          activeEl.closest?.('.monaco-editor') ||
+          activeEl.closest?.('.monaco-mouse-cursor-text')
+        )
+      );
+      if (isInputActive) return;
+
+      const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
+      if (isMobile && typeof document !== 'undefined' && !document.hidden) return;
+
       blurStartTimeRef.current = Date.now();
       setTimeout(() => {
         // If window still blurred or document hidden after 1.5s, log violation
-        if (document.hidden || !document.hasFocus()) {
+        if (document.hidden) {
           recordTabViolation(true);
         }
       }, 1600);
@@ -1966,7 +1983,10 @@ export const PracticeWorkspacePage: React.FC = () => {
         </button>
         <button
           type="button"
-          onClick={() => setActiveMobileTab('editor')}
+          onClick={() => {
+            setActiveMobileTab('editor');
+            setIsDrawerOpen(false);
+          }}
           className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
             activeMobileTab === 'editor'
               ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'

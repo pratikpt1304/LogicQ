@@ -37,6 +37,12 @@ export const ScreenSecurityShield: React.FC<ScreenSecurityShieldProps> = ({
 
   if (!isVisible || isAdmin || isPathAdmin) return null;
 
+  // On mobile devices, virtual keyboard or IME causes window focus changes; never block visible workspace on mobile
+  const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
+  if (isMobile && typeof document !== 'undefined' && !document.hidden) {
+    return null;
+  }
+
   return (
     <div
       onClick={onRestore}

@@ -108,9 +108,10 @@ export const ExamWorkspacePage: React.FC = () => {
   const [currentExamAttempt, setCurrentExamAttempt] = useState<number>(1);
 
   // Anti-Screenshot & Screen Capture Shield (Exam Proctoring Layer — disabled for staff)
+  const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
   const { isBlurred, setIsBlurred } = useAntiScreenshot({
     enabled: !isLocked && !isStaffUser,
-    blackoutOnBlur: !isStaffUser,
+    blackoutOnBlur: !isStaffUser && !isMobileDevice,
     wipeClipboard: !isStaffUser,
     blockPrint: !isStaffUser,
     onScreenshotAttempt: (reason) => {
@@ -634,6 +635,21 @@ export const ExamWorkspacePage: React.FC = () => {
     };
 
     const handleWindowBlur = () => {
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const isInputActive = Boolean(
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.classList?.contains('inputarea') ||
+          activeEl.closest?.('.monaco-editor') ||
+          activeEl.closest?.('.monaco-mouse-cursor-text')
+        )
+      );
+      if (isInputActive) return;
+
+      const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
+      if (isMobile && typeof document !== 'undefined' && !document.hidden) return;
+
       if (!isLocked) {
         setFocusLossCount((c) => {
           const next = c + 1;

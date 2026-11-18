@@ -169,6 +169,32 @@ export function useAntiScreenshot(options: AntiScreenshotOptions = {}) {
 
     // Window focus loss / blur detection: Snipping Tool steals focus
     const handleWindowBlur = () => {
+      // 1. Mobile & Touch Screen Protection: Virtual keyboard (Gboard, SwiftKey, IME) opens in a separate OS window
+      // which causes window.blur on Android/iOS. Never blackout on mobile devices when student is typing!
+      const isMobileDevice = typeof window !== 'undefined' && (
+        window.innerWidth < 1024 ||
+        'ontouchstart' in window ||
+        (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
+      );
+
+      // 2. Editor Input Protection: If student tapped into Monaco editor, a textarea, or input field,
+      // this is active code editing, NOT a desktop snipping tool stealing window focus.
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const isInputActive = Boolean(
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.classList?.contains('inputarea') ||
+          activeEl.closest?.('.monaco-editor') ||
+          activeEl.closest?.('.monaco-mouse-cursor-text') ||
+          activeEl.getAttribute?.('contenteditable') === 'true'
+        )
+      );
+
+      if (isMobileDevice || isInputActive) {
+        return;
+      }
+
       if (blackoutOnBlur) {
         setIsBlurred(true);
       }
