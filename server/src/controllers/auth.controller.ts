@@ -203,18 +203,17 @@ export const ADMIN_EMAILS = [
 ];
 
 // Institutional Admin (Dean / HOD / VC level - read-only governance)
-export const INSTITUTIONAL_ADMIN_EMAILS = [
-  'hod.sanjivani@gmail.com',
-];
+export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 
 // Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
   'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
-  'sectionadmin@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
+  'sectionadmin@gmail.com',
+  'hod.sanjivani@gmail.com',
   'admin@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
@@ -959,16 +958,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    if (!isPasswordValid && user.email?.toLowerCase() === 'sectionadmin@gmail.com' && (password === '123456' || password === 'password123' || password === 'LogicQ@Faculty2026')) {
-      isPasswordValid = true;
-      try {
-        const newHash = await bcrypt.hash('123456', 10);
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { passwordHash: newHash },
-        });
-      } catch {}
-    }
+
 
     // Cohort student self-healing password synchronization:
     // If user is an enrolled institutional student, allow their PRN or updated password and auto-sync hash
@@ -1473,9 +1463,9 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
       },
     });
   }
-  // Institutional Admin (HOD / Dean / VC)
+  // Institutional Admin (Dean / VC level)
   if (isInstitutionalAdminEmail(lower)) {
-    const passwordHash = await bcrypt.hash('LogicQ@HOD2026', 10);
+    const passwordHash = await bcrypt.hash('LogicQ@Admin2026', 10);
     return await prisma.user.upsert({
       where: { email: lower },
       update: { role: 'INSTITUTIONAL_ADMIN', profileComplete: true },
@@ -1483,8 +1473,8 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         username: lower.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_'),
         email: lower,
         role: 'INSTITUTIONAL_ADMIN',
-        fullName: 'HOD / Dean',
-        displayName: 'HOD (Institutional Admin)',
+        fullName: 'Institutional Admin',
+        displayName: 'Institutional Governance',
         passwordHash,
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -1494,22 +1484,21 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
   }
   // Faculty staff accounts
   if (isFacultyEmail(lower)) {
-    const isSectionAdmin = lower === 'sectionadmin@gmail.com';
     const isHariprasad = lower.includes('hariprasad');
-    const defaultPassword = isSectionAdmin ? '123456' : (isHariprasad ? 'LogicQ@Hariprasad2026' : 'LogicQ@Faculty2026');
+    const defaultPassword = isHariprasad ? 'LogicQ@Hariprasad2026' : 'LogicQ@Faculty2026';
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
     return await prisma.user.upsert({
       where: { email: lower },
-      update: { role: 'FACULTY', profileComplete: true, ...(isSectionAdmin ? { passwordHash } : {}) },
+      update: { role: 'FACULTY', profileComplete: true },
       create: {
         username: lower.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_'),
         email: lower,
         role: 'FACULTY',
-        fullName: isSectionAdmin ? 'Computer Science Faculty' : (isHariprasad ? 'Hariprasad Sir' : 'Faculty Instructor'),
-        displayName: isSectionAdmin ? 'CS Faculty (Section Admin)' : (isHariprasad ? 'Hariprasad Sir (Faculty)' : 'Faculty (M.Tech)'),
+        fullName: isHariprasad ? 'Hariprasad Sir' : 'Faculty Instructor',
+        displayName: isHariprasad ? 'Hariprasad Sir (Faculty)' : 'Faculty (M.Tech)',
         passwordHash,
         college: 'LogicQ',
-        department: isSectionAdmin ? 'Computer Science' : 'Integrated M.Tech',
+        department: 'Integrated M.Tech',
         profileComplete: true,
       },
     });
@@ -1901,7 +1890,6 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       cleanEmail === 'faculty@logicq.io' ||
       cleanEmail === 'student@logicq.io' ||
       cleanEmail === 'logicqarena@gmail.com' ||
-      cleanEmail === 'sectionadmin@gmail.com' ||
       isFacultyEmail(cleanEmail) ||
       isAnyStaffEmail(cleanEmail) ||
       isExplicitAdminEmail(cleanEmail)

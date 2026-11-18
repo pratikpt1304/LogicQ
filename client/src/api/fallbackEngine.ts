@@ -294,18 +294,17 @@ export const ADMIN_EMAILS = [
 ];
 
 // Institutional Admin (Dean / HOD / VC level - read-only governance)
-export const INSTITUTIONAL_ADMIN_EMAILS = [
-  'hod.sanjivani@gmail.com',
-];
+export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 
 // Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
   'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
-  'sectionadmin@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
+  'sectionadmin@gmail.com',
+  'hod.sanjivani@gmail.com',
   'faculty@logicq.io',
   'student@logicq.io',
   'admin@logicq.io',
@@ -394,25 +393,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const hodAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
-    id: 'admin-hod-1',
-    username: 'hod_sanjivani',
-    email: 'hod.sanjivani@gmail.com',
-    fullName: 'HOD / Dean',
-    displayName: 'HOD (Institutional Admin)',
-    role: 'INSTITUTIONAL_ADMIN' as any,
-    college: 'Sanjivani University',
-    department: 'Integrated M.Tech',
-    profileComplete: true,
-    totalPoints: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    password: 'LogicQ@HOD2026',
-    isBanned: false,
-    shortId: 'HOD01',
-    createdAt: new Date().toISOString(),
-  };
-
   const faculty1: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
     id: 'faculty-mtech-1',
     username: 'faculty_mtech',
@@ -451,27 +431,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const sectionAdminFaculty: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
-    id: 'faculty-cs-sectionadmin',
-    username: 'sectionadmin',
-    email: 'sectionadmin@gmail.com',
-    fullName: 'Computer Science Faculty',
-    displayName: 'CS Faculty (Section Admin)',
-    role: 'FACULTY',
-    college: 'LogicQ',
-    department: 'Computer Science',
-    sectionId: 'sec-compsci-demo',
-    sectionName: 'Computer Science',
-    profileComplete: true,
-    totalPoints: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    password: '123456',
-    isBanned: false,
-    shortId: 'CSADM',
-    createdAt: new Date().toISOString(),
-  };
-
   const hariAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
     id: 'admin-hariprasath-1',
     username: 'hariprasathset',
@@ -491,7 +450,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hariAdmin, hodAdmin, faculty1, faculty2, sectionAdminFaculty];
+  const allStaff = [arenaAdmin, hariAdmin, faculty1, faculty2];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));
@@ -698,26 +657,23 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     }
 
     // Demo faculty synthetic login
-    if (!user && (cleanId.toLowerCase() === 'sectionadmin@gmail.com' || isFacultyEmail(cleanId))) {
-      const isSecAdm = cleanId.toLowerCase() === 'sectionadmin@gmail.com';
+    if (!user && isFacultyEmail(cleanId)) {
       user = {
-        id: isSecAdm ? 'faculty-cs-sectionadmin' : `faculty-${cleanId.split('@')[0]}`,
+        id: `faculty-${cleanId.split('@')[0]}`,
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'FACULTY',
-        fullName: isSecAdm ? 'Computer Science Faculty' : 'Faculty Instructor',
-        displayName: isSecAdm ? 'CS Faculty (Section Admin)' : 'Faculty Instructor',
+        fullName: 'Faculty Instructor',
+        displayName: 'Faculty Instructor',
         college: 'LogicQ',
-        department: isSecAdm ? 'Computer Science' : 'Integrated M.Tech',
-        sectionId: isSecAdm ? 'sec-compsci-demo' : undefined,
-        sectionName: isSecAdm ? 'Computer Science' : undefined,
+        department: 'Integrated M.Tech',
         profileComplete: true,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
-        password: '123456',
+        password: 'LogicQ@Faculty2026',
         isBanned: false,
-        shortId: isSecAdm ? 'CSADM' : 'FAC',
+        shortId: 'FAC',
         createdAt: new Date().toISOString(),
       } as any;
       if (user) users.push(user as any);
@@ -807,7 +763,6 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const cleanLowerEmail = user.email.toLowerCase();
     const isSpecialDemoUser =
-      cleanLowerEmail === 'sectionadmin@gmail.com' ||
       cleanLowerEmail === 'logicqarena@gmail.com' ||
       cleanLowerEmail === 'hariprasathset@sanjivani.edu.in' ||
       isFacultyEmail(cleanLowerEmail) ||
@@ -894,26 +849,23 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     }
 
     // Demo faculty synthetic login
-    if (!user && (cleanId.toLowerCase() === 'sectionadmin@gmail.com' || isFacultyEmail(cleanId))) {
-      const isSecAdm = cleanId.toLowerCase() === 'sectionadmin@gmail.com';
+    if (!user && isFacultyEmail(cleanId)) {
       user = {
-        id: isSecAdm ? 'faculty-cs-sectionadmin' : `faculty-${cleanId.split('@')[0]}`,
+        id: `faculty-${cleanId.split('@')[0]}`,
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'FACULTY',
-        fullName: isSecAdm ? 'Computer Science Faculty' : 'Faculty Instructor',
-        displayName: isSecAdm ? 'CS Faculty (Section Admin)' : 'Faculty Instructor',
+        fullName: 'Faculty Instructor',
+        displayName: 'Faculty Instructor',
         college: 'LogicQ',
-        department: isSecAdm ? 'Computer Science' : 'Integrated M.Tech',
-        sectionId: isSecAdm ? 'sec-compsci-demo' : undefined,
-        sectionName: isSecAdm ? 'Computer Science' : undefined,
+        department: 'Integrated M.Tech',
         profileComplete: true,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
-        password: '123456',
+        password: 'LogicQ@Faculty2026',
         isBanned: false,
-        shortId: isSecAdm ? 'CSADM' : 'FAC',
+        shortId: 'FAC',
         createdAt: new Date().toISOString(),
       } as any;
       if (user) users.push(user as any);
@@ -1001,7 +953,6 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
     // Whitelist check: admin & faculty accounts can authenticate using OTP 123456
     const cleanUserEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
-      cleanUserEmail === 'sectionadmin@gmail.com' ||
       cleanUserEmail === 'logicqarena@gmail.com' ||
       cleanUserEmail === 'hariprasathset@sanjivani.edu.in' ||
       isFacultyEmail(cleanUserEmail) ||
@@ -1015,7 +966,7 @@ async function dispatchOtpEmail(to: string, subject: string, otp: string, contex
       user.prn === '2126PMIB1001'
     );
     let isValid = isWalkthroughOtp;
-    if (cleanCode === '123456' && (cleanUserEmail === 'sectionadmin@gmail.com' || user.role === 'FACULTY' || (user as any).password === '123456')) {
+    if (cleanCode === '123456' && (user.role === 'FACULTY' || (user as any).password === '123456')) {
       isValid = true;
     }
     try {

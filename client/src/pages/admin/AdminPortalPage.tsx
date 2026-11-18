@@ -99,7 +99,7 @@ export const AdminPortalPage: React.FC = () => {
   const navigate = useNavigate();
 
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
-  const isDeanOrHod = Boolean(isInstitutionalAdmin || user?.email === 'hod.sanjivani@gmail.com');
+  const isDeanOrHod = Boolean(isInstitutionalAdmin);
   const isFacultyUser = Boolean(!isSuperAdmin && !isDeanOrHod && (user?.role === 'FACULTY' || isFaculty));
 
   // If logged-in user is a Faculty Instructor, render the dedicated Faculty Workspace

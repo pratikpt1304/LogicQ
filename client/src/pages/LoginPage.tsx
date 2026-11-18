@@ -138,7 +138,7 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'User'}!`);
-      const isFaculty = user?.role === 'FACULTY' || cleanPrn.toLowerCase() === 'sectionadmin@gmail.com';
+      const isFaculty = user?.role === 'FACULTY';
       const isStaffOrAdmin =
         cleanPrn.toUpperCase() === 'LOGICQARENA' ||
         user?.role === 'ADMIN' ||
@@ -223,7 +223,7 @@ export const LoginPage: React.FC = () => {
       } catch {}
       toast.success("You're verified! Welcome to LogicQ.");
       const cleanIdent = identifier.trim().toLowerCase();
-      const isFaculty = verifiedUser?.role === 'FACULTY' || cleanIdent === 'sectionadmin@gmail.com';
+      const isFaculty = verifiedUser?.role === 'FACULTY';
       const isStaffOrAdmin =
         cleanIdent === 'logicqarena@gmail.com' ||
         cleanIdent === 'hariprasathset@sanjivani.edu.in' ||

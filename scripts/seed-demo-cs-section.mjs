@@ -76,7 +76,7 @@ async function run() {
     institution: 'LogicQ',
     joinCode: 'LQ-CS101',
     joinToken: 'LQ-CS101',
-    facultyEmail: 'sectionadmin@gmail.com',
+    facultyEmail: null,
     facultyName: 'Computer Science Faculty',
     isActive: true,
     studentsCount: 1,
@@ -176,25 +176,6 @@ async function run() {
   // 5. Account security credential subdocument
   await upsertDocument('cohort_progress/2126PMIB1001/drafts', '__account_security', {
     code: '123456',
-    updatedAt: new Date().toISOString(),
-  });
-
-  // 6. Create faculty user doc
-  await upsertDocument('users', 'faculty-cs-sectionadmin', {
-    id: 'faculty-cs-sectionadmin',
-    uid: 'faculty-cs-sectionadmin',
-    email: 'sectionadmin@gmail.com',
-    username: 'sectionadmin',
-    fullName: 'Computer Science Faculty',
-    displayName: 'CS Faculty (Section Admin)',
-    role: 'FACULTY',
-    college: 'LogicQ',
-    department: 'Computer Science',
-    sectionId: 'sec-compsci-demo',
-    sectionName: 'Computer Science',
-    password: '123456',
-    profileComplete: true,
-    createdAt: '2026-11-17T00:00:00.000Z',
     updatedAt: new Date().toISOString(),
   });
 

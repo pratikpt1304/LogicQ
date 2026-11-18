@@ -1327,25 +1327,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         // Check if faculty / staff login
-        if (cleanId.toLowerCase() === 'sectionadmin@gmail.com' || isFacultyEmail(cleanId) || isAnyStaffEmail(cleanId)) {
-          const isSecAdmin = cleanId.toLowerCase() === 'sectionadmin@gmail.com';
-          const validFacultyPwd = isSecAdmin
-            ? cleanPwd === '123456' || cleanPwd === 'password123'
-            : cleanPwd === '123456' || cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty' || cleanPwd.toLowerCase().includes('logicq');
+        if (isFacultyEmail(cleanId) || isAnyStaffEmail(cleanId)) {
+          const validFacultyPwd =
+            cleanPwd === '123456' || cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty' || cleanPwd.toLowerCase().includes('logicq');
           if (!validFacultyPwd) {
             throw new Error('Invalid credentials. Please enter your correct faculty password.');
           }
           authUser = {
-            id: isSecAdmin ? 'faculty-cs-sectionadmin' : `faculty-${cleanId.split('@')[0]}`,
+            id: `faculty-${cleanId.split('@')[0]}`,
             username: cleanId.split('@')[0],
             email: cleanId.toLowerCase(),
             role: 'FACULTY',
-            fullName: isSecAdmin ? 'Computer Science Faculty' : 'Faculty Instructor',
-            displayName: isSecAdmin ? 'CS Faculty (Section Admin)' : 'Faculty Instructor',
+            fullName: 'Faculty Instructor',
+            displayName: 'Faculty Instructor',
             college: 'LogicQ',
-            department: isSecAdmin ? 'Computer Science' : 'Integrated M.Tech',
-            sectionId: isSecAdmin ? 'sec-compsci-demo' : undefined,
-            sectionName: isSecAdmin ? 'Computer Science' : undefined,
+            department: 'Integrated M.Tech',
             profileComplete: true,
             totalPoints: 0,
             currentStreak: 0,
@@ -1848,7 +1844,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
     }
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'sectionadmin@gmail.com' || cleanLower === 'faculty.mtech@gmail.com' || cleanLower === 'hariprasad.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'faculty.mtech@gmail.com' || cleanLower === 'hariprasad.logicq@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if (isSectionFaculty || isDemoStudent) {
@@ -1900,7 +1896,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'sectionadmin@gmail.com' || cleanLower === 'faculty.mtech@gmail.com' || cleanLower === 'hariprasad.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'faculty.mtech@gmail.com' || cleanLower === 'hariprasad.logicq@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if ((isSectionFaculty || isDemoStudent) && (cleanCode === '123456' || cleanCode.length === 6)) {
