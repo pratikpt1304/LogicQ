@@ -562,15 +562,15 @@ export const FacultyPortalPage: React.FC = () => {
 
           {/* Right Status & Profile Cluster */}
           <div className="flex items-center gap-3">
-            {/* Super Admin Switcher */}
+            {/* Faculty Portal Switcher */}
             {(user?.role === 'ADMIN' || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in') && (
               <button
                 onClick={() => navigate('/admin')}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-semibold transition cursor-pointer"
-                title="Switch back to Master Admin Console"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition cursor-pointer"
+                title="Go to Master Faculty Portal"
               >
-                <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>Admin Console</span>
+                <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Faculty Portal</span>
               </button>
             )}
 

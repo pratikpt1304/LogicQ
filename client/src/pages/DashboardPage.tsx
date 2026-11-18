@@ -1358,32 +1358,32 @@ export const DashboardPage: React.FC = () => {
       {/* APPLE-STYLE MINIMALIST & INTUITIVE STUDENT PORTAL (ZERO CLUTTER)         */}
       {/* ========================================================================= */}
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 font-sans">
-          {/* ADMIN CONSOLE QUICK SWITCH BANNER */}
+          {/* FACULTY PORTAL QUICK SWITCH BANNER */}
           {(isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' || user?.prn === 'LOGICQARENA') && (
-            <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-slate-900 dark:text-white">
-                      Administrator Workspace Active
+                      Faculty Portal Active
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                      ADMIN
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                      FACULTY
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    You are previewing the student practice portal. You can switch to the Master Admin Console anytime.
+                    You are previewing the student practice portal. You can switch to the Faculty Portal anytime.
                   </p>
                 </div>
               </div>
               <Link
                 to="/admin"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-xs shrink-0"
               >
-                <span>Open Admin Portal</span>
+                <span>Open Faculty Portal</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

@@ -185,11 +185,11 @@ export const Navbar: React.FC = () => {
                 </motion.button>
               )}
 
-              {/* Admin Console Indicator Badge */}
+              {/* Faculty Portal Indicator Badge */}
               {isMasterAdmin && (
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Admin Master Console</span>
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Faculty Portal</span>
                 </span>
               )}
 

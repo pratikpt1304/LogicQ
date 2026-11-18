@@ -495,14 +495,8 @@ export const AdminPortalPage: React.FC = () => {
               <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
                 LogicQ
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
-                isFacultyUser
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                  : isDeanOrHod
-                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-              }`}>
-                {isFacultyUser ? 'FACULTY PORTAL' : isDeanOrHod ? 'HOD / DEAN CONSOLE' : 'ADMIN CONSOLE'}
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                FACULTY PORTAL
               </span>
             </div>
             {isFacultyUser && (
@@ -528,25 +522,17 @@ export const AdminPortalPage: React.FC = () => {
 
             {/* User Profile Info */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-white/10">
-              <div className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center font-mono ${
-                isFacultyUser
-                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                  : isDeanOrHod
-                  ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
-                  : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-              }`}>
-                {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : (isFacultyUser ? 'F' : 'A')}
+              <div className="w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center font-mono bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'F'}
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline leading-tight">
-                  {user?.displayName || user?.fullName || (isFacultyUser ? 'CS Faculty' : 'Administrator')}
+                  {user?.displayName || user?.fullName || 'Faculty Lead'}
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline leading-tight">
                   {isFacultyUser
                     ? `Faculty • ${facultySectionName}`
-                    : isDeanOrHod
-                    ? 'HOD / Dean'
-                    : 'System Super Admin'}
+                    : 'Faculty Lead • LogicQ'}
                 </span>
               </div>
               <button
