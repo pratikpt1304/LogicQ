@@ -16,6 +16,7 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  RotateCcw,
   X,
   FileCode,
   FileSpreadsheet,
@@ -43,6 +44,10 @@ export interface QuestionBankItem {
   starterCode?: string;
   solutionCode?: string;
   verifiedCorrect: boolean;
+  isAiGenerated?: boolean;
+  approvalStatus?: 'APPROVED' | 'PENDING' | 'REJECTED';
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 const UNITS = [
@@ -130,7 +135,9 @@ export const AdminQuestionBankTab: React.FC = () => {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // AI Generator Form State
+  // AI Generator Form & Review State
+  const [aiStep, setAiStep] = useState<'INPUT' | 'PREVIEW'>('INPUT');
+  const [aiDraft, setAiDraft] = useState<QuestionBankItem | null>(null);
   const [aiTopic, setAiTopic] = useState('');
   const [aiDifficulty, setAiDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
 
@@ -386,6 +393,14 @@ export const AdminQuestionBankTab: React.FC = () => {
     }
   };
 
+  const handleOpenAiModal = () => {
+    setAiStep('INPUT');
+    setAiDraft(null);
+    setAiTopic('');
+    setAiDifficulty('MEDIUM');
+    setIsAiModalOpen(true);
+  };
+
   const handleGenerateViaAi = (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiTopic.trim()) {
@@ -396,28 +411,123 @@ export const AdminQuestionBankTab: React.FC = () => {
     setIsGenerating(true);
     setTimeout(() => {
       const defaultTime = aiDifficulty === 'EASY' ? 5 : aiDifficulty === 'MEDIUM' ? 12 : 20;
-      const newQuestion: QuestionBankItem = {
+      const topicClean = aiTopic.trim();
+      
+      const newDraft: QuestionBankItem = {
         id: `q-s${selectedUnit}-${Date.now().toString(36)}`,
         sectionNumber: selectedUnit,
-        title: `${aiTopic.trim()} Problem`,
+        title: `${topicClean} Problem`,
         difficulty: aiDifficulty,
+        bloomsLevel: aiDifficulty === 'EASY' ? 'Apply (L3)' : aiDifficulty === 'MEDIUM' ? 'Analyze (L4)' : 'Evaluate (L5)',
         timeLimitMinutes: defaultTime,
-        description: `Implement an optimized C program for ${aiTopic.trim()} adhering to standard input/output formatting.`,
+        description: `Implement an optimized C program for ${topicClean} adhering to standard input/output formatting. Ensure edge cases like boundary values and null/zero checks are safely handled.`,
         visibleTestCase1: { input: '4', output: '16' },
         visibleTestCase2: { input: '7', output: '49' },
         hiddenTestCase: { input: '0', output: '0' },
-        starterCode: `#include <stdio.h>\n\nint main() {\n    // Solution for ${aiTopic}\n    return 0;\n}`,
-        solutionCode: `#include <stdio.h>\n\nint main() {\n    return 0;\n}`,
+        starterCode: `#include <stdio.h>\n#include <stdlib.h>\n\n// Topic: ${topicClean}\n// Difficulty: ${aiDifficulty}\n\nint main() {\n    // TODO: Write C solution for ${topicClean}\n    return 0;\n}`,
+        solutionCode: `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        printf("%d\\n", n * n);\n    }\n    return 0;\n}`,
         verifiedCorrect: true,
+        isAiGenerated: true,
+        approvalStatus: 'PENDING',
       };
 
-      const updated = [newQuestion, ...questions];
-      saveQuestions(updated);
+      setAiDraft(newDraft);
       setIsGenerating(false);
-      setIsAiModalOpen(false);
-      setAiTopic('');
-      toast.success(`Generated: "${newQuestion.title}" successfully!`);
-    }, 800);
+      setAiStep('PREVIEW');
+      toast.info('✨ AI problem generated! Please review and approve to add to Question Bank.');
+    }, 700);
+  };
+
+  // Explicit Faculty Approval Gate: ONLY this function adds the AI question to the Question Bank!
+  const handleApproveGenerated = () => {
+    if (!aiDraft) return;
+
+    const approvedQuestion: QuestionBankItem = {
+      ...aiDraft,
+      isAiGenerated: true,
+      approvalStatus: 'APPROVED',
+      approvedAt: new Date().toISOString(),
+    };
+
+    const updated = [approvedQuestion, ...questions];
+    saveQuestions(updated);
+    setAiDraft(null);
+    setAiStep('INPUT');
+    setIsAiModalOpen(false);
+    setAiTopic('');
+    toast.success(`✨ Approved! "${approvedQuestion.title}" added to Unit ${selectedUnit} Question Bank.`);
+  };
+
+  // Faculty Discard/Reject Action
+  const handleDiscardGenerated = () => {
+    setAiDraft(null);
+    setAiStep('INPUT');
+    setIsAiModalOpen(false);
+    toast.info('AI generated question was discarded. It was NOT added to the Question Bank.');
+  };
+
+  // Regenerate variation before approving
+  const handleRegenerateVariation = () => {
+    if (!aiDraft) return;
+    setIsGenerating(true);
+    setTimeout(() => {
+      const topicClean = aiTopic.trim() || 'Concept';
+      const variations = [
+        {
+          title: `Optimized ${topicClean} Algorithm`,
+          input1: '5',
+          output1: '25',
+          input2: '10',
+          output2: '100',
+          hiddenInput: '-3',
+          hiddenOutput: '9',
+        },
+        {
+          title: `Dynamic ${topicClean} & Validation`,
+          input1: '8',
+          output1: '64',
+          input2: '12',
+          output2: '144',
+          hiddenInput: '1',
+          hiddenOutput: '1',
+        },
+        {
+          title: `In-Place ${topicClean} Swapper`,
+          input1: '3',
+          output1: '9',
+          input2: '6',
+          output2: '36',
+          hiddenInput: '15',
+          hiddenOutput: '225',
+        },
+      ];
+      const picked = variations[Math.floor(Math.random() * variations.length)];
+      setAiDraft({
+        ...aiDraft,
+        title: picked.title,
+        visibleTestCase1: { input: picked.input1, output: picked.output1 },
+        visibleTestCase2: { input: picked.input2, output: picked.output2 },
+        hiddenTestCase: { input: picked.hiddenInput, output: picked.hiddenOutput },
+      });
+      setIsGenerating(false);
+      toast.success('Generated a fresh variation for review!');
+    }, 600);
+  };
+
+  // Inline approval for any question in the list
+  const handleApproveQuestionInList = (id: string) => {
+    const updated = questions.map((q) =>
+      q.id === id
+        ? {
+            ...q,
+            isAiGenerated: true,
+            approvalStatus: 'APPROVED' as const,
+            approvedAt: new Date().toISOString(),
+          }
+        : q
+    );
+    saveQuestions(updated);
+    toast.success('Question approved and confirmed in Question Bank!');
   };
 
   const handleManualAdd = (e: React.FormEvent) => {
@@ -498,7 +608,7 @@ export const AdminQuestionBankTab: React.FC = () => {
             />
 
             <GalaxyButton
-              onClick={() => setIsAiModalOpen(true)}
+              onClick={handleOpenAiModal}
               size="sm"
               hue={280}
               text="AI Generate"
@@ -570,6 +680,12 @@ export const AdminQuestionBankTab: React.FC = () => {
           currentQuestions.map((q) => {
             const isExpanded = expandedQuestionId === q.id;
             const isVerifying = verifyingId === q.id;
+            const isAi = Boolean(
+              q.isAiGenerated ||
+              (q.title?.toLowerCase().endsWith('problem') && q.description?.includes('Implement an optimized C program'))
+            );
+            const isPending = q.approvalStatus === 'PENDING';
+            const isApproved = q.approvalStatus === 'APPROVED' || (!isPending && isAi);
 
             return (
               <div
@@ -598,6 +714,21 @@ export const AdminQuestionBankTab: React.FC = () => {
                       <span>{q.timeLimitMinutes} mins</span>
                     </span>
 
+                    {/* AI Generation Status Pill */}
+                    {isAi && (
+                      isPending ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                          <AlertCircle className="w-3 h-3 text-amber-500" />
+                          <span>AI • Pending Approval</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          <Sparkles className="w-3 h-3 text-purple-500" />
+                          <span>AI Approved</span>
+                        </span>
+                      )
+                    )}
+
                     {/* Verified Pill */}
                     {q.verifiedCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -614,6 +745,19 @@ export const AdminQuestionBankTab: React.FC = () => {
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                    {/* Inline Approve Button for Pending AI Questions */}
+                    {isPending && (
+                      <button
+                        type="button"
+                        onClick={() => handleApproveQuestionInList(q.id)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition shadow-xs cursor-pointer active:scale-95"
+                        title="Approve Question to Bank"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Approve</span>
+                      </button>
+                    )}
+
                     {/* Verify 1-Click Button */}
                     <button
                       type="button"
@@ -697,89 +841,259 @@ export const AdminQuestionBankTab: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. APPLE MODAL: AI QUESTION GENERATOR                                     */}
+      {/* 3. APPLE MODAL: AI QUESTION GENERATOR & FACULTY APPROVAL REVIEW           */}
       {/* ========================================================================= */}
       {isAiModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+          <div className={`w-full ${aiStep === 'PREVIEW' ? 'max-w-2xl max-h-[92vh]' : 'max-w-md'} bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 overflow-y-auto animate-in zoom-in-95`}>
+            {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-2">
                 <span className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
                   <Sparkles className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
-                    AI Question Generator
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                      {aiStep === 'PREVIEW' ? 'AI Question Review & Approval' : 'AI Question Generator'}
+                    </h3>
+                    {aiStep === 'PREVIEW' && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                        Awaiting Approval
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5">Target: {activeUnitInfo.title}</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsAiModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+                onClick={handleDiscardGenerated}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl transition cursor-pointer"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleGenerateViaAi} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Topic or Problem Concept <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. String palindrome with pointers, Matrix transpose..."
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-500/30"
-                  autoFocus
-                  required
-                />
-              </div>
+            {/* STEP 1: TOPIC INPUT & DIFFICULTY */}
+            {aiStep === 'INPUT' && (
+              <form onSubmit={handleGenerateViaAi} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Topic or Problem Concept <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. String palindrome with pointers, Matrix transpose, Circular queue..."
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-500/30"
+                    autoFocus
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Difficulty Level
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['EASY', 'MEDIUM', 'HARD'] as const).map((lvl) => (
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Difficulty Level
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['EASY', 'MEDIUM', 'HARD'] as const).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setAiDifficulty(lvl)}
+                        className={`py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                          aiDifficulty === lvl
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        {lvl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAiModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <GalaxyButton
+                    type="submit"
+                    disabled={isGenerating || !aiTopic.trim()}
+                    size="sm"
+                    hue={280}
+                    text={isGenerating ? 'Generating...' : 'Generate Problem'}
+                    icon={<Sparkles className="w-3.5 h-3.5" />}
+                    iconPosition="left"
+                  />
+                </div>
+              </form>
+            )}
+
+            {/* STEP 2: PREVIEW & FACULTY APPROVAL GATE */}
+            {aiStep === 'PREVIEW' && aiDraft && (
+              <div className="space-y-4 text-xs">
+                {/* Review Gate Alert Callout */}
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                      Faculty Approval Gate — Review Required
+                    </div>
+                    <p className="text-[11px] text-amber-700/90 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                      This AI-generated question is in <strong>Draft</strong>. It will <strong>NOT</strong> be added to your Question Bank unless you click <strong>&quot;Approve &amp; Add to Question Bank&quot;</strong> below. You can refine the title or problem statement if needed.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Problem Meta Badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      aiDraft.difficulty === 'EASY'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : aiDraft.difficulty === 'MEDIUM'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    }`}
+                  >
+                    {aiDraft.difficulty}
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    <span>{aiDraft.timeLimitMinutes} mins</span>
+                  </span>
+
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    Unit {aiDraft.sectionNumber}
+                  </span>
+
+                  {aiDraft.bloomsLevel && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400">
+                      Bloom: {aiDraft.bloomsLevel}
+                    </span>
+                  )}
+                </div>
+
+                {/* Editable Title */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Problem Title
+                  </label>
+                  <input
+                    type="text"
+                    value={aiDraft.title}
+                    onChange={(e) => setAiDraft({ ...aiDraft, title: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-500/30"
+                  />
+                </div>
+
+                {/* Editable Description */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Problem Statement &amp; Requirements
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={aiDraft.description}
+                    onChange={(e) => setAiDraft({ ...aiDraft, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-purple-500/30"
+                  />
+                </div>
+
+                {/* Test Cases Breakdown */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Test Cases (Verified Correctness Suite)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-[11px]">
+                    {/* Visible Case 1 */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-1">
+                      <div className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
+                        <Eye className="w-3 h-3" />
+                        <span>Visible Case 1</span>
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-400 break-all">In: {aiDraft.visibleTestCase1.input}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold break-all">Out: {aiDraft.visibleTestCase1.output}</div>
+                    </div>
+
+                    {/* Visible Case 2 */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-1">
+                      <div className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
+                        <Eye className="w-3 h-3" />
+                        <span>Visible Case 2</span>
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-400 break-all">In: {aiDraft.visibleTestCase2.input}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold break-all">Out: {aiDraft.visibleTestCase2.output}</div>
+                    </div>
+
+                    {/* Hidden Case */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-1">
+                      <div className="flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
+                        <EyeOff className="w-3 h-3" />
+                        <span>Hidden Test (Eval)</span>
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-400 break-all">In: {aiDraft.hiddenTestCase.input}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold break-all">Out: {aiDraft.hiddenTestCase.output}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Starter Code Preview */}
+                {aiDraft.starterCode && (
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      C Starter Code
+                    </label>
+                    <pre className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto max-h-32 border border-slate-800">
+                      <code>{aiDraft.starterCode}</code>
+                    </pre>
+                  </div>
+                )}
+
+                {/* Review Action Buttons */}
+                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleDiscardGenerated}
+                    className="px-3.5 py-2 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Discard / Reject</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
                     <button
-                      key={lvl}
                       type="button"
-                      onClick={() => setAiDifficulty(lvl)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition ${
-                        aiDifficulty === lvl
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300'
-                      }`}
+                      onClick={handleRegenerateVariation}
+                      disabled={isGenerating}
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer active:scale-95"
                     >
-                      {lvl}
+                      <RotateCcw className="w-3.5 h-3.5 text-purple-500" />
+                      <span>{isGenerating ? 'Regenerating...' : 'Regenerate'}</span>
                     </button>
-                  ))}
+
+                    <GalaxyButton
+                      type="button"
+                      onClick={handleApproveGenerated}
+                      size="sm"
+                      hue={145}
+                      text="Approve & Add to Question Bank"
+                      icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                      iconPosition="left"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAiModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-                <GalaxyButton
-                  type="submit"
-                  disabled={isGenerating || !aiTopic.trim()}
-                  size="sm"
-                  hue={280}
-                  text={isGenerating ? 'Generating...' : 'Generate Problem'}
-                  icon={<Sparkles className="w-3.5 h-3.5" />}
-                  iconPosition="left"
-                />
-              </div>
-            </form>
+            )}
           </div>
         </div>
       )}
