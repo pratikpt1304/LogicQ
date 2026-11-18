@@ -298,11 +298,11 @@ export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 
 // Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
-  'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
+  'faculty.mtech@gmail.com',
   'sectionadmin@gmail.com',
   'hod.sanjivani@gmail.com',
   'faculty@logicq.io',
@@ -393,25 +393,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const faculty1: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
-    id: 'faculty-mtech-1',
-    username: 'faculty_mtech',
-    email: 'faculty.mtech@gmail.com',
-    fullName: 'Faculty Instructor',
-    displayName: 'Faculty (M.Tech)',
-    role: 'FACULTY',
-    college: 'Sanjivani University',
-    department: 'Integrated M.Tech',
-    profileComplete: true,
-    totalPoints: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    password: 'LogicQ@Faculty2026',
-    isBanned: false,
-    shortId: 'FAC01',
-    createdAt: new Date().toISOString(),
-  };
-
   const faculty2: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
     id: 'faculty-hariprasad-1',
     username: 'hariprasad_logicq',
@@ -450,7 +431,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hariAdmin, faculty1, faculty2];
+  const allStaff = [arenaAdmin, hariAdmin, faculty2];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));

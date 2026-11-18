@@ -207,11 +207,11 @@ export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 
 // Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
-  'faculty.mtech@gmail.com',
   'hariprasad.logicq@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
+  'faculty.mtech@gmail.com',
   'sectionadmin@gmail.com',
   'hod.sanjivani@gmail.com',
   'admin@logicq.io',
