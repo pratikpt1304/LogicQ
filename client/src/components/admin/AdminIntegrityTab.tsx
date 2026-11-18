@@ -39,6 +39,7 @@ import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
 import { FadeUp, StaggerContainer, StaggerItem } from '../common/ScrollAnimations.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface StudentTimelineEvent {
   id: string;
@@ -209,7 +210,18 @@ const DEFAULT_GUARDRAILS: GuardrailSetting[] = [
 // No fake cohort mock data: clean empty default
 const INITIAL_STUDENT_FORENSICS: StudentForensicRecord[] = [];
 
-export const AdminIntegrityTab: React.FC = () => {
+export interface AdminIntegrityTabProps {
+  sections?: any[];
+  allowedStudents?: any[];
+}
+
+export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
+  sections: propSections,
+  allowedStudents: propAllowedStudents,
+}) => {
+  const { user, isAdmin } = useAuth();
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+
   const [activeTab, setActiveTab] = useState<'STUDENTS' | 'INCIDENTS' | 'VIVA' | 'SETTINGS'>('STUDENTS');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState('ALL');
@@ -833,7 +845,27 @@ export const AdminIntegrityTab: React.FC = () => {
             };
           });
 
-        setStudentsForensics(records);
+        const allowedPrns = new Set((propAllowedStudents || []).map((s: any) => String(s.prn || '').toUpperCase().trim()));
+        const allowedEmails = new Set((propAllowedStudents || []).map((s: any) => String(s.email || '').toLowerCase().trim()));
+        const allowedSecKeys = new Set(
+          (propSections || []).flatMap((s: any) => [
+            String(s.id || '').toUpperCase().trim(),
+            String(s.joinCode || '').toUpperCase().trim(),
+            String(s.sectionName || '').toUpperCase().trim(),
+          ]).filter(Boolean)
+        );
+
+        const isolatedRecords = isSuperAdmin
+          ? records
+          : records.filter((r) => {
+              if (propAllowedStudents && propAllowedStudents.length > 0) {
+                return allowedPrns.has(r.prn.toUpperCase().trim()) || allowedEmails.has(r.email.toLowerCase().trim());
+              }
+              if (allowedSecKeys.size === 0) return false;
+              return allowedSecKeys.has(String(r.section || '').toUpperCase().trim());
+            });
+
+        setStudentsForensics(isolatedRecords);
       } catch (err) {
         console.warn('Error loading authentic integrity students:', err);
       }

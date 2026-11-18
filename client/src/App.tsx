@@ -491,7 +491,7 @@ export const App: React.FC = () => {
             path="/faculty"
             element={
               <FacultyRoute>
-                <FacultyPortalPage />
+                <AdminPortalPage />
               </FacultyRoute>
             }
           />
@@ -499,7 +499,7 @@ export const App: React.FC = () => {
             path="/faculty/dashboard"
             element={
               <FacultyRoute>
-                <FacultyPortalPage />
+                <AdminPortalPage />
               </FacultyRoute>
             }
           />
@@ -507,7 +507,7 @@ export const App: React.FC = () => {
             path="/faculty/*"
             element={
               <FacultyRoute>
-                <FacultyPortalPage />
+                <AdminPortalPage />
               </FacultyRoute>
             }
           />

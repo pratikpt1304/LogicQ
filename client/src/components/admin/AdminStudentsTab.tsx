@@ -73,21 +73,44 @@ export interface AdminStudentRecord {
   banReason?: string | null;
 }
 
-export const AdminStudentsTab: React.FC = () => {
-  const { user, isAdmin, isFaculty } = useAuth();
-  const isFacultyUser = Boolean(!isAdmin && (user?.role === 'FACULTY' || isFaculty));
-  const facultySection = user?.sectionName || user?.department || 'Computer Science';
+export interface AdminStudentsTabProps {
+  students?: AdminStudentRecord[];
+  sections?: any[];
+}
 
-  const [students, setStudents] = useState<AdminStudentRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
+  students: propStudents,
+  sections: propSections,
+}) => {
+  const { user, isAdmin, isFaculty } = useAuth();
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const isFacultyUser = Boolean(!isSuperAdmin && (user?.role === 'FACULTY' || isFaculty));
+  const facultySection = propSections && propSections.length > 0 ? propSections[0].sectionName : (user?.sectionName || user?.department || 'Computer Science');
+
+  const [students, setStudents] = useState<AdminStudentRecord[]>(() => {
+    if (propStudents && Array.isArray(propStudents)) return propStudents;
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(!propStudents || propStudents.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'VERIFIED' | 'UNLOCKED'>('ALL');
   const [selectedSection, setSelectedSection] = useState<string>(isFacultyUser ? facultySection : 'ALL');
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<AdminStudentRecord | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
+  // Sync when propStudents updates from parent
+  useEffect(() => {
+    if (propStudents && Array.isArray(propStudents)) {
+      setStudents(propStudents);
+      setIsLoading(false);
+    }
+  }, [propStudents]);
+
   // Available unique sections for filtering
   const availableSections = React.useMemo(() => {
+    if (propSections && Array.isArray(propSections) && propSections.length > 0) {
+      return propSections.map((s) => s.sectionName).filter(Boolean).sort();
+    }
     const set = new Set<string>();
     students.forEach((s) => {
       if (s.section && s.section !== '—' && s.section !== 'General') {
@@ -95,7 +118,7 @@ export const AdminStudentsTab: React.FC = () => {
       }
     });
     return Array.from(set).sort();
-  }, [students]);
+  }, [students, propSections]);
 
   // Fetch real students from Firestore and local storage cache
   useEffect(() => {
@@ -330,17 +353,45 @@ export const AdminStudentsTab: React.FC = () => {
               };
             });
 
+          const allowedSectionKeys = new Set(
+            (propSections || []).flatMap((s: any) => [
+              String(s.id || '').toUpperCase().trim(),
+              String(s.joinCode || '').toUpperCase().trim(),
+              String(s.sectionName || '').toUpperCase().trim(),
+            ]).filter(Boolean)
+          );
+
+          const finalStudentUsers = isSuperAdmin
+            ? studentUsers
+            : studentUsers.filter((st: any) => {
+                if (propStudents && propStudents.length > 0) {
+                  return propStudents.some((p) => (p.prn && p.prn === st.prn) || (p.email && p.email.toLowerCase() === st.email.toLowerCase()) || p.id === st.id);
+                }
+                if (allowedSectionKeys.size === 0) return false;
+                const secStr = String(st.section || '').toUpperCase().trim();
+                return allowedSectionKeys.has(secStr);
+              });
+
           setStudents((prev) => {
             const map = new Map<string, AdminStudentRecord>();
             prev.forEach((p) => {
               const k = (p.prn || p.email || p.id).toUpperCase();
               if (k) map.set(k, p);
             });
-            studentUsers.forEach((st) => {
+            finalStudentUsers.forEach((st) => {
               const k = (st.prn || st.email || st.id).toUpperCase();
               if (k) map.set(k, st);
             });
-            const merged = Array.from(map.values());
+            const merged = Array.from(map.values())
+              .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
+              .filter((s) => {
+                if (isSuperAdmin) return true;
+                if (propStudents && propStudents.length > 0) {
+                  return propStudents.some((p) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === s.email.toLowerCase()) || p.id === s.id);
+                }
+                if (allowedSectionKeys.size === 0) return false;
+                return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+              });
             try {
               localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
             } catch {}

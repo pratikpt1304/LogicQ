@@ -102,22 +102,19 @@ export const AdminPortalPage: React.FC = () => {
   const isDeanOrHod = Boolean(isInstitutionalAdmin);
   const isFacultyUser = Boolean(!isSuperAdmin && !isDeanOrHod && (user?.role === 'FACULTY' || isFaculty));
 
-  // If logged-in user is a Faculty Instructor, render the dedicated Faculty Workspace
-  if (isFacultyUser) {
-    return <FacultyPortalPage />;
-  }
-
-  // Determine faculty assigned section
-  const facultySectionName = user?.sectionName || user?.department || 'Computer Science';
-  const facultySectionCode = user?.sectionId === 'sec-compsci-demo' ? 'LQ-CS101' : 'LQ-CS101';
-
   const [activeTab, setActiveTab] = useState<AdminTabKey>('command-center');
   const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
   const [stats, setStats] = useState(DEFAULT_STATS);
 
-  // Sections management state
+  // Sections and students state with strict multi-faculty isolation
   const [sections, setSections] = useState<any[]>([]);
+  const [facultyStudents, setFacultyStudents] = useState<any[]>([]);
   const [openIssuesCount, setOpenIssuesCount] = useState<number>(0);
+
+  // Primary section info for header pill
+  const primarySection = sections[0] || null;
+  const facultySectionName = primarySection ? primarySection.sectionName : (user?.sectionName || user?.department || 'My Section');
+  const facultySectionCode = primarySection ? primarySection.joinCode : (user?.sectionId || 'LQ-CS101');
 
   // Real-time synchronization & fake cache purge
   React.useEffect(() => {
@@ -143,7 +140,36 @@ export const AdminPortalPage: React.FC = () => {
         }
 
         const validSections = Array.isArray(realSections) ? realSections : [];
-        const studentUsers = Array.isArray(realUsers)
+
+        // STRICT MULTI-FACULTY ISOLATION:
+        // A faculty member can ONLY see their assigned or created sections.
+        const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+        const facultyId = user?.id || (user as any)?.uid || '';
+        const userSecId = String(user?.sectionId || '').trim();
+        const userSecName = String(user?.sectionName || user?.department || '').toLowerCase().trim();
+
+        const isSectionOwnedByFaculty = (sec: any) => {
+          if (isSuperAdmin) return true;
+          const secFacultyEmail = (sec.facultyEmail || sec.createdBy || '').toLowerCase().trim();
+          if (facultyEmailClean && secFacultyEmail && secFacultyEmail === facultyEmailClean) return true;
+          if (facultyId && (sec.facultyId === facultyId || sec.createdById === facultyId)) return true;
+          if (userSecId && (sec.id === userSecId || sec.joinCode === userSecId)) return true;
+          if (userSecName && (sec.sectionName || '').toLowerCase().trim() === userSecName) return true;
+          return false;
+        };
+
+        const isolatedSections = validSections.filter(isSectionOwnedByFaculty);
+
+        const isolatedSectionKeys = new Set(
+          isolatedSections.flatMap((s) => [
+            String(s.id || '').toUpperCase().trim(),
+            String(s.joinCode || '').toUpperCase().trim(),
+            String(s.sectionName || '').toUpperCase().trim(),
+            String(s.subject || '').toUpperCase().trim(),
+          ]).filter(Boolean)
+        );
+
+        const allStudentUsers = Array.isArray(realUsers)
           ? realUsers
               .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) && !FirestoreDataService.isPurgedStudent(u))
               .map((u: any) => {
@@ -181,8 +207,33 @@ export const AdminPortalPage: React.FC = () => {
               })
           : [];
 
-        // Authoritatively synchronize each section's roster and count directly with the active student directory
-        const syncedSections = validSections.map((sec) => {
+        // STRICT MULTI-FACULTY STUDENT ISOLATION:
+        // A faculty member can ONLY see students enrolled in their sections.
+        const isolatedStudents = isSuperAdmin
+          ? allStudentUsers
+          : allStudentUsers.filter((st: any) => {
+              if (isolatedSections.length === 0) return false;
+              const stSecId = String(st.sectionId || '').toUpperCase().trim();
+              const stJoinCode = String(st.joinCode || '').toUpperCase().trim();
+              const stSecName = String(st.sectionName || st.section || st.department || '').toUpperCase().trim();
+              if (stSecId && isolatedSectionKeys.has(stSecId)) return true;
+              if (stJoinCode && isolatedSectionKeys.has(stJoinCode)) return true;
+              if (stSecName && isolatedSectionKeys.has(stSecName)) return true;
+              if (Array.isArray(st.sections) && st.sections.some((s: any) => {
+                const sid = String(s.id || s.joinCode || '').toUpperCase().trim();
+                return isolatedSectionKeys.has(sid);
+              })) return true;
+              return isolatedSections.some((sec) =>
+                Array.isArray(sec.students) && sec.students.some((s: any) =>
+                  (s.prn && String(s.prn).toUpperCase().trim() === (st.prn || '').toUpperCase().trim()) ||
+                  (s.email && (s.email || '').toLowerCase().trim() === (st.email || '').toLowerCase().trim()) ||
+                  (s.id && s.id === st.id)
+                )
+              );
+            });
+
+        // Authoritatively synchronize each isolated section's roster and count directly with isolatedStudents
+        const syncedSections = isolatedSections.map((sec) => {
           const combined = new Map<string, any>();
 
           // 1. Preserve students already resolved in sec.students
@@ -193,8 +244,8 @@ export const AdminPortalPage: React.FC = () => {
             });
           }
 
-          // 2. Map matching studentUsers
-          studentUsers.forEach((u: any) => {
+          // 2. Map matching isolatedStudents
+          isolatedStudents.forEach((u: any) => {
             if (FirestoreDataService.isPurgedStudent(u)) return;
 
             const uSecId = String(u.sectionId || '').toUpperCase().trim();
@@ -206,7 +257,7 @@ export const AdminPortalPage: React.FC = () => {
             const secSub = String(sec.subject || '').toUpperCase().trim();
 
             const isMatch =
-              validSections.length === 1 || // If only 1 section exists, all registered students belong to it
+              isolatedSections.length === 1 || // If only 1 section exists for this faculty, all their students belong to it
               (uSecId && (uSecId === secId || uSecId === secCode)) ||
               (uJoinCode && (uJoinCode === secCode || uJoinCode === secId)) ||
               (uSecName && (uSecName === secName || uSecName === secSub || secName.includes(uSecName) || uSecName.includes(secName))) ||
@@ -239,7 +290,7 @@ export const AdminPortalPage: React.FC = () => {
         let advanced = 0;
         let flagged = 0;
 
-        studentUsers.forEach((s) => {
+        isolatedStudents.forEach((s) => {
           totalAcademic += s.academicScore || 0;
           totalIntegrity += s.integrityScore !== undefined ? s.integrityScore : 100;
           if ((s.academicScore || 0) < 40) needingSupport++;
@@ -247,14 +298,15 @@ export const AdminPortalPage: React.FC = () => {
           if ((s.integrityScore || 100) < 70) flagged++;
         });
 
-        const avgAcademic = studentUsers.length > 0 ? Math.round(totalAcademic / studentUsers.length) : 0;
-        const overallIntegrity = studentUsers.length > 0 ? Math.round(totalIntegrity / studentUsers.length) : 100;
+        const avgAcademic = isolatedStudents.length > 0 ? Math.round(totalAcademic / isolatedStudents.length) : 0;
+        const overallIntegrity = isolatedStudents.length > 0 ? Math.round(totalIntegrity / isolatedStudents.length) : 100;
 
         setSections(syncedSections);
+        setFacultyStudents(isolatedStudents);
         setStats((prev) => ({
           ...prev,
           totalSections: syncedSections.length,
-          totalStudents: studentUsers.length,
+          totalStudents: isolatedStudents.length,
           avgAcademicScore: avgAcademic,
           overallIntegrityScore: overallIntegrity,
           studentsNeedingSupport: needingSupport,
@@ -263,7 +315,7 @@ export const AdminPortalPage: React.FC = () => {
         }));
 
         try {
-          localStorage.setItem('logicq_admin_students', JSON.stringify(studentUsers));
+          localStorage.setItem('logicq_admin_students', JSON.stringify(isolatedStudents));
           localStorage.setItem('logicq_admin_sections', JSON.stringify(syncedSections));
         } catch {}
       } catch (err) {
@@ -398,6 +450,11 @@ export const AdminPortalPage: React.FC = () => {
       academicYear: data.academicYear || '2026-2027',
       semester: data.semester || 'Semester 1',
       joinCode: cleanJoinCode,
+      facultyEmail: (user?.email || '').toLowerCase().trim(),
+      facultyId: user?.id || (user as any)?.uid || '',
+      facultyName: user?.fullName || user?.displayName || 'Faculty Lead',
+      createdBy: (user?.email || '').toLowerCase().trim(),
+      createdById: user?.id || (user as any)?.uid || '',
       studentsCount: 0,
       createdAt: new Date().toISOString(),
     };
@@ -601,17 +658,19 @@ export const AdminPortalPage: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
-                    {facultySectionName} • Section Faculty Portal
+                    {sections.length > 0 ? sections[0].sectionName : 'Faculty Workspace'} • Section Faculty Portal
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                    Join Code: {facultySectionCode}
-                  </span>
+                  {sections.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                      Join Code: {sections[0].joinCode}
+                    </span>
+                  )}
                   <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                     Academic Year 2026–2027
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Instructor: <strong>{user?.fullName || user?.displayName || 'CS Faculty'}</strong> ({user?.email}) • Managing student enrollment, custom practice problem modules, and lab internal exams for this section.
+                  Instructor: <strong>{user?.fullName || user?.displayName || 'Faculty Lead'}</strong> ({user?.email}) • Managing student enrollment, custom practice problem modules, and lab internal exams for your section.
                 </p>
               </div>
             </div>
@@ -621,14 +680,14 @@ export const AdminPortalPage: React.FC = () => {
                 className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#1a202c] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Users className="w-3.5 h-3.5 text-emerald-500" />
-                <span>My Students ({stats.totalStudents || 1})</span>
+                <span>My Students ({stats.totalStudents || 0})</span>
               </button>
               <button
-                onClick={() => setActiveTab('question-bank')}
+                onClick={() => setActiveTab(sections.length > 0 ? 'question-bank' : 'sections')}
                 className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Create Practice / Questions</span>
+                <span>{sections.length > 0 ? 'Create Practice / Questions' : 'Create First Section'}</span>
               </button>
             </div>
           </div>
@@ -649,12 +708,22 @@ export const AdminPortalPage: React.FC = () => {
             onImportExcelStudents={handleImportExcelStudents}
           />
         )}
-        {activeTab === 'students' && <AdminStudentsTab />}
+        {activeTab === 'students' && (
+          <AdminStudentsTab students={facultyStudents} sections={sections} />
+        )}
         {activeTab === 'question-bank' && <AdminQuestionBankTab />}
-        {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab sections={sections} />}
-        {activeTab === 'integrity' && <AdminIntegrityTab />}
-        {activeTab === 'reports' && <AdminReportsTab />}
-        {activeTab === 'raised-issues' && <AdminRaisedIssuesTab />}
+        {activeTab === 'test-orchestrator' && (
+          <AdminTestOrchestratorTab sections={sections} allowedStudents={facultyStudents} />
+        )}
+        {activeTab === 'integrity' && (
+          <AdminIntegrityTab sections={sections} allowedStudents={facultyStudents} />
+        )}
+        {activeTab === 'reports' && (
+          <AdminReportsTab sections={sections} students={facultyStudents} />
+        )}
+        {activeTab === 'raised-issues' && (
+          <AdminRaisedIssuesTab allowedStudents={facultyStudents} />
+        )}
         {activeTab === 'staff' && <AdminStaffTab />}
       </main>
 

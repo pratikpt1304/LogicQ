@@ -32,6 +32,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 const isSectionMatch = (studentSec: string | undefined | null, targetSec: string | undefined | null): boolean => {
   if (!targetSec || targetSec === 'ALL') return true;
@@ -50,7 +51,18 @@ const getPrnSortNum = (prnStr?: string | null): number => {
   return digits ? parseInt(digits, 10) : 999999;
 };
 
-export const AdminReportsTab: React.FC = () => {
+export interface AdminReportsTabProps {
+  sections?: any[];
+  students?: any[];
+}
+
+export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({
+  sections: propSections,
+  students: propStudents,
+}) => {
+  const { user, isAdmin } = useAuth();
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, studentName: '' });
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -60,6 +72,7 @@ export const AdminReportsTab: React.FC = () => {
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   const [students, setStudents] = useState<any[]>(() => {
+    if (propStudents && Array.isArray(propStudents)) return propStudents;
     try {
       const cached = localStorage.getItem('logicq_admin_students');
       if (cached) return JSON.parse(cached);
@@ -68,12 +81,25 @@ export const AdminReportsTab: React.FC = () => {
   });
 
   const [sections, setSections] = useState<any[]>(() => {
+    if (propSections && Array.isArray(propSections)) return propSections;
     try {
       const cached = localStorage.getItem('logicq_admin_sections');
       if (cached) return JSON.parse(cached);
     } catch {}
     return [];
   });
+
+  useEffect(() => {
+    if (propSections && Array.isArray(propSections)) {
+      setSections(propSections);
+    }
+  }, [propSections]);
+
+  useEffect(() => {
+    if (propStudents && Array.isArray(propStudents)) {
+      setStudents(propStudents);
+    }
+  }, [propStudents]);
 
   // Authoritative real-time fetch directly from Cloud Firestore
   const fetchAuthoritativeReportStudents = async (showNotice = false): Promise<any[]> => {
@@ -342,24 +368,43 @@ export const AdminReportsTab: React.FC = () => {
         };
       });
 
+      const allowedSectionKeys = new Set(
+        (propSections || sections || []).flatMap((s: any) => [
+          String(s.id || '').toUpperCase().trim(),
+          String(s.joinCode || '').toUpperCase().trim(),
+          String(s.sectionName || '').toUpperCase().trim(),
+          String(s.subject || '').toUpperCase().trim(),
+        ]).filter(Boolean)
+      );
+
+      const finalProcessed = isSuperAdmin
+        ? processed
+        : processed.filter((s: any) => {
+            if (propStudents && propStudents.length > 0) {
+              return propStudents.some((p: any) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === (s.email || '').toLowerCase()) || p.id === s.id);
+            }
+            if (allowedSectionKeys.size === 0) return false;
+            return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+          });
+
       // Sort students consistently by last 4 digits of PRN ascending
-      processed.sort((a: any, b: any) => {
+      finalProcessed.sort((a: any, b: any) => {
         const numA = getPrnSortNum(a.prn);
         const numB = getPrnSortNum(b.prn);
         if (numA !== numB) return numA - numB;
         return String(a.prn || '').localeCompare(String(b.prn || ''));
       });
 
-      setStudents(processed);
-      if (Array.isArray(realSections) && realSections.length > 0) {
+      setStudents(finalProcessed);
+      if (Array.isArray(realSections) && realSections.length > 0 && isSuperAdmin && !propSections) {
         setSections(realSections);
       }
 
       if (showNotice) {
-        toast.success(`Synchronized ${processed.length} students live from Cloud Firestore!`);
+        toast.success(`Synchronized ${finalProcessed.length} students live from Cloud Firestore!`);
       }
 
-      return processed;
+      return finalProcessed;
     } catch (err: any) {
       console.warn('Reports tab authoritative fetch warning:', err);
       return [];

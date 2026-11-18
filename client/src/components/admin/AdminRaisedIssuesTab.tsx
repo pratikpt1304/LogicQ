@@ -118,8 +118,18 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
   return Array.from(uniqueMap.values());
 };
 
-export const AdminRaisedIssuesTab: React.FC = () => {
-  const { user } = useAuth();
+export interface AdminRaisedIssuesTabProps {
+  allowedStudents?: any[];
+}
+
+export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
+  allowedStudents,
+}) => {
+  const { user, isAdmin } = useAuth();
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const allowedPrns = useMemo(() => new Set((allowedStudents || []).map((s: any) => String(s.prn || '').toUpperCase().trim())), [allowedStudents]);
+  const allowedEmails = useMemo(() => new Set((allowedStudents || []).map((s: any) => String(s.email || '').toLowerCase().trim())), [allowedStudents]);
+
   const [issues, setIssues] = useState<RaisedIssue[]>([]);
   const [, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -607,9 +617,22 @@ export const AdminRaisedIssuesTab: React.FC = () => {
     }
   };
 
+  // Visible issues strictly isolated to this faculty's students
+  const visibleIssues = useMemo(() => {
+    if (isSuperAdmin || !allowedStudents) return issues;
+    return issues.filter((iss) => {
+      const p = String(iss.studentPrn || '').toUpperCase().trim();
+      const e = String(iss.studentEmail || '').toLowerCase().trim();
+      if (p && allowedPrns.has(p)) return true;
+      if (e && allowedEmails.has(e)) return true;
+      if (iss.assignedEmail && iss.assignedEmail.toLowerCase().trim() === (user?.email || '').toLowerCase().trim()) return true;
+      return false;
+    });
+  }, [issues, isSuperAdmin, allowedStudents, allowedPrns, allowedEmails, user]);
+
   // Filtered issues
   const filteredIssues = useMemo(() => {
-    return issues.filter((item) => {
+    return visibleIssues.filter((item) => {
       // Search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -639,12 +662,12 @@ export const AdminRaisedIssuesTab: React.FC = () => {
 
       return true;
     });
-  }, [issues, searchQuery, statusFilter, categoryFilter, activeSolver]);
+  }, [visibleIssues, searchQuery, statusFilter, categoryFilter, activeSolver]);
 
-  const openCount = issues.filter((i) => i.status === 'OPEN').length;
-  const inProgressCount = issues.filter((i) => i.status === 'IN_PROGRESS').length;
-  const myAssignedCount = issues.filter((i) => i.status === 'IN_PROGRESS' && (i.assignedTo || '').toLowerCase().includes(activeSolver.toLowerCase().trim())).length;
-  const resolvedCount = issues.filter((i) => i.status === 'RESOLVED').length;
+  const openCount = visibleIssues.filter((i) => i.status === 'OPEN').length;
+  const inProgressCount = visibleIssues.filter((i) => i.status === 'IN_PROGRESS').length;
+  const myAssignedCount = visibleIssues.filter((i) => i.status === 'IN_PROGRESS' && (i.assignedTo || '').toLowerCase().includes(activeSolver.toLowerCase().trim())).length;
+  const resolvedCount = visibleIssues.filter((i) => i.status === 'RESOLVED').length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

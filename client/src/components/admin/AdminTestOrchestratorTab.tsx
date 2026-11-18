@@ -37,6 +37,7 @@ import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { NotificationDispatchService } from '../../services/notificationDispatch.service.js';
 import { TestSubmissionsAuditModal } from './TestSubmissionsAuditModal.js';
 import { WhatsAppBroadcastModal } from './WhatsAppBroadcastModal.js';
+import { useAuth } from '../../context/AuthContext.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -55,6 +56,9 @@ export interface AdminTestDefinition {
   questions?: any[];
   questionCount?: number | 'ALL';
   antiCheatingRotation?: boolean;
+  facultyEmail?: string;
+  facultyId?: string;
+  createdBy?: string;
 }
 
 const UNITS = [
@@ -137,9 +141,34 @@ const getStoredBankQuestions = (): any[] => {
 
 interface AdminTestOrchestratorTabProps {
   sections?: any[];
+  allowedStudents?: any[];
 }
 
-export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> = ({ sections = [] }) => {
+export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> = ({ sections = [], allowedStudents = [] }) => {
+  const { user, isAdmin, isFaculty } = useAuth();
+  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+  const facultyId = user?.id || (user as any)?.uid || '';
+
+  const facultySectionKeys = React.useMemo(() => new Set(
+    sections.flatMap((s: any) => [
+      String(s.id || '').toUpperCase().trim(),
+      String(s.joinCode || '').toUpperCase().trim(),
+      String(s.sectionName || '').toUpperCase().trim(),
+      String(s.subject || '').toUpperCase().trim(),
+    ]).filter(Boolean)
+  ), [sections]);
+
+  const isTestOwnedByFaculty = React.useCallback((t: any) => {
+    if (isSuperAdmin) return true;
+    const testEmail = (t.facultyEmail || t.createdBy || '').toLowerCase().trim();
+    if (facultyEmailClean && testEmail && testEmail === facultyEmailClean) return true;
+    if (facultyId && (t.facultyId === facultyId || t.createdById === facultyId)) return true;
+    const target = String(t.sectionTarget || '').toUpperCase().trim();
+    if (target && facultySectionKeys.has(target)) return true;
+    return false;
+  }, [isSuperAdmin, facultyEmailClean, facultyId, facultySectionKeys]);
+
   const [tests, setTests] = useState<AdminTestDefinition[]>(() => {
     try {
       const saved = localStorage.getItem('logicq_admin_tests');
@@ -632,13 +661,16 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       lockOnSubmit: lockPolicy,
       status: 'UPCOMING',
       activeStudents: 0,
-      totalEnrolled: 60,
+      totalEnrolled: (allowedStudents && allowedStudents.length) || 60,
       suspiciousEvents: 0,
       createdAt: new Date().toISOString(),
       unitTarget: unitLabel,
       questions: matchedQuestions,
       questionCount: effectiveQuestionCount,
       antiCheatingRotation,
+      facultyEmail: facultyEmailClean,
+      facultyId,
+      createdBy: facultyEmailClean,
     };
 
     saveTests([created, ...tests]);
@@ -699,17 +731,20 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     );
   };
 
+  // Visible tests strictly isolated for this faculty
+  const visibleTests = React.useMemo(() => tests.filter(isTestOwnedByFaculty), [tests, isTestOwnedByFaculty]);
+
   // Filtered List
-  const filteredTests = tests.filter((t) => {
+  const filteredTests = visibleTests.filter((t) => {
     if (activeFilter === 'ACTIVE') return t.status === 'ACTIVE';
     if (activeFilter === 'UPCOMING') return t.status === 'UPCOMING';
     if (activeFilter === 'COMPLETED') return t.status === 'COMPLETED';
     return true;
   });
 
-  const activeCount = tests.filter((t) => t.status === 'ACTIVE').length;
-  const upcomingCount = tests.filter((t) => t.status === 'UPCOMING').length;
-  const completedCount = tests.filter((t) => t.status === 'COMPLETED').length;
+  const activeCount = visibleTests.filter((t) => t.status === 'ACTIVE').length;
+  const upcomingCount = visibleTests.filter((t) => t.status === 'UPCOMING').length;
+  const completedCount = visibleTests.filter((t) => t.status === 'COMPLETED').length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -727,7 +762,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 Assessments &amp; Examinations
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                {tests.length} {tests.length === 1 ? 'Test' : 'Tests'}
+                {visibleTests.length} {visibleTests.length === 1 ? 'Test' : 'Tests'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -756,7 +791,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            All Tests ({tests.length})
+            All Tests ({visibleTests.length})
           </button>
           <button
             type="button"
