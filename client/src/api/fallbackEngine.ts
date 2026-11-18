@@ -299,6 +299,7 @@ export const INSTITUTIONAL_ADMIN_EMAILS: string[] = [];
 // Faculty / Course Ownership (can solve, no proctor restrictions)
 export const FACULTY_EMAILS = [
   'hariprasad.logicq@gmail.com',
+  'faculty2.logicq@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
@@ -431,7 +432,26 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     createdAt: new Date().toISOString(),
   };
 
-  const allStaff = [arenaAdmin, hariAdmin, faculty2];
+  const facultyDemo2: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'faculty-demo-2',
+    username: 'faculty2_logicq',
+    email: 'faculty2.logicq@gmail.com',
+    fullName: 'Demo Faculty 2',
+    displayName: 'Demo Faculty 2 (Onboarding)',
+    role: 'FACULTY',
+    college: 'Sanjivani University',
+    department: 'Computer Science',
+    profileComplete: true,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    password: 'password123',
+    isBanned: false,
+    shortId: 'FAC03',
+    createdAt: new Date().toISOString(),
+  };
+
+  const allStaff = [arenaAdmin, hariAdmin, faculty2, facultyDemo2];
 
   try {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allStaff));

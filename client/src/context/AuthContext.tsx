@@ -1844,7 +1844,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
     }
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if (isSectionFaculty || isDemoStudent) {
@@ -1896,7 +1896,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const cleanLower = cleanId.toLowerCase();
-    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com';
+    const isSectionFaculty = cleanLower === 'hariprasad.logicq@gmail.com' || cleanLower === 'faculty2.logicq@gmail.com';
     const isDemoStudent = cleanId.toUpperCase() === '2126PMIB1001' || cleanLower === 'demo1.cs@sanjivani.edu.in';
 
     if ((isSectionFaculty || isDemoStudent) && (cleanCode === '123456' || cleanCode.length === 6)) {
