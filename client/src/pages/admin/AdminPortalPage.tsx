@@ -24,7 +24,6 @@ import {
   AlertTriangle,
   ChevronRight,
   Archive,
-  UserCog,
   Flag,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,7 +36,6 @@ import { AdminTestOrchestratorTab } from '../../components/admin/AdminTestOrches
 import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { AdminAnswerBankTab } from '../../components/admin/AdminAnswerBankTab.js';
-import { AdminStaffTab } from '../../components/admin/AdminStaffTab.js';
 import { AdminRaisedIssuesTab } from '../../components/admin/AdminRaisedIssuesTab.js';
 // AdminAnswerBankTab kept for legacy reference — Answer Bank is now inside StudentDeepDiveModal
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
@@ -55,8 +53,7 @@ export type AdminTabKey =
   | 'test-orchestrator'
   | 'integrity'
   | 'reports'
-  | 'raised-issues'
-  | 'staff';
+  | 'raised-issues';
 
 interface TabItem {
   id: AdminTabKey;
@@ -74,7 +71,6 @@ const TABS: TabItem[] = [
   { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
   { id: 'raised-issues', label: 'Student Issues', icon: Flag },
-  { id: 'staff', label: 'Faculty & Staff', icon: UserCog },
 ];
 
 const DEFAULT_STATS = {
@@ -416,7 +412,7 @@ export const AdminPortalPage: React.FC = () => {
 
   // Dynamic tabs with live issue count & role-tailored view
   const tabs: TabItem[] = React.useMemo(() => {
-    const list: TabItem[] = [
+    return [
       { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
       { id: 'sections', label: isFacultyUser ? 'My Section' : 'Sections', icon: Layers },
       { id: 'students', label: isFacultyUser ? 'Section Students' : 'Students', icon: Users },
@@ -426,11 +422,7 @@ export const AdminPortalPage: React.FC = () => {
       { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
       { id: 'raised-issues', label: 'Student Issues', icon: Flag, badge: openIssuesCount > 0 ? String(openIssuesCount) : undefined },
     ];
-    if (isSuperAdmin || isDeanOrHod) {
-      list.push({ id: 'staff', label: 'Faculty & Staff', icon: UserCog });
-    }
-    return list;
-  }, [openIssuesCount, isFacultyUser, isSuperAdmin, isDeanOrHod]);
+  }, [openIssuesCount, isFacultyUser]);
 
   const saveSections = (updated: any[]) => {
     setSections(updated);
@@ -524,7 +516,6 @@ export const AdminPortalPage: React.FC = () => {
         'integrity',
         'reports',
         'raised-issues',
-        'staff',
       ].includes(rawTab)
     ) {
       setActiveTab(rawTab as AdminTabKey);
@@ -724,7 +715,6 @@ export const AdminPortalPage: React.FC = () => {
         {activeTab === 'raised-issues' && (
           <AdminRaisedIssuesTab allowedStudents={facultyStudents} />
         )}
-        {activeTab === 'staff' && <AdminStaffTab />}
       </main>
 
       {/* Candidate Deep-Dive Modal (1-Click Inspection) */}
