@@ -93,7 +93,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
   });
   const [isLoading, setIsLoading] = useState(!propStudents || propStudents.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'VERIFIED' | 'UNLOCKED'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'VERIFIED' | 'UNVERIFIED' | 'UNLOCKED'>('ALL');
   const [selectedSection, setSelectedSection] = useState<string>(isFacultyUser ? facultySection : 'ALL');
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<AdminStudentRecord | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
@@ -702,6 +702,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
       if (activeFilter === 'ACTIVE') return (s.problemsSolved ?? 0) >= 1;
       if (activeFilter === 'INACTIVE') return (s.problemsSolved ?? 0) === 0;
       if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
+      if (activeFilter === 'UNVERIFIED') return s.identityStatus !== 'BOUND';
       if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
       return true;
     });
@@ -728,6 +729,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
   const activeCount = students.filter((s) => (s.problemsSolved ?? 0) >= 1).length;
   const inactiveCount = students.filter((s) => (s.problemsSolved ?? 0) === 0).length;
   const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
+  const unverifiedCount = students.filter((s) => s.identityStatus !== 'BOUND').length;
   const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
 
   const handleExportExcel = () => {
@@ -917,6 +919,18 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
             }`}
           >
             Email Verified ({verifiedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('UNVERIFIED')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+              activeFilter === 'UNVERIFIED'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            <span>Email Not Verified ({unverifiedCount})</span>
           </button>
           <button
             type="button"
