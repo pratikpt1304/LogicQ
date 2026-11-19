@@ -204,15 +204,80 @@ export const AdminPortalPage: React.FC = () => {
               .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com' && u.email !== 'hariprasathset@sanjivani.edu.in')) && !FirestoreDataService.isPurgedStudent(u))
               .map((u: any) => {
                 const prnClean = (u.prn || '').toUpperCase().trim();
-                const cData = cohortMap.get(prnClean) || {};
+                const altPrn = prnClean.startsWith('1226') ? '2126' + prnClean.slice(4) : (prnClean.startsWith('2126') ? '1226' + prnClean.slice(4) : null);
+                const userId = String(u.id || u.uid || '').trim();
+                const cData = cohortMap.get(prnClean) ||
+                              cohortMap.get(prnClean.replace(/0/g, 'O')) ||
+                              cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                              (altPrn ? cohortMap.get(altPrn) : null) ||
+                              cohortMap.get(userId.toUpperCase()) || {};
                 const mod = cData.moduleProgress || {};
-                const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
+
+                const isBound = Boolean(
+                  u.isEmailBound ||
+                  u.isEmailBoundV2 ||
+                  u.emailVerified ||
+                  u.identityStatus === 'BOUND' ||
+                  Boolean(u.boundEmail) ||
+                  cData.isEmailBound ||
+                  cData.isEmailBoundV2 ||
+                  cData.emailVerified ||
+                  Boolean(cData.boundEmail) ||
+                  Boolean(mod.boundEmail) ||
+                  Boolean(mod.isEmailBound) ||
+                  Boolean(mod.isEmailBoundV2) ||
+                  (u.email && !u.email.endsWith('@sanjivani.edu.in') && u.email.includes('@')) ||
+                  (cData.boundEmail && !cData.boundEmail.endsWith('@sanjivani.edu.in') && cData.boundEmail.includes('@')) ||
+                  (cData.studentEmail && !cData.studentEmail.endsWith('@sanjivani.edu.in') && cData.studentEmail.includes('@'))
+                );
+
+                const resolvedEmail =
+                  cData.boundEmail ||
+                  mod.boundEmail ||
+                  u.boundEmail ||
+                  (cData.studentEmail && !cData.studentEmail.endsWith('@sanjivani.edu.in') ? cData.studentEmail : null) ||
+                  (u.email && !u.email.endsWith('@sanjivani.edu.in') ? u.email : null) ||
+                  u.email ||
+                  (prnClean ? `${prnClean.toLowerCase()}@sanjivani.edu.in` : '—');
+
+                const isExplicitDemo =
+                  prnClean === '2026BCSE101' ||
+                  prnClean === '2026BCSE102' ||
+                  u.sectionId === 'sec-demo-section' ||
+                  u.sectionName === 'Demo Section' ||
+                  u.section === 'Demo Section';
+
+                const isMtechUser =
+                  !isExplicitDemo &&
+                  (u.sectionId === 'sec-mw6l4r2s' ||
+                   (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI'))) ||
+                   (u.department && u.department.toLowerCase().includes('mtech')) ||
+                   (u.course && u.course.toLowerCase().includes('mtech')) ||
+                   (u.sectionName && u.sectionName.toLowerCase().includes('mtech')));
+
+                const rawSection = isExplicitDemo
+                  ? 'Demo Section'
+                  : isMtechUser
+                  ? 'Integrated Mtech'
+                  : (u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech'));
+
+                const normalizedSection = isExplicitDemo
+                  ? 'Demo Section'
+                  : (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+                  ? 'Integrated Mtech'
+                  : rawSection;
+
+                const totalSolved = Math.max(
+                  cData.totalSolved ?? 0,
+                  u.totalSolved ?? 0,
+                  u.problemsSolved ?? 0,
+                  Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0
+                );
                 const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
                 const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
                 const tabSwitches = Math.max(Number(mod.tabSwitches) || 0, Number(u.tabSwitchCount) || 0, Number(u.tabSwitches) || 0);
                 const pasteBursts = Math.max(Number(mod.pasteBursts) || 0, Number(u.clipboardAttempts) || 0, Number(u.pasteBursts) || 0);
                 // ⚠️ SACRED RULE: Integrity ONLY from Lab Internal — NEVER from Practice tabSwitches
-                // Always use stored integrityScore; fallback = 100 (not recomputed from tabSwitches)
                 const computedIntegrity = mod.integrityScore !== undefined
                   ? Number(mod.integrityScore)
                   : (u.integrityScore !== undefined ? Number(u.integrityScore) : 100);
@@ -220,9 +285,17 @@ export const AdminPortalPage: React.FC = () => {
                 const sName = u.fullName || u.displayName || u.name || u.username || 'Student Candidate';
                 return {
                   ...u,
+                  id: u.id || u.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,
                   name: sName,
                   fullName: u.fullName || sName,
                   displayName: u.displayName || sName,
+                  prn: prnClean || '—',
+                  email: resolvedEmail,
+                  section: normalizedSection,
+                  sectionName: normalizedSection,
+                  identityStatus: isBound ? 'BOUND' : 'PENDING',
+                  isEmailBound: isBound,
+                  problemsSolved: totalSolved,
                   totalSolved,
                   totalPoints,
                   academicScore,
@@ -231,8 +304,12 @@ export const AdminPortalPage: React.FC = () => {
                   tabSwitches,
                   clipboardAttempts: pasteBursts,
                   pasteBursts,
+                  totalKeystrokes: Math.max(Number(mod.totalKeystrokes) || 0, Number(u.totalKeystrokes) || 0),
                   completedProblems: cData.completedProblems || u.completedProblems || [],
                   miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
+                  lastActive: mod.lastActiveTime
+                    ? String(mod.lastActiveTime)
+                    : (u.lastLoginAt ? String(u.lastLoginAt) : 'Recent'),
                 };
               })
           : [];

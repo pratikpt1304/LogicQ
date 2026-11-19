@@ -103,7 +103,26 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
   // Sync when propStudents updates from parent
   useEffect(() => {
     if (propStudents && Array.isArray(propStudents) && propStudents.length > 0) {
-      setStudents(propStudents);
+      setStudents((prev) => {
+        if (!prev || prev.length === 0) return propStudents;
+        const prevMap = new Map<string, AdminStudentRecord>();
+        prev.forEach((p) => {
+          const k = (p.prn || p.email || p.id).toUpperCase();
+          if (k) prevMap.set(k, p);
+        });
+        return propStudents.map((st: any) => {
+          const k = (st.prn || st.email || st.id || '').toUpperCase();
+          const existing = prevMap.get(k);
+          if (!existing) return st;
+          return {
+            ...existing,
+            ...st,
+            section: st.section || existing.section || 'Integrated Mtech',
+            identityStatus: (st.identityStatus === 'BOUND' || existing.identityStatus === 'BOUND') ? 'BOUND' : 'PENDING',
+            problemsSolved: Math.max(Number(st.problemsSolved ?? (st as any).totalSolved ?? 0), Number(existing.problemsSolved ?? (existing as any).totalSolved ?? 0)),
+          };
+        });
+      });
       setIsLoading(false);
     }
   }, [propStudents]);
@@ -1060,7 +1079,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
                     }`}
                     title="Click to filter by this section"
                   >
-                    {st.section}
+                    {st.section || 'Integrated Mtech'}
                   </span>
                 </div>
 
