@@ -6353,4 +6353,68 @@ export class FirestoreDataService {
       return () => {};
     }
   }
+
+  /**
+   * Batch saves multiple practice questions to Firestore and synchronizes local storage
+   */
+  public static async saveBatchPracticeQuestionsToFirestore(topics: any[]): Promise<void> {
+    if (!Array.isArray(topics) || topics.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      topics.forEach((t) => {
+        if (t && t.id) {
+          batch.set(doc(db, 'practice_topics', t.id), {
+            ...t,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+      });
+      await batch.commit();
+      try {
+        const local = localStorage.getItem('logicq_custom_practice_topics_v1');
+        let arr = local ? JSON.parse(local) : [];
+        if (!Array.isArray(arr)) arr = [];
+        topics.forEach((t) => {
+          const idx = arr.findIndex((x: any) => x.id === t.id);
+          if (idx >= 0) arr[idx] = t;
+          else arr.push(t);
+        });
+        localStorage.setItem('logicq_custom_practice_topics_v1', JSON.stringify(arr));
+      } catch {}
+    } catch (err) {
+      console.warn('Error batch saving practice topics:', err);
+    }
+  }
+
+  /**
+   * Batch saves multiple lab internal questions to Firestore and synchronizes local storage
+   */
+  public static async saveBatchLabInternalQuestionsToFirestore(questions: any[]): Promise<void> {
+    if (!Array.isArray(questions) || questions.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      questions.forEach((q) => {
+        if (q && q.slug) {
+          batch.set(doc(db, 'lab_internal_questions', q.slug), {
+            ...q,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+      });
+      await batch.commit();
+      try {
+        const local = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+        let arr = local ? JSON.parse(local) : [];
+        if (!Array.isArray(arr)) arr = [];
+        questions.forEach((q) => {
+          const idx = arr.findIndex((x: any) => x.slug === q.slug);
+          if (idx >= 0) arr[idx] = q;
+          else arr.push(q);
+        });
+        localStorage.setItem('logicq_fallback_practice_custom_problems_v1', JSON.stringify(arr));
+      } catch {}
+    } catch (err) {
+      console.warn('Error batch saving lab internal questions:', err);
+    }
+  }
 }

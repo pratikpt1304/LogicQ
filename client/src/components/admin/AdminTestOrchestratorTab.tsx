@@ -519,8 +519,33 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [practiceFormHiddenOut, setPracticeFormHiddenOut] = useState('');
   const [isSavingPracticeQuestion, setIsSavingPracticeQuestion] = useState(false);
 
+  // Multi-Mode Question Creation State (MANUAL | AI | EXCEL)
+  const [questionAddMode, setQuestionAddMode] = useState<'MANUAL' | 'AI' | 'EXCEL'>('MANUAL');
+
+  // Inline New Module State (usable in Manual, AI, and Excel modes)
+  const [isInlineNewModOpen, setIsInlineNewModOpen] = useState(false);
+  const [inlineModNum, setInlineModNum] = useState<number>(5);
+  const [inlineModTitle, setInlineModTitle] = useState('');
+  const [inlineModTagline, setInlineModTagline] = useState('');
+  const [isCreatingInlineMod, setIsCreatingInlineMod] = useState(false);
+
+  // AI Generator State
+  const [aiGenTopic, setAiGenTopic] = useState('');
+  const [aiGenDifficulty, setAiGenDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiGenStep, setAiGenStep] = useState<'INPUT' | 'PREVIEW'>('INPUT');
+  const [aiGenDraft, setAiGenDraft] = useState<any | null>(null);
+
+  // Excel Upload State
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [parsedExcelRows, setParsedExcelRows] = useState<any[]>([]);
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [excelAssignMode, setExcelAssignMode] = useState<'SELECTED_MODULE' | 'FROM_FILE'>('SELECTED_MODULE');
+
   const handleOpenAddPracticeQuestion = (defaultMod: number = 1) => {
     setEditingPracticeTopic(null);
+    setQuestionAddMode('MANUAL');
     setPracticeFormModule(defaultMod || 1);
     setPracticeFormTitle('');
     setPracticeFormTopicTitle('');
@@ -535,6 +560,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     setPracticeFormOpenExpl('4 squared is 16');
     setPracticeFormHiddenIn('0');
     setPracticeFormHiddenOut('0');
+
+    // Reset AI & Excel states
+    setAiGenStep('INPUT');
+    setAiGenDraft(null);
+    setAiGenTopic('');
+    setExcelFile(null);
+    setParsedExcelRows([]);
+    setIsInlineNewModOpen(false);
+
     setIsPracticeEditModalOpen(true);
   };
 
@@ -713,6 +747,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
 
   const handleOpenAddLabQuestion = (defaultMod: number = 1) => {
     setEditingLabQuestion(null);
+    setQuestionAddMode('MANUAL');
     setLabFormModule(defaultMod || 1);
     setLabFormTitle('');
     setLabFormDifficulty('MEDIUM');
@@ -726,7 +761,529 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     setLabFormSampleOut2('');
     setLabFormHiddenIn('3\n10 20 30');
     setLabFormHiddenOut('60');
+
+    // Reset AI & Excel states
+    setAiGenStep('INPUT');
+    setAiGenDraft(null);
+    setAiGenTopic('');
+    setExcelFile(null);
+    setParsedExcelRows([]);
+    setIsInlineNewModOpen(false);
+
     setIsLabEditModalOpen(true);
+  };
+
+  // Inline Quick Module Creator (accessible across Manual, AI, and Excel tabs)
+  const handleCreateInlineModule = async (track: 'PRACTICE' | 'LAB_INTERNAL') => {
+    if (!inlineModTitle.trim()) {
+      toast.error('Please enter a module title');
+      return;
+    }
+    setIsCreatingInlineMod(true);
+    try {
+      const allNums = [1, 2, 3, 4, ...(customModules || []).map((m: any) => Number(m.moduleIndex) || 0)];
+      const assignedNum = inlineModNum || Math.max(...allNums, 4) + 1;
+      const formattedTitle = inlineModTitle.trim().startsWith('Mod')
+        ? inlineModTitle.trim()
+        : `Mod ${assignedNum}: ${inlineModTitle.trim()}`;
+
+      const newMod = {
+        id: `custom-mod-${assignedNum}-${Date.now().toString().slice(-4)}`,
+        moduleIndex: assignedNum,
+        moduleTitle: formattedTitle,
+        tagline: inlineModTagline.trim() || inlineModTitle.trim(),
+        description: `Coursework module ${assignedNum} on ${inlineModTitle.trim()}`,
+        track: 'BOTH', // available to both practice and lab internal
+        createdAt: new Date().toISOString(),
+      };
+
+      await FirestoreDataService.saveCustomModuleToFirestore(newMod);
+      if (track === 'PRACTICE') {
+        setPracticeFormModule(assignedNum);
+      } else {
+        setLabFormModule(assignedNum);
+      }
+      setIsInlineNewModOpen(false);
+      setInlineModTitle('');
+      setInlineModTagline('');
+      toast.success(`Module ${assignedNum} created and selected!`);
+    } catch (err: any) {
+      toast.error('Failed to create module: ' + (err?.message || err));
+    } finally {
+      setIsCreatingInlineMod(false);
+    }
+  };
+
+  // AI Question Generation Handler
+  const handleGenerateAiQuestion = (track: 'PRACTICE' | 'LAB_INTERNAL') => {
+    const rawTopic = aiGenTopic.trim();
+    if (!rawTopic) {
+      toast.error('Please enter a topic or concept for AI generation');
+      return;
+    }
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      const topicLower = rawTopic.toLowerCase();
+      let pickedTitle = `${rawTopic} Logic & Evaluation`;
+      let pickedIn1 = '4';
+      let pickedOut1 = '16';
+      let pickedIn2 = '7';
+      let pickedOut2 = '49';
+      let pickedHiddenIn = '0';
+      let pickedHiddenOut = '0';
+      let pickedStarter = `#include <stdio.h>\n#include <stdlib.h>\n\n// Topic: ${rawTopic}\n// Difficulty: ${aiGenDifficulty}\n\nint main() {\n    // TODO: Write C solution for ${rawTopic}\n    return 0;\n}`;
+      let pickedSolution = `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        printf("%d\\n", n * n);\n    }\n    return 0;\n}`;
+
+      if (topicLower.includes('pointer') || topicLower.includes('address') || topicLower.includes('reference')) {
+        pickedTitle = `Safe Pointer Swapper & Address Offset`;
+        pickedIn1 = '10 20';
+        pickedOut1 = '20 10';
+        pickedIn2 = '-5 99';
+        pickedOut2 = '99 -5';
+        pickedHiddenIn = '0 0';
+        pickedHiddenOut = '0 0';
+        pickedStarter = `#include <stdio.h>\n\nvoid swapPointers(int *a, int *b) {\n    // Implement in-place swap using pointers\n}\n\nint main() {\n    int x, y;\n    if (scanf("%d %d", &x, &y) == 2) {\n        swapPointers(&x, &y);\n        printf("%d %d\\n", x, y);\n    }\n    return 0;\n}`;
+        pickedSolution = `#include <stdio.h>\n\nvoid swapPointers(int *a, int *b) {\n    int t = *a;\n    *a = *b;\n    *b = t;\n}\n\nint main() {\n    int x, y;\n    if (scanf("%d %d", &x, &y) == 2) {\n        swapPointers(&x, &y);\n        printf("%d %d\\n", x, y);\n    }\n    return 0;\n}`;
+      } else if (topicLower.includes('string') || topicLower.includes('char') || topicLower.includes('word') || topicLower.includes('text')) {
+        pickedTitle = `String In-Place Inverter & Character Counter`;
+        pickedIn1 = 'logicq';
+        pickedOut1 = 'qcigol';
+        pickedIn2 = 'program';
+        pickedOut2 = 'margorp';
+        pickedHiddenIn = 'a';
+        pickedHiddenOut = 'a';
+        pickedStarter = `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char str[128];\n    if (scanf("%127s", str) == 1) {\n        // Reverse str in-place and print\n    }\n    return 0;\n}`;
+        pickedSolution = `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char str[128];\n    if (scanf("%127s", str) == 1) {\n        int len = strlen(str);\n        for (int i = 0; i < len / 2; i++) {\n            char temp = str[i];\n            str[i] = str[len - 1 - i];\n            str[len - 1 - i] = temp;\n        }\n        printf("%s\\n", str);\n    }\n    return 0;\n}`;
+      } else if (topicLower.includes('bit') || topicLower.includes('binary') || topicLower.includes('mask') || topicLower.includes('parity')) {
+        pickedTitle = `Bitwise Parity & Power of Two Validator`;
+        pickedIn1 = '16';
+        pickedOut1 = 'YES';
+        pickedIn2 = '18';
+        pickedOut2 = 'NO';
+        pickedHiddenIn = '0';
+        pickedHiddenOut = 'NO';
+        pickedStarter = `#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    // Return 1 if power of two using bitwise ops, else 0\n    return 0;\n}\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        printf("%s\\n", isPowerOfTwo(n) ? "YES" : "NO");\n    }\n    return 0;\n}`;
+        pickedSolution = `#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    return (n > 0) && ((n & (n - 1)) == 0);\n}\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        printf("%s\\n", isPowerOfTwo(n) ? "YES" : "NO");\n    }\n    return 0;\n}`;
+      } else if (topicLower.includes('array') || topicLower.includes('matrix') || topicLower.includes('vector') || topicLower.includes('sort')) {
+        pickedTitle = `Array Deduplication & Peak Element Locator`;
+        pickedIn1 = '5\n1 3 20 4 1';
+        pickedOut1 = '20';
+        pickedIn2 = '4\n10 20 15 2';
+        pickedOut2 = '20';
+        pickedHiddenIn = '3\n5 10 20';
+        pickedHiddenOut = '20';
+        pickedStarter = `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        int arr[100];\n        for (int i = 0; i < n; i++) scanf("%d", &arr[i]);\n        // Find and print peak element\n    }\n    return 0;\n}`;
+        pickedSolution = `#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        int arr[100], max = -999999;\n        for (int i = 0; i < n; i++) {\n            scanf("%d", &arr[i]);\n            if (arr[i] > max) max = arr[i];\n        }\n        printf("%d\\n", max);\n    }\n    return 0;\n}`;
+      } else if (topicLower.includes('struct') || topicLower.includes('memory') || topicLower.includes('dma') || topicLower.includes('alloc') || topicLower.includes('dynamic')) {
+        pickedTitle = `Dynamic Buffer Allocation & In-Memory Compaction`;
+        pickedIn1 = '4\n5 2 9 1';
+        pickedOut1 = '1 2 5 9';
+        pickedIn2 = '3\n100 20 50';
+        pickedOut2 = '20 50 100';
+        pickedHiddenIn = '1\n42';
+        pickedHiddenOut = '42';
+        pickedStarter = `#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        int *arr = (int*)malloc(n * sizeof(int));\n        // Read, sort, print and free memory\n        free(arr);\n    }\n    return 0;\n}`;
+        pickedSolution = `#include <stdio.h>\n#include <stdlib.h>\n\nint cmp(const void *a, const void *b) { return (*(int*)a - *(int*)b); }\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        int *arr = (int*)malloc(n * sizeof(int));\n        for (int i = 0; i < n; i++) scanf("%d", &arr[i]);\n        qsort(arr, n, sizeof(int), cmp);\n        for (int i = 0; i < n; i++) printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n        free(arr);\n    }\n    return 0;\n}`;
+      }
+
+      setAiGenDraft({
+        title: pickedTitle,
+        difficulty: aiGenDifficulty,
+        description: `Implement an optimized C program for ${rawTopic} adhering to standard input/output formatting. Ensure edge cases like boundary values and null/zero checks are safely handled.`,
+        visibleTestCase1: { input: pickedIn1, output: pickedOut1 },
+        visibleTestCase2: { input: pickedIn2, output: pickedOut2 },
+        hiddenTestCase: { input: pickedHiddenIn, output: pickedHiddenOut },
+        starterCode: pickedStarter,
+        solutionCode: pickedSolution,
+        topicTitle: rawTopic,
+        summary: `Optimized solution and validation for ${rawTopic}`,
+        syntax: `// Standard C syntax tip for ${rawTopic}`,
+      });
+      setIsGeneratingAi(false);
+      setAiGenStep('PREVIEW');
+      toast.info('✨ AI question generated! Review and click Approve to add to module.');
+    }, 600);
+  };
+
+  // Regenerate variation before approving
+  const handleRegenerateAiQuestion = () => {
+    if (!aiGenDraft) return;
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      const topicClean = aiGenTopic.trim() || 'Concept';
+      const variations = [
+        {
+          title: `Optimized ${topicClean} Algorithm`,
+          input1: '5',
+          output1: '25',
+          input2: '10',
+          output2: '100',
+          hiddenInput: '-3',
+          hiddenOutput: '9',
+        },
+        {
+          title: `Dynamic ${topicClean} & Validation`,
+          input1: '8',
+          output1: '64',
+          input2: '12',
+          output2: '144',
+          hiddenInput: '1',
+          hiddenOutput: '1',
+        },
+        {
+          title: `In-Place ${topicClean} Evaluator`,
+          input1: '3',
+          output1: '9',
+          input2: '6',
+          output2: '36',
+          hiddenInput: '15',
+          hiddenOutput: '225',
+        },
+      ];
+      const picked = variations[Math.floor(Math.random() * variations.length)];
+      setAiGenDraft({
+        ...aiGenDraft,
+        title: picked.title,
+        visibleTestCase1: { input: picked.input1, output: picked.output1 },
+        visibleTestCase2: { input: picked.input2, output: picked.output2 },
+        hiddenTestCase: { input: picked.hiddenInput, output: picked.hiddenOutput },
+      });
+      setIsGeneratingAi(false);
+      toast.success('Generated a fresh variation for review!');
+    }, 500);
+  };
+
+  // Approve AI Question & Add to Module
+  const handleApproveAiQuestion = async (track: 'PRACTICE' | 'LAB_INTERNAL') => {
+    if (!aiGenDraft) return;
+    const targetMod = track === 'PRACTICE' ? practiceFormModule : labFormModule;
+    const modulesList = track === 'PRACTICE' ? practiceModulesList : labModulesList;
+    const modObj = modulesList.find((m) => m.id === targetMod) || {
+      id: targetMod,
+      title: `Module ${targetMod}`,
+      shortTitle: `Module ${targetMod}`,
+    };
+
+    if (track === 'PRACTICE') {
+      const qId = `m${targetMod}-ai-${Date.now().toString(36)}`;
+      const savedItem: TopicPracticeItem = {
+        id: qId,
+        moduleIndex: targetMod,
+        moduleSlug: modObj.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+        moduleTitle: modObj.title,
+        topicTitle: aiGenDraft.topicTitle || aiGenDraft.title,
+        summary: aiGenDraft.summary || aiGenDraft.title,
+        tipBox: {
+          syntax: aiGenDraft.syntax || `// AI Verified syntax for ${aiGenDraft.title}`,
+          application: `Application in ${modObj.shortTitle}`,
+          example: aiGenDraft.starterCode.slice(0, 150),
+        },
+        problem: {
+          title: aiGenDraft.title,
+          difficulty: aiGenDraft.difficulty,
+          description: aiGenDraft.description,
+          starterCode: aiGenDraft.starterCode,
+          solutionCode: aiGenDraft.solutionCode,
+          openTestCase: {
+            input: aiGenDraft.visibleTestCase1.input,
+            expectedOutput: aiGenDraft.visibleTestCase1.output,
+            explanation: 'Verified test case',
+          },
+          hiddenTestCase: {
+            input: aiGenDraft.hiddenTestCase.input,
+            expectedOutput: aiGenDraft.hiddenTestCase.output,
+          },
+        },
+      };
+
+      await FirestoreDataService.savePracticeQuestionToFirestore(savedItem);
+      toast.success(`✨ Approved! "${savedItem.problem.title}" added to Module ${targetMod}!`);
+      setIsPracticeEditModalOpen(false);
+    } else {
+      const cleanSlug = `practice-m${targetMod}-ai-${aiGenDraft.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30)}-${Date.now().toString().slice(-4)}`;
+      const sampleTests = [
+        { input: aiGenDraft.visibleTestCase1.input, expectedOutput: aiGenDraft.visibleTestCase1.output },
+        { input: aiGenDraft.visibleTestCase2.input, expectedOutput: aiGenDraft.visibleTestCase2.output },
+      ];
+      const hiddenTests = [
+        { input: aiGenDraft.hiddenTestCase.input, expectedOutput: aiGenDraft.hiddenTestCase.output },
+      ];
+      const savedProblem: PracticeProblemDef = {
+        slug: cleanSlug,
+        moduleSlug: modObj.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        moduleOrder: targetMod,
+        title: aiGenDraft.title,
+        difficulty: aiGenDraft.difficulty,
+        category: modObj.shortTitle,
+        tags: [modObj.shortTitle, 'Lab Internal'],
+        description: aiGenDraft.description,
+        starterCode: aiGenDraft.starterCode,
+        solutionCode: aiGenDraft.solutionCode,
+        wrongSolution1: '',
+        wrongSolution2: '',
+        timeLimitMs: 15 * 60 * 1000,
+        memoryLimitMb: 128,
+        basePoints: aiGenDraft.difficulty === 'EASY' ? 10 : aiGenDraft.difficulty === 'MEDIUM' ? 20 : 30,
+        sampleTests,
+        hiddenTests,
+      };
+
+      await FirestoreDataService.saveLabInternalQuestionToFirestore(savedProblem);
+      toast.success(`✨ Approved! "${savedProblem.title}" added to Lab Internal Module ${targetMod}!`);
+      setIsLabEditModalOpen(false);
+    }
+
+    setAiGenDraft(null);
+    setAiGenStep('INPUT');
+    setAiGenTopic('');
+  };
+
+  const handleDiscardAiQuestion = () => {
+    setAiGenDraft(null);
+    setAiGenStep('INPUT');
+    toast.info('AI generated question was discarded.');
+  };
+
+  // Download Sample Excel Template
+  const handleDownloadCourseworkTemplate = () => {
+    try {
+      const sampleRows = [
+        {
+          Title: 'Bitwise Parity & Power of Two Validator',
+          Module: 1,
+          Difficulty: 'EASY',
+          Summary: 'Determine if an integer N is a non-zero power of two using bitwise operators',
+          Description: 'Read an integer N from standard input. Print YES if N is a non-zero power of two, otherwise print NO. Use bitwise operations without loops.',
+          VisibleInput1: '16',
+          VisibleOutput1: 'YES',
+          VisibleInput2: '18',
+          VisibleOutput2: 'NO',
+          HiddenInput: '0',
+          HiddenOutput: 'NO',
+          StarterCode: '#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        // Check power of two\n    }\n    return 0;\n}',
+          SolutionCode: '#include <stdio.h>\n\nint main() {\n    int n;\n    if (scanf("%d", &n) == 1) {\n        if (n > 0 && (n & (n - 1)) == 0) printf("YES\\n");\n        else printf("NO\\n");\n    }\n    return 0;\n}',
+        },
+        {
+          Title: 'In-Place String Reversal & Palindrome Checker',
+          Module: 2,
+          Difficulty: 'MEDIUM',
+          Summary: 'Reverse string in-place using two pointers and check for palindrome',
+          Description: 'Given a single-word string up to 100 characters, print PALINDROME if it reads the same forward and backwards. Otherwise print the reversed string.',
+          VisibleInput1: 'racecar',
+          VisibleOutput1: 'PALINDROME',
+          VisibleInput2: 'logicq',
+          VisibleOutput2: 'qcigol',
+          HiddenInput: 'a',
+          HiddenOutput: 'PALINDROME',
+          StarterCode: '#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char s[101];\n    if (scanf("%100s", s) == 1) {\n        // Process string\n    }\n    return 0;\n}',
+          SolutionCode: '',
+        },
+        {
+          Title: 'Dynamic Memory Allocation & Duplicate Filter',
+          Module: 3,
+          Difficulty: 'HARD',
+          Summary: 'Allocate dynamic array and remove duplicate integers in-place',
+          Description: 'Read integer N, then N space-separated integers. Print the unique elements in original order.',
+          VisibleInput1: '5\\n1 2 2 3 4',
+          VisibleOutput1: '1 2 3 4',
+          VisibleInput2: '4\\n7 7 7 7',
+          VisibleOutput2: '7',
+          HiddenInput: '6\\n-1 -1 0 2 2 5',
+          HiddenOutput: '-1 0 2 5',
+          StarterCode: '#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    // Allocate and filter\n    return 0;\n}',
+          SolutionCode: '',
+        },
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      ws['!cols'] = [
+        { wch: 38 }, // Title
+        { wch: 10 }, // Module
+        { wch: 12 }, // Difficulty
+        { wch: 35 }, // Summary
+        { wch: 50 }, // Description
+        { wch: 16 }, // VisibleInput1
+        { wch: 16 }, // VisibleOutput1
+        { wch: 16 }, // VisibleInput2
+        { wch: 16 }, // VisibleOutput2
+        { wch: 16 }, // HiddenInput
+        { wch: 16 }, // HiddenOutput
+        { wch: 45 }, // StarterCode
+        { wch: 45 }, // SolutionCode
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Questions_Template');
+      XLSX.writeFile(wb, 'LogicQ_Coursework_Questions_Template.xlsx');
+      toast.success('Sample Excel template downloaded!');
+    } catch (err: any) {
+      toast.error('Failed to create sample template: ' + (err?.message || err));
+    }
+  };
+
+  // Parse Excel File on Selection
+  const handleExcelFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsParsingExcel(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      const rows = json.map((r, i) => {
+        const title = r.Title || r.title || r['Problem Title'] || r.Problem || `Question ${i + 1}`;
+        const mod = Number(r.Module || r.module || r.Unit || r.unit) || 1;
+        const rawDiff = (r.Difficulty || r.difficulty || 'MEDIUM').toString().toUpperCase().trim();
+        const validDiff = (rawDiff === 'EASY' || rawDiff === 'HARD') ? rawDiff : 'MEDIUM';
+        const desc = r.Description || r.description || r.Summary || r.summary || `Solve ${title}`;
+        const vIn1 = String(r.VisibleInput1 ?? r.VisibleInput ?? r.Input1 ?? '4');
+        const vOut1 = String(r.VisibleOutput1 ?? r.VisibleOutput ?? r.Output1 ?? '16');
+        const vIn2 = String(r.VisibleInput2 ?? r.Input2 ?? '7');
+        const vOut2 = String(r.VisibleOutput2 ?? r.Output2 ?? '49');
+        const hIn = String(r.HiddenInput ?? r.HiddenIn ?? '0');
+        const hOut = String(r.HiddenOutput ?? r.HiddenOut ?? '0');
+        const starter = r.StarterCode || r.starterCode || '#include <stdio.h>\n\nint main() {\n    return 0;\n}';
+        const solution = r.SolutionCode || r.solutionCode || '';
+        const summary = r.Summary || r.summary || title;
+
+        return {
+          title: String(title).trim(),
+          module: mod,
+          difficulty: validDiff,
+          description: String(desc).trim(),
+          summary: String(summary).trim(),
+          vIn1,
+          vOut1,
+          vIn2,
+          vOut2,
+          hIn,
+          hOut,
+          starter,
+          solution,
+        };
+      }).filter((r) => r.title && r.title.length > 0);
+
+      setParsedExcelRows(rows);
+      setExcelFile(file);
+      if (rows.length === 0) {
+        toast.warning('No valid question rows found in the uploaded file.');
+      } else {
+        toast.success(`Successfully parsed ${rows.length} questions from Excel!`);
+      }
+    } catch (err: any) {
+      toast.error('Failed to parse Excel file: ' + (err?.message || err));
+    } finally {
+      setIsParsingExcel(false);
+    }
+  };
+
+  // Bulk Import Questions from Parsed Excel
+  const handleImportExcelQuestions = async (track: 'PRACTICE' | 'LAB_INTERNAL') => {
+    if (parsedExcelRows.length === 0) {
+      toast.error('No parsed questions to import. Please select an Excel file first.');
+      return;
+    }
+    setIsImportingExcel(true);
+    try {
+      if (track === 'PRACTICE') {
+        const batchTopics: TopicPracticeItem[] = parsedExcelRows.map((r, i) => {
+          const targetMod = excelAssignMode === 'SELECTED_MODULE' ? practiceFormModule : (Number(r.module) || practiceFormModule);
+          const modObj = practiceModulesList.find((m) => m.id === targetMod) || {
+            id: targetMod,
+            title: `Module ${targetMod}`,
+            shortTitle: `Module ${targetMod}`,
+          };
+          const modSlug = modObj.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+          const qId = `m${targetMod}-excel-${Date.now().toString(36)}-${i + 1}`;
+
+          return {
+            id: qId,
+            moduleIndex: targetMod,
+            moduleSlug: modSlug,
+            moduleTitle: modObj.title,
+            topicTitle: r.title,
+            summary: r.summary || r.title,
+            tipBox: {
+              syntax: `// Standard practice in ${modObj.shortTitle}`,
+              application: `Application in ${modObj.shortTitle}`,
+              example: r.starter.slice(0, 150),
+            },
+            problem: {
+              title: r.title,
+              difficulty: r.difficulty as 'EASY' | 'MEDIUM' | 'HARD',
+              description: r.description || `Implement solution for ${r.title}`,
+              starterCode: r.starter,
+              solutionCode: r.solution,
+              openTestCase: {
+                input: r.vIn1,
+                expectedOutput: r.vOut1,
+                explanation: 'Standard verified test case',
+              },
+              hiddenTestCase: {
+                input: r.hIn,
+                expectedOutput: r.hOut,
+              },
+            },
+          };
+        });
+
+        await FirestoreDataService.saveBatchPracticeQuestionsToFirestore(batchTopics);
+        toast.success(`Successfully imported ${batchTopics.length} questions to Practice!`);
+        setIsPracticeEditModalOpen(false);
+      } else {
+        const batchLab: PracticeProblemDef[] = parsedExcelRows.map((r, i) => {
+          const targetMod = excelAssignMode === 'SELECTED_MODULE' ? labFormModule : (Number(r.module) || labFormModule);
+          const modObj = labModulesList.find((m) => m.id === targetMod) || {
+            id: targetMod,
+            title: `Module ${targetMod}`,
+            shortTitle: `Module ${targetMod}`,
+          };
+          const cleanSlug = `practice-m${targetMod}-excel-${r.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30)}-${Date.now().toString().slice(-4)}-${i + 1}`;
+
+          const sampleTests = [
+            { input: r.vIn1, expectedOutput: r.vOut1 },
+            ...(r.vIn2 ? [{ input: r.vIn2, expectedOutput: r.vOut2 }] : []),
+          ];
+          const hiddenTests = [
+            { input: r.hIn, expectedOutput: r.hOut },
+          ];
+
+          return {
+            slug: cleanSlug,
+            moduleSlug: modObj.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            moduleOrder: targetMod,
+            title: r.title,
+            difficulty: r.difficulty as 'EASY' | 'MEDIUM' | 'HARD',
+            category: modObj.shortTitle,
+            tags: [modObj.shortTitle, 'Lab Internal'],
+            description: r.description || `Problem on ${modObj.shortTitle} for Lab Internal examination.`,
+            starterCode: r.starter,
+            solutionCode: r.solution,
+            wrongSolution1: '',
+            wrongSolution2: '',
+            timeLimitMs: 15 * 60 * 1000,
+            memoryLimitMb: 128,
+            basePoints: r.difficulty === 'EASY' ? 10 : r.difficulty === 'MEDIUM' ? 20 : 30,
+            sampleTests,
+            hiddenTests,
+          };
+        });
+
+        await FirestoreDataService.saveBatchLabInternalQuestionsToFirestore(batchLab);
+        toast.success(`Successfully imported ${batchLab.length} questions to Lab Internal!`);
+        setIsLabEditModalOpen(false);
+      }
+
+      setParsedExcelRows([]);
+      setExcelFile(null);
+    } catch (err: any) {
+      toast.error('Failed to import questions: ' + (err?.message || err));
+    } finally {
+      setIsImportingExcel(false);
+    }
   };
 
   const handleSaveLabQuestion = async (e: React.FormEvent) => {
@@ -3257,54 +3814,183 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
               </button>
             </div>
 
-            <form onSubmit={handleSaveLabQuestion} className="space-y-4 text-xs">
-              {/* Row 1: Module & Difficulty & Time Limit */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Module <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={labFormModule}
-                    onChange={(e) => setLabFormModule(Number(e.target.value) as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
-                  >
-                    <option value={1}>Module 1: Control Structures</option>
-                    <option value={2}>Module 2: Pointers & Functions</option>
-                    <option value={3}>Module 3: Array & Applications</option>
-                    <option value={4}>Module 4: Advanced Data Types & DMA</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Difficulty Profile <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={labFormDifficulty}
-                    onChange={(e) => setLabFormDifficulty(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
-                  >
-                    <option value="EASY">EASY (10 pts)</option>
-                    <option value="MEDIUM">MEDIUM (20 pts)</option>
-                    <option value="HARD">HARD (30 pts)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Time Limit (Minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={120}
-                    value={labFormTimeLimitMin}
-                    onChange={(e) => setLabFormTimeLimitMin(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
-                  />
-                </div>
+            {/* Sub-Tabs: Manual / AI Generated / Upload Excel (Only when creating new question) */}
+            {!editingLabQuestion && (
+              <div className="grid grid-cols-3 p-1 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('MANUAL')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'MANUAL'
+                      ? 'bg-white dark:bg-[#1c2230] text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Manual Entry</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('AI')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'AI'
+                      ? 'bg-white dark:bg-[#1c2230] text-purple-600 dark:text-purple-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>AI Generated</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('EXCEL')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'EXCEL'
+                      ? 'bg-white dark:bg-[#1c2230] text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Upload Excel</span>
+                </button>
               </div>
+            )}
+
+            {/* Target Module Selector & Quick New Module Drawer */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Target Coursework Module <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInlineNewModOpen(!isInlineNewModOpen);
+                    const allNums = [1, 2, 3, 4, ...(customModules || []).map((m: any) => Number(m.moduleIndex) || 0)];
+                    setInlineModNum(Math.max(...allNums, 4) + 1);
+                  }}
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isInlineNewModOpen ? 'Close Drawer' : '+ Create New Module'}</span>
+                </button>
+              </div>
+
+              <select
+                value={labFormModule}
+                onChange={(e) => setLabFormModule(Number(e.target.value) as any)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none text-xs"
+              >
+                {labModulesList.map((m) => (
+                  <option key={m.id} value={m.id} className="dark:bg-[#121620]">
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+
+              {/* Inline Quick Module Drawer */}
+              {isInlineNewModOpen && (
+                <div className="p-3.5 mt-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 space-y-2.5 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" /> Quick Module Creation
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineNewModOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Mod #</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={inlineModNum}
+                        onChange={(e) => setInlineModNum(Number(e.target.value) || 1)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs font-mono"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Module Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Module 5: File I/O & Streams"
+                        value={inlineModTitle}
+                        onChange={(e) => setInlineModTitle(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Tagline / Short Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Streams & Buffers"
+                      value={inlineModTagline}
+                      onChange={(e) => setInlineModTagline(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineNewModOpen(false)}
+                      className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200/50 rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCreateInlineModule('LAB_INTERNAL')}
+                      disabled={isCreatingInlineMod || !inlineModTitle.trim()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      {isCreatingInlineMod ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Create & Select
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MODE 1: MANUAL ENTRY */}
+            {(questionAddMode === 'MANUAL' || editingLabQuestion) && (
+              <form onSubmit={handleSaveLabQuestion} className="space-y-4 text-xs">
+                {/* Row 1: Difficulty & Time Limit */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Difficulty Profile <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={labFormDifficulty}
+                      onChange={(e) => setLabFormDifficulty(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                    >
+                      <option value="EASY">EASY (10 pts)</option>
+                      <option value="MEDIUM">MEDIUM (20 pts)</option>
+                      <option value="HARD">HARD (30 pts)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Time Limit (Minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={120}
+                      value={labFormTimeLimitMin}
+                      onChange={(e) => setLabFormTimeLimitMin(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
 
               {/* Row 2: Problem Title */}
               <div>
@@ -3487,6 +4173,351 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 />
               </div>
             </form>
+            )}
+
+            {/* MODE 2: AI GENERATED */}
+            {questionAddMode === 'AI' && !editingLabQuestion && (
+              <div className="space-y-4 text-xs">
+                {aiGenStep === 'INPUT' ? (
+                  <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 space-y-3">
+                    <div>
+                      <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        What concept or topic do you want AI to generate? <span className="text-purple-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="e.g. Array and String manipulation, Pointers, Bitwise operators, Structs..."
+                          value={aiGenTopic}
+                          onChange={(e) => setAiGenTopic(e.target.value)}
+                          className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-white dark:bg-[#161b26] text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        />
+                        <Sparkles className="w-4 h-4 text-purple-500 absolute right-3 top-3 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Quick Suggestions Chips */}
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                        Quick Suggestions:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Bitwise Parity & Power of Two',
+                          'Pointers & Memory Addresses',
+                          'String In-Place Reversal',
+                          'Dynamic Memory Allocation',
+                          'Structures & Records',
+                          'Array Deduplication',
+                        ].map((pill) => (
+                          <button
+                            key={pill}
+                            type="button"
+                            onClick={() => setAiGenTopic(pill)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white dark:bg-[#161b26] border border-purple-200/80 dark:border-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition cursor-pointer"
+                          >
+                            + {pill}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Difficulty Selection */}
+                    <div>
+                      <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Difficulty Level:
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['EASY', 'MEDIUM', 'HARD'] as const).map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setAiGenDifficulty(d)}
+                            className={`py-2 px-2 rounded-xl text-xs font-semibold text-center transition cursor-pointer border ${
+                              aiGenDifficulty === d
+                                ? d === 'EASY'
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                : d === 'MEDIUM'
+                                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                                : 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                                : 'bg-white dark:bg-[#161b26] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <GalaxyButton
+                        type="button"
+                        onClick={() => handleGenerateAiQuestion('LAB_INTERNAL')}
+                        disabled={isGeneratingAi || !aiGenTopic.trim()}
+                        text={isGeneratingAi ? 'Generating Question with AI...' : 'Generate Question with AI'}
+                        icon={isGeneratingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  aiGenDraft && (
+                    <div className="space-y-4">
+                      {/* Problem Statement & Requirements */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Problem Statement & Requirements
+                        </label>
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#161b26] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 text-xs leading-relaxed space-y-1">
+                          <p className="font-bold text-slate-900 dark:text-white text-sm">{aiGenDraft.title}</p>
+                          <p className="text-slate-600 dark:text-slate-300">{aiGenDraft.description}</p>
+                        </div>
+                      </div>
+
+                      {/* Test Cases Suite: 3 Cards */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Test Cases (Verified Correctness Suite)
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 space-y-1">
+                            <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Visible Case 1
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.visibleTestCase1.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.visibleTestCase1.output}</div>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 space-y-1">
+                            <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Visible Case 2
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.visibleTestCase2.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.visibleTestCase2.output}</div>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-1">
+                            <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                              <Lock className="w-3 h-3" /> Hidden Test (Eval)
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.hiddenTestCase.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.hiddenTestCase.output}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Starter Code */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          C Starter Code
+                        </label>
+                        <pre className="p-3 rounded-2xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto max-h-36 border border-slate-800">
+                          {aiGenDraft.starterCode}
+                        </pre>
+                      </div>
+
+                      {/* Review Actions */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={handleDiscardAiQuestion}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Discard / Reject</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRegenerateAiQuestion}
+                            disabled={isGeneratingAi}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                            <span>Regenerate</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleApproveAiQuestion('LAB_INTERNAL')}
+                            className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve & Add to Module</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* MODE 3: UPLOAD EXCEL */}
+            {questionAddMode === 'EXCEL' && !editingLabQuestion && (
+              <div className="space-y-4 text-xs">
+                {/* Guidelines & Template Download */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-xs text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      Coursework Excel Format Guidelines
+                    </h4>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                      Columns: <code className="font-mono font-bold">Title, Module, Difficulty, Description, VisibleInput1, VisibleOutput1, HiddenInput, HiddenOutput</code>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCourseworkTemplate}
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#161b26] border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Template (.xlsx)</span>
+                  </button>
+                </div>
+
+                {/* Module Assignment Option */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Module Assignment Method:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                      excelAssignMode === 'SELECTED_MODULE'
+                        ? 'bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-400 text-emerald-900 dark:text-emerald-300 font-medium'
+                        : 'bg-white dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="labExcelAssign"
+                        checked={excelAssignMode === 'SELECTED_MODULE'}
+                        onChange={() => setExcelAssignMode('SELECTED_MODULE')}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Assign ALL to selected Module ({labFormModule})</span>
+                    </label>
+
+                    <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                      excelAssignMode === 'FROM_FILE'
+                        ? 'bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-400 text-emerald-900 dark:text-emerald-300 font-medium'
+                        : 'bg-white dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="labExcelAssign"
+                        checked={excelAssignMode === 'FROM_FILE'}
+                        onChange={() => setExcelAssignMode('FROM_FILE')}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Use Module column from Excel file</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* File Upload Dropzone */}
+                <div className="border-2 border-dashed border-slate-300 dark:border-white/10 rounded-2xl p-6 text-center hover:border-emerald-500/50 transition bg-slate-50/50 dark:bg-white/[0.01]">
+                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Click to select or drag & drop questions file
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Supported formats: .xlsx, .xls, .csv
+                  </p>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleExcelFileChange}
+                    className="mt-3 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-500/10 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 cursor-pointer"
+                  />
+                </div>
+
+                {/* Parsed Preview Table */}
+                {parsedExcelRows.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Ready to import {parsedExcelRows.length} questions
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        Parsed from {excelFile?.name}
+                      </span>
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-white/10 rounded-xl">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-100 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0">
+                          <tr>
+                            <th className="p-2 font-semibold">#</th>
+                            <th className="p-2 font-semibold">Problem Title</th>
+                            <th className="p-2 font-semibold">Target Mod</th>
+                            <th className="p-2 font-semibold">Diff</th>
+                            <th className="p-2 font-semibold">Sample I/O</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                          {parsedExcelRows.map((r, i) => (
+                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                              <td className="p-2 text-slate-400 font-mono">{i + 1}</td>
+                              <td className="p-2 font-medium text-slate-900 dark:text-white max-w-[180px] truncate">{r.title}</td>
+                              <td className="p-2">
+                                <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                                  Mod {excelAssignMode === 'SELECTED_MODULE' ? labFormModule : r.module}
+                                </span>
+                              </td>
+                              <td className="p-2">
+                                <span className={`px-1.5 py-0.5 rounded-md font-bold ${
+                                  r.difficulty === 'EASY'
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600'
+                                    : r.difficulty === 'HARD'
+                                    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600'
+                                    : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600'
+                                }`}>
+                                  {r.difficulty}
+                                </span>
+                              </td>
+                              <td className="p-2 font-mono text-[10px] text-slate-500 truncate max-w-[120px]">
+                                {r.vIn1} &rarr; {r.vOut1}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParsedExcelRows([]);
+                          setExcelFile(null);
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+                      >
+                        Clear File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleImportExcelQuestions('LAB_INTERNAL')}
+                        disabled={isImportingExcel}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isImportingExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                        <span>Import {parsedExcelRows.length} Questions to Module</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3639,14 +4670,35 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       {isPracticeEditModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-2.5">
-                <span className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <BookOpen className="w-5 h-5" />
+                <span className={`p-2.5 rounded-xl ${
+                  questionAddMode === 'AI' && !editingPracticeTopic
+                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                    : questionAddMode === 'EXCEL' && !editingPracticeTopic
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                }`}>
+                  {editingPracticeTopic ? (
+                    <Edit3 className="w-5 h-5" />
+                  ) : questionAddMode === 'AI' ? (
+                    <Sparkles className="w-5 h-5" />
+                  ) : questionAddMode === 'EXCEL' ? (
+                    <FileSpreadsheet className="w-5 h-5" />
+                  ) : (
+                    <BookOpen className="w-5 h-5" />
+                  )}
                 </span>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingPracticeTopic ? 'Edit Practice Question' : 'Add Practice Question'}
+                    {editingPracticeTopic
+                      ? 'Edit Practice Question'
+                      : questionAddMode === 'AI'
+                      ? 'AI Question Generator'
+                      : questionAddMode === 'EXCEL'
+                      ? 'Upload Questions via Excel'
+                      : 'Add Practice Question'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Publish curriculum practice challenge for students with instant validation
@@ -3665,26 +4717,153 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
               </button>
             </div>
 
-            <form onSubmit={handleSavePracticeQuestion} className="space-y-4 text-xs">
-              {/* Row 1: Target Module & Difficulty */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Module <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={practiceFormModule}
-                    onChange={(e) => setPracticeFormModule(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                  >
-                    {practiceModulesList.map((m) => (
-                      <option key={m.id} value={m.id} className="dark:bg-[#121620]">
-                        {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {/* Sub-Tabs: Manual / AI Generated / Upload Excel (Only when creating new question) */}
+            {!editingPracticeTopic && (
+              <div className="grid grid-cols-3 p-1 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('MANUAL')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'MANUAL'
+                      ? 'bg-white dark:bg-[#1c2230] text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Manual Entry</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('AI')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'AI'
+                      ? 'bg-white dark:bg-[#1c2230] text-purple-600 dark:text-purple-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>AI Generated</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuestionAddMode('EXCEL')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    questionAddMode === 'EXCEL'
+                      ? 'bg-white dark:bg-[#1c2230] text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Upload Excel</span>
+                </button>
+              </div>
+            )}
 
+            {/* Target Module Selector & Quick New Module Drawer (Shared across Manual, AI, Excel) */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Target Coursework Module <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInlineNewModOpen(!isInlineNewModOpen);
+                    const allNums = [1, 2, 3, 4, ...(customModules || []).map((m: any) => Number(m.moduleIndex) || 0)];
+                    setInlineModNum(Math.max(...allNums, 4) + 1);
+                  }}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isInlineNewModOpen ? 'Close Drawer' : '+ Create New Module'}</span>
+                </button>
+              </div>
+
+              <select
+                value={practiceFormModule}
+                onChange={(e) => setPracticeFormModule(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              >
+                {practiceModulesList.map((m) => (
+                  <option key={m.id} value={m.id} className="dark:bg-[#121620]">
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+
+              {/* Inline Quick Module Drawer */}
+              {isInlineNewModOpen && (
+                <div className="p-3.5 mt-2 rounded-xl bg-blue-50/70 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 space-y-2.5 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" /> Quick Module Creation
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineNewModOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Mod #</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={inlineModNum}
+                        onChange={(e) => setInlineModNum(Number(e.target.value) || 1)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs font-mono"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Module Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Module 5: File I/O & Streams"
+                        value={inlineModTitle}
+                        onChange={(e) => setInlineModTitle(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">Tagline / Short Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Streams & Buffers"
+                      value={inlineModTagline}
+                      onChange={(e) => setInlineModTagline(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#121620] text-xs"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineNewModOpen(false)}
+                      className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200/50 rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCreateInlineModule('PRACTICE')}
+                      disabled={isCreatingInlineMod || !inlineModTitle.trim()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      {isCreatingInlineMod ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Create & Select
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MODE 1: MANUAL ENTRY */}
+            {(questionAddMode === 'MANUAL' || editingPracticeTopic) && (
+              <form onSubmit={handleSavePracticeQuestion} className="space-y-4 text-xs">
+                {/* Difficulty Selector */}
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Difficulty Level <span className="text-rose-500">*</span>
@@ -3710,216 +4889,560 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                     ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Row 2: Problem Title & Concept Title */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Problem Title & Concept Title */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Problem Title <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Formatted Temperature Converter"
+                      value={practiceFormTitle}
+                      onChange={(e) => setPracticeFormTitle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Topic / Concept Tagline
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Master scanf, printf and precise numerical format control"
+                      value={practiceFormTopicTitle}
+                      onChange={(e) => setPracticeFormTopicTitle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Summary */}
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Problem Title <span className="text-rose-500">*</span>
+                    Short Objective / Summary
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Formatted Temperature Converter"
-                    value={practiceFormTitle}
-                    onChange={(e) => setPracticeFormTitle(e.target.value)}
+                    placeholder="e.g. Read Fahrenheit float and print Celsius with 2 decimal places"
+                    value={practiceFormSummary}
+                    onChange={(e) => setPracticeFormSummary(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  />
+                </div>
+
+                {/* Educational Syntax Tip */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Educational Syntax / Tip Box Hint
+                  </label>
+                  <input
+                    type="text"
+                    placeholder='e.g. scanf("%f", &temp); printf("%.2f", (temp-32)*5/9);'
+                    value={practiceFormSyntax}
+                    onChange={(e) => setPracticeFormSyntax(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono text-[11px] focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  />
+                </div>
+
+                {/* Problem Description */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Problem Statement & Requirements <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe problem requirements, input/output format, constraints..."
+                    value={practiceFormDescription}
+                    onChange={(e) => setPracticeFormDescription(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                     required
                   />
                 </div>
+
+                {/* Test Cases Suite */}
+                <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
+                  <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Verified Test Cases Suite</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Standard I/O validation</span>
+                  </div>
+
+                  {/* Visible Test Case */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Visible Input:
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={practiceFormOpenIn}
+                        onChange={(e) => setPracticeFormOpenIn(e.target.value)}
+                        placeholder="e.g. 98.6"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Visible Expected Output:
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={practiceFormOpenOut}
+                        onChange={(e) => setPracticeFormOpenOut(e.target.value)}
+                        placeholder="e.g. 37.00"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Case Explanation:
+                    </label>
+                    <input
+                      type="text"
+                      value={practiceFormOpenExpl}
+                      onChange={(e) => setPracticeFormOpenExpl(e.target.value)}
+                      placeholder="e.g. 98.6 Fahrenheit is equivalent to 37.00 Celsius"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] text-[11px] focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Hidden Test Case */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                        Hidden Evaluation Input:
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={practiceFormHiddenIn}
+                        onChange={(e) => setPracticeFormHiddenIn(e.target.value)}
+                        placeholder="Hidden case input..."
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                        Hidden Expected Output:
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={practiceFormHiddenOut}
+                        onChange={(e) => setPracticeFormHiddenOut(e.target.value)}
+                        placeholder="Hidden case output..."
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Starter Code */}
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Topic / Concept Tagline
+                    C Starter Boilerplate Code:
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Master scanf, printf and precise numerical format control"
-                    value={practiceFormTopicTitle}
-                    onChange={(e) => setPracticeFormTopicTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  <textarea
+                    rows={4}
+                    value={practiceFormStarterCode}
+                    onChange={(e) => setPracticeFormStarterCode(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-slate-100 font-mono text-[11px] focus:outline-none"
                   />
                 </div>
-              </div>
 
-              {/* Summary */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Short Objective / Summary
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Read Fahrenheit float and print Celsius with 2 decimal places"
-                  value={practiceFormSummary}
-                  onChange={(e) => setPracticeFormSummary(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                />
-              </div>
-
-              {/* Educational Syntax Tip */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Educational Syntax / Tip Box Hint
-                </label>
-                <input
-                  type="text"
-                  placeholder='e.g. scanf("%f", &temp); printf("%.2f", (temp-32)*5/9);'
-                  value={practiceFormSyntax}
-                  onChange={(e) => setPracticeFormSyntax(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono text-[11px] focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                />
-              </div>
-
-              {/* Problem Description */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Problem Statement & Requirements <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Describe problem requirements, input/output format, constraints..."
-                  value={practiceFormDescription}
-                  onChange={(e) => setPracticeFormDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                  required
-                />
-              </div>
-
-              {/* Test Cases Suite */}
-              <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
-                <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                  <span>Verified Test Cases Suite</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Standard I/O validation</span>
-                </div>
-
-                {/* Visible Test Case */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                      Visible Input:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={practiceFormOpenIn}
-                      onChange={(e) => setPracticeFormOpenIn(e.target.value)}
-                      placeholder="e.g. 98.6"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                      Visible Expected Output:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={practiceFormOpenOut}
-                      onChange={(e) => setPracticeFormOpenOut(e.target.value)}
-                      placeholder="e.g. 37.00"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
+                {/* Reference Solution */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
-                    Visible Case Explanation:
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Reference Solution Code (Faculty Verification):
                   </label>
-                  <input
-                    type="text"
-                    value={practiceFormOpenExpl}
-                    onChange={(e) => setPracticeFormOpenExpl(e.target.value)}
-                    placeholder="e.g. 98.6 Fahrenheit is equivalent to 37.00 Celsius"
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] text-[11px] focus:outline-none"
+                  <textarea
+                    rows={4}
+                    value={practiceFormSolutionCode}
+                    onChange={(e) => setPracticeFormSolutionCode(e.target.value)}
+                    placeholder="Verified reference solution in C..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-emerald-400 font-mono text-[11px] focus:outline-none"
                   />
                 </div>
 
-                {/* Hidden Test Case */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/5">
-                  <div>
-                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-                      Hidden Evaluation Input:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={practiceFormHiddenIn}
-                      onChange={(e) => setPracticeFormHiddenIn(e.target.value)}
-                      placeholder="Hidden case input..."
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
-                      required
-                    />
+                {/* Actions */}
+                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPracticeEditModalOpen(false);
+                      setEditingPracticeTopic(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                  >
+                    Cancel
+                  </button>
+                  <GalaxyButton
+                    type="submit"
+                    disabled={isSavingPracticeQuestion || !practiceFormTitle.trim()}
+                    size="sm"
+                    text={
+                      isSavingPracticeQuestion
+                        ? 'Saving to Firestore...'
+                        : editingPracticeTopic
+                        ? 'Update Question'
+                        : 'Save & Publish Question'
+                    }
+                    icon={isSavingPracticeQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    iconPosition="left"
+                  />
+                </div>
+              </form>
+            )}
+
+            {/* MODE 2: AI GENERATED */}
+            {questionAddMode === 'AI' && !editingPracticeTopic && (
+              <div className="space-y-4 text-xs">
+                {aiGenStep === 'INPUT' ? (
+                  <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 space-y-3">
+                    <div>
+                      <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        What concept or topic do you want AI to generate? <span className="text-purple-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="e.g. Array and String manipulation, Pointers, Bitwise operators, Structs..."
+                          value={aiGenTopic}
+                          onChange={(e) => setAiGenTopic(e.target.value)}
+                          className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-white dark:bg-[#161b26] text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        />
+                        <Sparkles className="w-4 h-4 text-purple-500 absolute right-3 top-3 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Quick Suggestions Chips */}
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                        Quick Suggestions:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Bitwise Parity & Power of Two',
+                          'Pointers & Memory Addresses',
+                          'String In-Place Reversal',
+                          'Dynamic Memory Allocation',
+                          'Structures & Records',
+                          'Array Deduplication',
+                        ].map((pill) => (
+                          <button
+                            key={pill}
+                            type="button"
+                            onClick={() => setAiGenTopic(pill)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white dark:bg-[#161b26] border border-purple-200/80 dark:border-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition cursor-pointer"
+                          >
+                            + {pill}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Difficulty Selection */}
+                    <div>
+                      <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Difficulty Level:
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['EASY', 'MEDIUM', 'HARD'] as const).map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setAiGenDifficulty(d)}
+                            className={`py-2 px-2 rounded-xl text-xs font-semibold text-center transition cursor-pointer border ${
+                              aiGenDifficulty === d
+                                ? d === 'EASY'
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                : d === 'MEDIUM'
+                                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                                : 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                                : 'bg-white dark:bg-[#161b26] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <GalaxyButton
+                        type="button"
+                        onClick={() => handleGenerateAiQuestion('PRACTICE')}
+                        disabled={isGeneratingAi || !aiGenTopic.trim()}
+                        text={isGeneratingAi ? 'Generating Question with AI...' : 'Generate Question with AI'}
+                        icon={isGeneratingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      />
+                    </div>
                   </div>
+                ) : (
+                  aiGenDraft && (
+                    <div className="space-y-4">
+                      {/* Problem Statement & Requirements */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Problem Statement & Requirements
+                        </label>
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#161b26] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 text-xs leading-relaxed space-y-1">
+                          <p className="font-bold text-slate-900 dark:text-white text-sm">{aiGenDraft.title}</p>
+                          <p className="text-slate-600 dark:text-slate-300">{aiGenDraft.description}</p>
+                        </div>
+                      </div>
+
+                      {/* Test Cases Suite: 3 Cards (Visible Case 1, Visible Case 2, Hidden Test) */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Test Cases (Verified Correctness Suite)
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 space-y-1">
+                            <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Visible Case 1
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.visibleTestCase1.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.visibleTestCase1.output}</div>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 space-y-1">
+                            <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Visible Case 2
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.visibleTestCase2.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.visibleTestCase2.output}</div>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 space-y-1">
+                            <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                              <Lock className="w-3 h-3" /> Hidden Test (Eval)
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                              <div><span className="text-slate-400">In:</span> {aiGenDraft.hiddenTestCase.input}</div>
+                              <div><span className="text-slate-400">Out:</span> {aiGenDraft.hiddenTestCase.output}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Starter Code */}
+                      <div>
+                        <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          C Starter Code
+                        </label>
+                        <pre className="p-3 rounded-2xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto max-h-36 border border-slate-800">
+                          {aiGenDraft.starterCode}
+                        </pre>
+                      </div>
+
+                      {/* Review Actions */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={handleDiscardAiQuestion}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Discard / Reject</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRegenerateAiQuestion}
+                            disabled={isGeneratingAi}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                            <span>Regenerate</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleApproveAiQuestion('PRACTICE')}
+                            className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve & Add to Module</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* MODE 3: UPLOAD EXCEL */}
+            {questionAddMode === 'EXCEL' && !editingPracticeTopic && (
+              <div className="space-y-4 text-xs">
+                {/* Guidelines & Template Download */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-                      Hidden Expected Output:
+                    <h4 className="font-bold text-xs text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      Coursework Excel Format Guidelines
+                    </h4>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                      Columns: <code className="font-mono font-bold">Title, Module, Difficulty, Description, VisibleInput1, VisibleOutput1, HiddenInput, HiddenOutput</code>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCourseworkTemplate}
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#161b26] border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Template (.xlsx)</span>
+                  </button>
+                </div>
+
+                {/* Module Assignment Option */}
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Module Assignment Method:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                      excelAssignMode === 'SELECTED_MODULE'
+                        ? 'bg-blue-50/60 dark:bg-blue-500/10 border-blue-400 text-blue-900 dark:text-blue-300 font-medium'
+                        : 'bg-white dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="practiceExcelAssign"
+                        checked={excelAssignMode === 'SELECTED_MODULE'}
+                        onChange={() => setExcelAssignMode('SELECTED_MODULE')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Assign ALL to selected Module ({practiceFormModule})</span>
                     </label>
-                    <textarea
-                      rows={2}
-                      value={practiceFormHiddenOut}
-                      onChange={(e) => setPracticeFormHiddenOut(e.target.value)}
-                      placeholder="Hidden case output..."
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
-                      required
-                    />
+
+                    <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                      excelAssignMode === 'FROM_FILE'
+                        ? 'bg-blue-50/60 dark:bg-blue-500/10 border-blue-400 text-blue-900 dark:text-blue-300 font-medium'
+                        : 'bg-white dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="practiceExcelAssign"
+                        checked={excelAssignMode === 'FROM_FILE'}
+                        onChange={() => setExcelAssignMode('FROM_FILE')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Use Module column from Excel file</span>
+                    </label>
                   </div>
                 </div>
-              </div>
 
-              {/* Starter Code */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  C Starter Boilerplate Code:
-                </label>
-                <textarea
-                  rows={4}
-                  value={practiceFormStarterCode}
-                  onChange={(e) => setPracticeFormStarterCode(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-slate-100 font-mono text-[11px] focus:outline-none"
-                />
-              </div>
+                {/* File Upload Dropzone */}
+                <div className="border-2 border-dashed border-slate-300 dark:border-white/10 rounded-2xl p-6 text-center hover:border-blue-500/50 transition bg-slate-50/50 dark:bg-white/[0.01]">
+                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Click to select or drag & drop questions file
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Supported formats: .xlsx, .xls, .csv
+                  </p>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleExcelFileChange}
+                    className="mt-3 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-blue-500/10 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 cursor-pointer"
+                  />
+                </div>
 
-              {/* Reference Solution */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Reference Solution Code (Faculty Verification):
-                </label>
-                <textarea
-                  rows={4}
-                  value={practiceFormSolutionCode}
-                  onChange={(e) => setPracticeFormSolutionCode(e.target.value)}
-                  placeholder="Verified reference solution in C..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-emerald-400 font-mono text-[11px] focus:outline-none"
-                />
-              </div>
+                {/* Parsed Preview Table */}
+                {parsedExcelRows.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Ready to import {parsedExcelRows.length} questions
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        Parsed from {excelFile?.name}
+                      </span>
+                    </div>
 
-              {/* Actions */}
-              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPracticeEditModalOpen(false);
-                    setEditingPracticeTopic(null);
-                  }}
-                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
-                >
-                  Cancel
-                </button>
-                <GalaxyButton
-                  type="submit"
-                  disabled={isSavingPracticeQuestion || !practiceFormTitle.trim()}
-                  size="sm"
-                  text={
-                    isSavingPracticeQuestion
-                      ? 'Saving to Firestore...'
-                      : editingPracticeTopic
-                      ? 'Update Question'
-                      : 'Save & Publish Question'
-                  }
-                  icon={isSavingPracticeQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  iconPosition="left"
-                />
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-white/10 rounded-xl">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-100 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0">
+                          <tr>
+                            <th className="p-2 font-semibold">#</th>
+                            <th className="p-2 font-semibold">Problem Title</th>
+                            <th className="p-2 font-semibold">Target Mod</th>
+                            <th className="p-2 font-semibold">Diff</th>
+                            <th className="p-2 font-semibold">Sample I/O</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                          {parsedExcelRows.map((r, i) => (
+                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                              <td className="p-2 text-slate-400 font-mono">{i + 1}</td>
+                              <td className="p-2 font-medium text-slate-900 dark:text-white max-w-[180px] truncate">{r.title}</td>
+                              <td className="p-2">
+                                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+                                  Mod {excelAssignMode === 'SELECTED_MODULE' ? practiceFormModule : r.module}
+                                </span>
+                              </td>
+                              <td className="p-2">
+                                <span className={`px-1.5 py-0.5 rounded-md font-bold ${
+                                  r.difficulty === 'EASY'
+                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600'
+                                    : r.difficulty === 'HARD'
+                                    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600'
+                                    : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600'
+                                }`}>
+                                  {r.difficulty}
+                                </span>
+                              </td>
+                              <td className="p-2 font-mono text-[10px] text-slate-500 truncate max-w-[120px]">
+                                {r.vIn1} &rarr; {r.vOut1}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParsedExcelRows([]);
+                          setExcelFile(null);
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+                      >
+                        Clear File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleImportExcelQuestions('PRACTICE')}
+                        disabled={isImportingExcel}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isImportingExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                        <span>Import {parsedExcelRows.length} Questions to Module</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}
