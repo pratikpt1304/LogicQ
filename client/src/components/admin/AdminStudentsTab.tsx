@@ -158,10 +158,13 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
                   const validName = (s.name && isRealPersonName(s.name) ? s.name : null) ||
                                     (cs ? cs.fullName : null) ||
                                     s.name || s.fullName || s.displayName || 'Student Candidate';
+                  const isDemo = prnC === '2026BCSE101' || prnC === '2026BCSE102' || (s.section && s.section.toLowerCase().includes('demo'));
                   return {
                     ...s,
                     name: validName,
-                    section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
+                    section: isDemo
+                      ? 'Demo Section'
+                      : (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
                   };
                 });
               setStudents(cleaned);
@@ -303,15 +306,30 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
 
-              const isMtechUser =
-                anyUser.sectionId === 'sec-mw6l4r2s' ||
-                (anyUser.department && anyUser.department.toLowerCase().includes('mtech')) ||
-                (anyUser.course && anyUser.course.toLowerCase().includes('mtech')) ||
-                (anyUser.sectionName && anyUser.sectionName.toLowerCase().includes('mtech')) ||
-                (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI')));
+              const isExplicitDemo =
+                prnClean === '2026BCSE101' ||
+                prnClean === '2026BCSE102' ||
+                anyUser.sectionId === 'sec-demo-section' ||
+                anyUser.sectionName === 'Demo Section' ||
+                anyUser.section === 'Demo Section';
 
-              const rawSection = isMtechUser ? 'Integrated Mtech' : (anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'));
-              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+              const isMtechUser =
+                !isExplicitDemo &&
+                (anyUser.sectionId === 'sec-mw6l4r2s' ||
+                 (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI'))) ||
+                 (anyUser.department && anyUser.department.toLowerCase().includes('mtech')) ||
+                 (anyUser.course && anyUser.course.toLowerCase().includes('mtech')) ||
+                 (anyUser.sectionName && anyUser.sectionName.toLowerCase().includes('mtech')));
+
+              const rawSection = isExplicitDemo
+                ? 'Demo Section'
+                : isMtechUser
+                ? 'Integrated Mtech'
+                : (anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'));
+
+              const normalizedSection = isExplicitDemo
+                ? 'Demo Section'
+                : (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
                 ? 'Integrated Mtech'
                 : rawSection;
 
@@ -434,14 +452,23 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
         const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
         const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
 
-        const isMtechStudent =
-          raw.sectionId === 'sec-mw6l4r2s' ||
-          (raw.department && raw.department.toLowerCase().includes('mtech')) ||
-          (raw.course && raw.course.toLowerCase().includes('mtech')) ||
-          (raw.sectionName && raw.sectionName.toLowerCase().includes('mtech')) ||
-          (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI')));
+        const isExplicitDemo =
+          prnClean === '2026BCSE101' ||
+          prnClean === '2026BCSE102' ||
+          raw.sectionId === 'sec-demo-section' ||
+          raw.sectionName === 'Demo Section';
 
-        const resolvedSection = isMtechStudent
+        const isMtechStudent =
+          !isExplicitDemo &&
+          (raw.sectionId === 'sec-mw6l4r2s' ||
+           (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI') || prnClean.startsWith('1226PMI'))) ||
+           (raw.department && raw.department.toLowerCase().includes('mtech')) ||
+           (raw.course && raw.course.toLowerCase().includes('mtech')) ||
+           (raw.sectionName && raw.sectionName.toLowerCase().includes('mtech')));
+
+        const resolvedSection = isExplicitDemo
+          ? 'Demo Section'
+          : isMtechStudent
           ? 'Integrated Mtech'
           : ((raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.course || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')));
 

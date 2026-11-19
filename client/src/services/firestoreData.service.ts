@@ -2044,6 +2044,34 @@ export class FirestoreDataService {
         );
         const resolvedEmail = raw.boundEmail || email;
 
+        const isExplicitDemo =
+          prn === '2026BCSE101' ||
+          prn === '2026BCSE102' ||
+          raw.sectionId === 'sec-demo-section' ||
+          raw.sectionName === 'Demo Section' ||
+          (resolvedEmail && (resolvedEmail.includes('rahul.sharma') || resolvedEmail.includes('sakshi.sonawane')));
+
+        const isMtechStudent =
+          !isExplicitDemo &&
+          (raw.sectionId === 'sec-mw6l4r2s' ||
+           (prn && (prn.startsWith('2126PMI') || prn.startsWith('2125PMI') || prn.startsWith('1226PMI'))) ||
+           (raw.department && raw.department.toLowerCase().includes('mtech')) ||
+           (raw.course && raw.course.toLowerCase().includes('mtech')));
+
+        const resolvedSecName = isExplicitDemo
+          ? 'Demo Section'
+          : (raw.sectionName && raw.sectionName !== 'Academic Section')
+          ? raw.sectionName
+          : (isMtechStudent ? 'Integrated Mtech' : (raw.course || (raw.department ? `${raw.department} Section` : 'Demo Section')));
+
+        const resolvedSecId = isExplicitDemo
+          ? 'sec-demo-section'
+          : (raw.sectionId || (isMtechStudent ? 'sec-mw6l4r2s' : 'sec-demo-section'));
+
+        const resolvedJoinCode = isExplicitDemo
+          ? 'LQ-DEMO'
+          : (raw.joinCode || (isMtechStudent ? 'LQ-INTE34' : 'LQ-DEMO'));
+
         list.push({
           id: d.id,
           username: raw.username && isRealPersonName(raw.username) ? raw.username : (resolvedEmail ? resolvedEmail.split('@')[0] : `stu_${shortId}`),
@@ -2060,17 +2088,17 @@ export class FirestoreDataService {
           publicDisplayName: cleanHuman,
           role: 'STUDENT',
           college: raw.college || 'Sanjivani University',
-          department: normalizeDepartment(raw.department) || raw.department || null,
-          year: raw.year || 'SY',
+          department: normalizeDepartment(raw.department) || raw.department || (isExplicitDemo ? 'CSE' : null),
+          year: raw.year || (isExplicitDemo ? 'FY' : 'SY'),
           division: raw.division || null,
-          sectionId: raw.sectionId || 'sec-mw6l4r2s',
-          sectionName: 'Integrated Mtech',
+          sectionId: resolvedSecId,
+          sectionName: resolvedSecName,
           sections: [{
-            id: raw.sectionId || 'sec-mw6l4r2s',
-            sectionName: 'Integrated Mtech',
-            joinCode: raw.joinCode || 'LQ-INTE34',
-            subject: 'C Programming',
-            course: 'Integrated M.Tech',
+            id: resolvedSecId,
+            sectionName: resolvedSecName,
+            joinCode: resolvedJoinCode,
+            subject: raw.subject || 'C Programming',
+            course: raw.course || (isMtechStudent ? 'Integrated M.Tech' : (raw.department || 'CSE')),
           }],
           profileComplete: true,
           totalPoints: Number(raw.totalPoints || 0),
@@ -2105,9 +2133,11 @@ export class FirestoreDataService {
           );
 
           if (existingStudent) {
-            if (sec.id && !existingStudent.sectionId) existingStudent.sectionId = sec.id;
-            if ((sec.sectionName || sec.subject) && !existingStudent.sectionName) {
-              existingStudent.sectionName = sec.sectionName || sec.subject;
+            if (sec.id && (!existingStudent.sectionId || sec.id === 'sec-demo-section')) {
+              existingStudent.sectionId = sec.id;
+            }
+            if (sec.sectionName && (!existingStudent.sectionName || sec.sectionName === 'Demo Section')) {
+              existingStudent.sectionName = sec.sectionName;
             }
             if (!existingStudent.sections) existingStudent.sections = [];
             if (!existingStudent.sections.some((s: any) => s.id === sec.id || s.joinCode === sec.joinCode)) {
