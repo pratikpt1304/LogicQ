@@ -122,6 +122,16 @@ export const Navbar: React.FC = () => {
     await triggerPwaInstallPrompt();
   };
 
+  // Do not render the student navbar on admin, faculty or proctored workspaces
+  if (
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/faculty') ||
+    location.pathname.startsWith('/exam/') ||
+    location.pathname.startsWith('/mini-project/')
+  ) {
+    return null;
+  }
+
   return (
     <header
       style={{

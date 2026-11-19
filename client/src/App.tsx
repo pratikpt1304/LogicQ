@@ -260,7 +260,8 @@ export const App: React.FC = () => {
     location.pathname.startsWith('/exam/') ||
     location.pathname.startsWith('/mini-project/') ||
     location.pathname.startsWith('/compiler') ||
-    location.pathname.startsWith('/admin');
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/faculty');
 
   const isInternalAppRoute =
     isWorkspaceRoute ||
