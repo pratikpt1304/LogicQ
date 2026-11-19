@@ -38,6 +38,7 @@ import {
   FileCode,
   Sparkles,
   RefreshCw,
+  FolderPlus,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -346,11 +347,286 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   // =========================================================================
   const [mainSubTab, setMainSubTab] = useState<'TESTS' | 'PRACTICE' | 'LAB_INTERNAL'>('TESTS');
 
-  // Practice Modules State (100 Topic Practice Problems across 4 Modules)
-  const [practiceModuleFilter, setPracticeModuleFilter] = useState<0 | 1 | 2 | 3 | 4>(0);
+  // Custom Coursework Modules State (Live Firestore Sync & Local Storage)
+  const [customModules, setCustomModules] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_custom_coursework_modules_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    FirestoreDataService.getCustomModulesFromFirestore().then((mods) => {
+      if (isMounted && Array.isArray(mods)) setCustomModules(mods);
+    });
+    const unsub = FirestoreDataService.listenToCustomModules((mods) => {
+      if (isMounted && Array.isArray(mods)) setCustomModules(mods);
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Practice Modules State (100 Topic Practice Problems across 4 Modules + Custom/Edited)
+  const [customPracticeTopics, setCustomPracticeTopics] = useState<TopicPracticeItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_custom_practice_topics_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    FirestoreDataService.getPracticeQuestionsFromFirestore().then((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomPracticeTopics(qs);
+    });
+    const unsub = FirestoreDataService.listenToPracticeQuestions((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomPracticeTopics(qs);
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Combined Practice Topics (Base 100 + Custom / Edited Topics)
+  const allPracticeTopics: TopicPracticeItem[] = useMemo(() => {
+    const map = new Map<string, TopicPracticeItem>();
+    TOPIC_PRACTICE_DATA.forEach((t) => map.set(t.id, t));
+    if (Array.isArray(customPracticeTopics)) {
+      customPracticeTopics.forEach((c) => {
+        const existing = map.get(c.id);
+        map.set(c.id, existing ? { ...existing, ...c } : c);
+      });
+    }
+    return Array.from(map.values());
+  }, [customPracticeTopics]);
+
+  // Dynamic Module Lists for Practice & Lab Internal
+  const practiceModulesList = useMemo(() => {
+    const base = [
+      { id: 1, title: 'Mod 1: Control Structures', shortTitle: 'Control Structures', desc: 'Decisions & Loops' },
+      { id: 2, title: 'Mod 2: Pointers & Functions', shortTitle: 'Pointers & Functions', desc: 'Addresses & Recursion' },
+      { id: 3, title: 'Mod 3: Array & Applications', shortTitle: 'Array & Applications', desc: 'Matrices & Sorting' },
+      { id: 4, title: 'Mod 4: Advanced & DMA', shortTitle: 'Advanced & DMA', desc: 'Structs & Heap' },
+    ];
+    const custom = (customModules || [])
+      .filter((m) => m.track === 'PRACTICE' || m.track === 'BOTH' || !m.track)
+      .map((m) => ({
+        id: Number(m.moduleIndex) || 5,
+        title: m.moduleTitle?.startsWith('Mod') ? m.moduleTitle : `Mod ${m.moduleIndex}: ${m.moduleTitle}`,
+        shortTitle: m.tagline || m.moduleTitle,
+        desc: m.description || '',
+      }));
+    return [...base, ...custom];
+  }, [customModules]);
+
+  const labModulesList = useMemo(() => {
+    const base = [
+      { id: 1, title: 'Mod 1: Control Structures', shortTitle: 'Control Structures' },
+      { id: 2, title: 'Mod 2: Pointers & Functions', shortTitle: 'Pointers & Functions' },
+      { id: 3, title: 'Mod 3: Array & Applications', shortTitle: 'Array & Applications' },
+      { id: 4, title: 'Mod 4: Advanced & DMA', shortTitle: 'Advanced & DMA' },
+    ];
+    const custom = (customModules || [])
+      .filter((m) => m.track === 'LAB_INTERNAL' || m.track === 'BOTH')
+      .map((m) => ({
+        id: Number(m.moduleIndex) || 5,
+        title: m.moduleTitle?.startsWith('Mod') ? m.moduleTitle : `Mod ${m.moduleIndex}: ${m.moduleTitle}`,
+        shortTitle: m.tagline || m.moduleTitle,
+      }));
+    return [...base, ...custom];
+  }, [customModules]);
+
+  const [practiceModuleFilter, setPracticeModuleFilter] = useState<number>(0);
   const [practiceSearch, setPracticeSearch] = useState('');
   const [practiceDifficulty, setPracticeDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [inspectPracticeItem, setInspectPracticeItem] = useState<TopicPracticeItem | null>(null);
+
+  // Add / Edit Module Modal State
+  const [isAddModuleModalOpen, setIsAddModuleModalOpen] = useState(false);
+  const [moduleFormNumber, setModuleFormNumber] = useState(5);
+  const [moduleFormTitle, setModuleFormTitle] = useState('');
+  const [moduleFormTagline, setModuleFormTagline] = useState('');
+  const [moduleFormDescription, setModuleFormDescription] = useState('');
+  const [moduleFormTrack, setModuleFormTrack] = useState<'PRACTICE' | 'LAB_INTERNAL' | 'BOTH'>('BOTH');
+  const [isSavingModule, setIsSavingModule] = useState(false);
+
+  const handleOpenAddModule = (defaultTrack: 'PRACTICE' | 'LAB_INTERNAL' | 'BOTH' = 'BOTH') => {
+    const allExistingNums = [1, 2, 3, 4, ...(customModules || []).map((m: any) => Number(m.moduleIndex) || 0)];
+    const nextNum = Math.max(...allExistingNums, 4) + 1;
+    setModuleFormNumber(nextNum);
+    setModuleFormTitle(`Module ${nextNum}: `);
+    setModuleFormTagline('');
+    setModuleFormDescription('');
+    setModuleFormTrack(defaultTrack);
+    setIsAddModuleModalOpen(true);
+  };
+
+  const handleSaveModule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!moduleFormTitle.trim()) {
+      toast.error('Please enter a module title');
+      return;
+    }
+    setIsSavingModule(true);
+    try {
+      const slug = moduleFormTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 40);
+      const modId = `module-${moduleFormNumber}-${slug}`;
+      const newMod = {
+        id: modId,
+        moduleIndex: moduleFormNumber,
+        moduleSlug: slug,
+        moduleTitle: moduleFormTitle.trim(),
+        tagline: moduleFormTagline.trim() || moduleFormTitle.trim(),
+        description: moduleFormDescription.trim(),
+        track: moduleFormTrack,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email || 'admin',
+      };
+      await FirestoreDataService.saveCustomModuleToFirestore(newMod);
+      toast.success(`Module "${newMod.moduleTitle}" created successfully!`);
+      setIsAddModuleModalOpen(false);
+    } catch (err: any) {
+      toast.error('Failed to create module: ' + (err?.message || err));
+    } finally {
+      setIsSavingModule(false);
+    }
+  };
+
+  // Add / Edit Practice Question Modal State
+  const [isPracticeEditModalOpen, setIsPracticeEditModalOpen] = useState(false);
+  const [editingPracticeTopic, setEditingPracticeTopic] = useState<TopicPracticeItem | null>(null);
+  const [practiceFormModule, setPracticeFormModule] = useState<number>(1);
+  const [practiceFormTitle, setPracticeFormTitle] = useState('');
+  const [practiceFormTopicTitle, setPracticeFormTopicTitle] = useState('');
+  const [practiceFormDifficulty, setPracticeFormDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
+  const [practiceFormSummary, setPracticeFormSummary] = useState('');
+  const [practiceFormDescription, setPracticeFormDescription] = useState('');
+  const [practiceFormSyntax, setPracticeFormSyntax] = useState('');
+  const [practiceFormStarterCode, setPracticeFormStarterCode] = useState('');
+  const [practiceFormSolutionCode, setPracticeFormSolutionCode] = useState('');
+  const [practiceFormOpenIn, setPracticeFormOpenIn] = useState('');
+  const [practiceFormOpenOut, setPracticeFormOpenOut] = useState('');
+  const [practiceFormOpenExpl, setPracticeFormOpenExpl] = useState('');
+  const [practiceFormHiddenIn, setPracticeFormHiddenIn] = useState('');
+  const [practiceFormHiddenOut, setPracticeFormHiddenOut] = useState('');
+  const [isSavingPracticeQuestion, setIsSavingPracticeQuestion] = useState(false);
+
+  const handleOpenAddPracticeQuestion = (defaultMod: number = 1) => {
+    setEditingPracticeTopic(null);
+    setPracticeFormModule(defaultMod || 1);
+    setPracticeFormTitle('');
+    setPracticeFormTopicTitle('');
+    setPracticeFormDifficulty('MEDIUM');
+    setPracticeFormSummary('');
+    setPracticeFormDescription('');
+    setPracticeFormSyntax('// Key syntax hint or educational tip');
+    setPracticeFormStarterCode('#include <stdio.h>\n\nint main() {\n    // Write your solution here\n    return 0;\n}');
+    setPracticeFormSolutionCode('');
+    setPracticeFormOpenIn('4');
+    setPracticeFormOpenOut('16');
+    setPracticeFormOpenExpl('4 squared is 16');
+    setPracticeFormHiddenIn('0');
+    setPracticeFormHiddenOut('0');
+    setIsPracticeEditModalOpen(true);
+  };
+
+  const handleOpenEditPracticeQuestion = (item: TopicPracticeItem) => {
+    setEditingPracticeTopic(item);
+    setPracticeFormModule(item.moduleIndex || 1);
+    setPracticeFormTitle(item.problem?.title || '');
+    setPracticeFormTopicTitle(item.topicTitle || item.problem?.title || '');
+    setPracticeFormDifficulty(item.problem?.difficulty || 'MEDIUM');
+    setPracticeFormSummary(item.summary || '');
+    setPracticeFormDescription(item.problem?.description || '');
+    setPracticeFormSyntax(item.tipBox?.syntax || '');
+    setPracticeFormStarterCode(item.problem?.starterCode || '');
+    setPracticeFormSolutionCode(item.problem?.solutionCode || '');
+    setPracticeFormOpenIn(item.problem?.openTestCase?.input || '');
+    setPracticeFormOpenOut(item.problem?.openTestCase?.expectedOutput || '');
+    setPracticeFormOpenExpl(item.problem?.openTestCase?.explanation || '');
+    setPracticeFormHiddenIn(item.problem?.hiddenTestCase?.input || '');
+    setPracticeFormHiddenOut(item.problem?.hiddenTestCase?.expectedOutput || '');
+    setIsPracticeEditModalOpen(true);
+  };
+
+  const handleSavePracticeQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceFormTitle.trim()) {
+      toast.error('Please enter problem title');
+      return;
+    }
+    setIsSavingPracticeQuestion(true);
+    try {
+      const targetModObj = practiceModulesList.find((m) => m.id === practiceFormModule) || {
+        id: practiceFormModule,
+        title: `Module ${practiceFormModule}`,
+        shortTitle: `Module ${practiceFormModule}`,
+      };
+      const modSlug = targetModObj.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+      const qId = editingPracticeTopic?.id || `m${practiceFormModule}-custom-${practiceFormTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30)}-${Date.now().toString().slice(-4)}`;
+
+      const savedItem: TopicPracticeItem = {
+        id: qId,
+        moduleIndex: practiceFormModule,
+        moduleSlug: modSlug,
+        moduleTitle: targetModObj.title,
+        topicTitle: practiceFormTopicTitle.trim() || practiceFormTitle.trim(),
+        summary: practiceFormSummary.trim() || practiceFormTitle.trim(),
+        tipBox: {
+          syntax: practiceFormSyntax.trim(),
+          application: `Application in ${targetModObj.shortTitle}`,
+          example: practiceFormStarterCode.slice(0, 150),
+        },
+        problem: {
+          title: practiceFormTitle.trim(),
+          difficulty: practiceFormDifficulty,
+          description: practiceFormDescription.trim() || `Implement solution for ${practiceFormTitle.trim()}`,
+          starterCode: practiceFormStarterCode.trim() || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+          solutionCode: practiceFormSolutionCode.trim(),
+          openTestCase: {
+            input: practiceFormOpenIn,
+            expectedOutput: practiceFormOpenOut,
+            explanation: practiceFormOpenExpl || 'Standard verified test case',
+          },
+          hiddenTestCase: {
+            input: practiceFormHiddenIn,
+            expectedOutput: practiceFormHiddenOut,
+          },
+        },
+      };
+
+      await FirestoreDataService.savePracticeQuestionToFirestore(savedItem);
+      toast.success(
+        editingPracticeTopic
+          ? `Question "${savedItem.problem.title}" updated!`
+          : `New Question "${savedItem.problem.title}" added to Module ${practiceFormModule}!`
+      );
+      setIsPracticeEditModalOpen(false);
+      setEditingPracticeTopic(null);
+    } catch (err: any) {
+      toast.error('Failed to save practice question: ' + (err?.message || err));
+    } finally {
+      setIsSavingPracticeQuestion(false);
+    }
+  };
+
+  const handleDeletePracticeQuestion = async (item: TopicPracticeItem) => {
+    if (!confirm(`Are you sure you want to remove "${item.problem.title}"?`)) return;
+    try {
+      await FirestoreDataService.deletePracticeQuestionFromFirestore(item.id);
+      toast.success(`Question "${item.problem.title}" removed.`);
+    } catch (err: any) {
+      toast.error('Failed to remove question: ' + (err?.message || err));
+    }
+  };
 
   // Lab Internal Modules State (with live Firestore CRUD sync)
   const [customLabQuestions, setCustomLabQuestions] = useState<any[]>(() => {
@@ -394,7 +670,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     return Array.from(problemMap.values());
   }, [customLabQuestions]);
 
-  const [labModuleFilter, setLabModuleFilter] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [labModuleFilter, setLabModuleFilter] = useState<number>(0);
   const [labSearch, setLabSearch] = useState('');
   const [labDifficulty, setLabDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [inspectLabQuestion, setInspectLabQuestion] = useState<PracticeProblemDef | null>(null);
@@ -402,7 +678,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   // Add / Edit Lab Internal Question Modal State
   const [isLabEditModalOpen, setIsLabEditModalOpen] = useState(false);
   const [editingLabQuestion, setEditingLabQuestion] = useState<PracticeProblemDef | null>(null);
-  const [labFormModule, setLabFormModule] = useState<1 | 2 | 3 | 4>(1);
+  const [labFormModule, setLabFormModule] = useState<number>(1);
   const [labFormTitle, setLabFormTitle] = useState('');
   const [labFormDifficulty, setLabFormDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
   const [labFormDescription, setLabFormDescription] = useState('');
@@ -419,7 +695,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
 
   const handleOpenEditLabQuestion = (prob: PracticeProblemDef) => {
     setEditingLabQuestion(prob);
-    setLabFormModule((Number(prob.moduleOrder) as 1 | 2 | 3 | 4) || 1);
+    setLabFormModule(Number(prob.moduleOrder) || 1);
     setLabFormTitle(prob.title || '');
     setLabFormDifficulty(prob.difficulty || 'MEDIUM');
     setLabFormDescription(prob.description || '');
@@ -435,9 +711,9 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     setIsLabEditModalOpen(true);
   };
 
-  const handleOpenAddLabQuestion = (defaultMod: 1 | 2 | 3 | 4 = 1) => {
+  const handleOpenAddLabQuestion = (defaultMod: number = 1) => {
     setEditingLabQuestion(null);
-    setLabFormModule(defaultMod);
+    setLabFormModule(defaultMod || 1);
     setLabFormTitle('');
     setLabFormDifficulty('MEDIUM');
     setLabFormDescription('');
@@ -461,13 +737,11 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     }
     setIsSavingLabQuestion(true);
     try {
-      const moduleSlugMap: Record<number, { slug: string; name: string }> = {
-        1: { slug: 'control-structures', name: 'Control Structures' },
-        2: { slug: 'pointers-and-functions', name: 'Pointers and Functions' },
-        3: { slug: 'array-and-its-applications', name: 'Array and its Applications' },
-        4: { slug: 'advanced-data-types-dynamic-memory', name: 'Advanced Data Types & Dynamic Memory' },
+      const targetMod = labModulesList.find((m) => m.id === labFormModule) || {
+        id: labFormModule,
+        title: `Module ${labFormModule}`,
+        shortTitle: `Module ${labFormModule}`,
       };
-      const modMeta = moduleSlugMap[labFormModule] || moduleSlugMap[1];
       const cleanSlug = editingLabQuestion?.slug || `practice-m${labFormModule}-${labFormTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30)}-${Date.now().toString().slice(-4)}`;
 
       const sampleTests = [
@@ -480,13 +754,13 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
 
       const savedProblem: PracticeProblemDef = {
         slug: cleanSlug,
-        moduleSlug: modMeta.slug,
+        moduleSlug: targetMod.shortTitle.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         moduleOrder: labFormModule,
         title: labFormTitle.trim(),
         difficulty: labFormDifficulty,
-        category: modMeta.name,
-        tags: [modMeta.name, 'Lab Internal'],
-        description: labFormDescription.trim() || `Problem on ${modMeta.name} for Lab Internal practical examination.`,
+        category: targetMod.shortTitle,
+        tags: [targetMod.shortTitle, 'Lab Internal'],
+        description: labFormDescription.trim() || `Problem on ${targetMod.shortTitle} for Lab Internal practical examination.`,
         starterCode: labFormStarterCode.trim() || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
         solutionCode: labFormSolutionCode.trim(),
         wrongSolution1: '',
@@ -523,20 +797,20 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     }
   };
 
-  // Filtered Practice Topics (100 total)
+  // Filtered Practice Topics (100 base + custom topics)
   const filteredPracticeTopics = useMemo(() => {
-    return TOPIC_PRACTICE_DATA.filter((item) => {
+    return allPracticeTopics.filter((item) => {
       if (practiceModuleFilter !== 0 && item.moduleIndex !== practiceModuleFilter) return false;
-      if (practiceDifficulty !== 'ALL' && item.problem.difficulty !== practiceDifficulty) return false;
+      if (practiceDifficulty !== 'ALL' && item.problem?.difficulty !== practiceDifficulty) return false;
       if (practiceSearch.trim()) {
         const q = practiceSearch.toLowerCase().trim();
-        const matchesTitle = item.problem.title.toLowerCase().includes(q) || item.topicTitle.toLowerCase().includes(q);
-        const matchesSummary = item.summary.toLowerCase().includes(q);
+        const matchesTitle = (item.problem?.title || '').toLowerCase().includes(q) || (item.topicTitle || '').toLowerCase().includes(q);
+        const matchesSummary = (item.summary || '').toLowerCase().includes(q);
         if (!matchesTitle && !matchesSummary) return false;
       }
       return true;
     });
-  }, [practiceModuleFilter, practiceDifficulty, practiceSearch]);
+  }, [allPracticeTopics, practiceModuleFilter, practiceDifficulty, practiceSearch]);
 
   // Filtered Lab Internal Questions
   const filteredLabInternalQuestions = useMemo(() => {
@@ -993,7 +1267,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
               mainSubTab === 'PRACTICE' ? 'bg-white/20 text-white' : 'bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-slate-300'
             }`}>
-              100
+              {allPracticeTopics.length}
             </span>
           </button>
 
@@ -1034,15 +1308,45 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           </button>
         </div>
 
+        {mainSubTab === 'PRACTICE' && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleOpenAddModule('PRACTICE')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 shadow-xs transition active:scale-95 cursor-pointer"
+            >
+              <FolderPlus className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>+ Add Module</span>
+            </button>
+            <GalaxyButton
+              onClick={() => handleOpenAddPracticeQuestion(practiceModuleFilter !== 0 ? practiceModuleFilter : 1)}
+              size="sm"
+              text="+ Add Question"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="shrink-0"
+            />
+          </div>
+        )}
         {mainSubTab === 'LAB_INTERNAL' && (
-          <GalaxyButton
-            onClick={() => handleOpenAddLabQuestion(labModuleFilter !== 0 ? (labModuleFilter as any) : 1)}
-            size="sm"
-            text="+ Add Lab Internal Question"
-            icon={<Plus className="w-3.5 h-3.5" />}
-            iconPosition="left"
-            className="shrink-0"
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleOpenAddModule('LAB_INTERNAL')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 shadow-xs transition active:scale-95 cursor-pointer"
+            >
+              <FolderPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>+ Add Module</span>
+            </button>
+            <GalaxyButton
+              onClick={() => handleOpenAddLabQuestion(labModuleFilter !== 0 ? labModuleFilter : 1)}
+              size="sm"
+              text="+ Add Question"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              iconPosition="left"
+              className="shrink-0"
+            />
+          </div>
         )}
         {mainSubTab === 'TESTS' && (
           <GalaxyButton
@@ -1057,7 +1361,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. SUB-TAB: PRACTICE MODULES & TOPICS (100 Problems across 4 Modules)     */}
+      {/* 1. SUB-TAB: PRACTICE MODULES & TOPICS                                     */}
       {/* ========================================================================= */}
       {mainSubTab === 'PRACTICE' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -1072,44 +1376,60 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                     Practice Coursework Modules
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    100 Problems
+                    {allPracticeTopics.length} Problems
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  100 curriculum topic practice problems organized across 4 modules (25 problems per module).
+                  Structured curriculum topic practice problems organized across coursework modules.
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500 font-medium">Showing:</span>
                 <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-bold font-mono">
-                  {filteredPracticeTopics.length} of 100
+                  {filteredPracticeTopics.length} of {allPracticeTopics.length}
                 </span>
               </div>
             </div>
 
             {/* Module Filter Pills */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
-              {[
-                { id: 0, label: 'All Modules', count: 100 },
-                { id: 1, label: 'Mod 1: Control Structures', count: 25 },
-                { id: 2, label: 'Mod 2: Pointers & Functions', count: 25 },
-                { id: 3, label: 'Mod 3: Array & Applications', count: 25 },
-                { id: 4, label: 'Mod 4: Advanced & DMA', count: 25 },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setPracticeModuleFilter(m.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-                    practiceModuleFilter === m.id
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-                  }`}
-                >
-                  {m.label} ({m.count})
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setPracticeModuleFilter(0)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  practiceModuleFilter === 0
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                All Modules ({allPracticeTopics.length})
+              </button>
+              {practiceModulesList.map((m) => {
+                const count = allPracticeTopics.filter((t) => t.moduleIndex === m.id).length;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPracticeModuleFilter(m.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      practiceModuleFilter === m.id
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {m.title} ({count})
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleOpenAddModule('PRACTICE')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-blue-400/70 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition active:scale-95 cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ Add Module</span>
+              </button>
             </div>
 
             {/* Search & Difficulty Filter Bar */}
@@ -1163,18 +1483,32 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           {filteredPracticeTopics.length === 0 ? (
             <div className="py-14 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-3">
               <BookOpen className="w-8 h-8 mx-auto text-slate-400" />
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No practice questions match your filter</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setPracticeModuleFilter(0);
-                  setPracticeSearch('');
-                  setPracticeDifficulty('ALL');
-                }}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              >
-                Reset filters
-              </button>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {practiceModuleFilter !== 0
+                  ? `No questions in ${practiceModulesList.find((m) => m.id === practiceModuleFilter)?.title || 'this module'} yet`
+                  : 'No practice questions match your filter'}
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddPracticeQuestion(practiceModuleFilter !== 0 ? practiceModuleFilter : 1)}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Question to this Module</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPracticeModuleFilter(0);
+                    setPracticeSearch('');
+                    setPracticeDifficulty('ALL');
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-3 py-2 cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1190,19 +1524,19 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          item.problem.difficulty === 'EASY'
+                          item.problem?.difficulty === 'EASY'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : item.problem.difficulty === 'MEDIUM'
+                            : item.problem?.difficulty === 'MEDIUM'
                             ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                             : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                         }`}
                       >
-                        {item.problem.difficulty}
+                        {item.problem?.difficulty || 'MEDIUM'}
                       </span>
                     </div>
 
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-2">
-                      {item.problem.title}
+                      {item.problem?.title}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                       {item.summary}
@@ -1216,17 +1550,37 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-                    <div className="text-[11px] text-slate-400 font-mono">
-                      In: <code className="text-slate-600 dark:text-slate-300">{item.problem.openTestCase.input.slice(0, 10)}</code>
+                    <div className="text-[11px] text-slate-400 font-mono truncate max-w-[120px]">
+                      In: <code className="text-slate-600 dark:text-slate-300">{item.problem?.openTestCase?.input?.slice(0, 10) || '0'}</code>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setInspectPracticeItem(item)}
-                      className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Inspect</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditPracticeQuestion(item)}
+                        className="p-1.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-semibold transition cursor-pointer"
+                        title="Edit Question"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInspectPracticeItem(item)}
+                        className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
+                      </button>
+                      {customPracticeTopics.some((c) => c.id === item.id) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePracticeQuestion(item)}
+                          className="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold transition cursor-pointer"
+                          title="Delete Question"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1271,26 +1625,42 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
 
             {/* Module Filter Pills */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
-              {[
-                { id: 0, label: 'All Modules', count: allLabInternalQuestions.length },
-                { id: 1, label: 'Mod 1: Decisions & Loops', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 1).length },
-                { id: 2, label: 'Mod 2: Addresses & Recursion', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 2).length },
-                { id: 3, label: 'Mod 3: Matrices & Sorting', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 3).length },
-                { id: 4, label: 'Mod 4: Structs & Heap', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 4).length },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setLabModuleFilter(m.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-                    labModuleFilter === m.id
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-                  }`}
-                >
-                  {m.label} ({m.count})
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setLabModuleFilter(0)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  labModuleFilter === 0
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                All Modules ({allLabInternalQuestions.length})
+              </button>
+              {labModulesList.map((m) => {
+                const count = allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === m.id).length;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setLabModuleFilter(m.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      labModuleFilter === m.id
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {m.title} ({count})
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleOpenAddModule('LAB_INTERNAL')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-emerald-400/70 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition active:scale-95 cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ Add Module</span>
+              </button>
             </div>
 
             {/* Search & Difficulty Filter Bar */}
@@ -3113,6 +3483,439 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                       : 'Save & Publish Question'
                   }
                   icon={isSavingLabQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  iconPosition="left"
+                />
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CREATE COURSEWORK MODULE (Practice & Lab Internal)                 */}
+      {/* ========================================================================= */}
+      {isAddModuleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <FolderPlus className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Create Coursework Module
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Add a new curriculum module to organize practice & lab questions
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModuleModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModule} className="space-y-4 text-xs">
+              {/* Target Track */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Target Curriculum Track
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'BOTH', label: 'Both Tracks' },
+                    { id: 'PRACTICE', label: 'Practice Only' },
+                    { id: 'LAB_INTERNAL', label: 'Lab Internal Only' },
+                  ].map((tr) => (
+                    <button
+                      key={tr.id}
+                      type="button"
+                      onClick={() => setModuleFormTrack(tr.id as any)}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-center transition cursor-pointer border ${
+                        moduleFormTrack === tr.id
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {tr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Module Order & Title */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Mod Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={moduleFormNumber}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value) || 1;
+                      setModuleFormNumber(num);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Module Title <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={moduleFormTitle}
+                    onChange={(e) => setModuleFormTitle(e.target.value)}
+                    placeholder="e.g. Module 5: File Handling & Stream I/O"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Tagline / Short Title */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tagline / Short Title (Pill Name)
+                </label>
+                <input
+                  type="text"
+                  value={moduleFormTagline}
+                  onChange={(e) => setModuleFormTagline(e.target.value)}
+                  placeholder="e.g. File Streams & Buffers"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Curriculum Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={moduleFormDescription}
+                  onChange={(e) => setModuleFormDescription(e.target.value)}
+                  placeholder="Brief summary of concepts covered in this module..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModuleModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                >
+                  Cancel
+                </button>
+                <GalaxyButton
+                  type="submit"
+                  disabled={isSavingModule || !moduleFormTitle.trim()}
+                  size="sm"
+                  text={isSavingModule ? 'Creating...' : 'Create Module'}
+                  icon={isSavingModule ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  iconPosition="left"
+                />
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD / EDIT PRACTICE QUESTION                                       */}
+      {/* ========================================================================= */}
+      {isPracticeEditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <BookOpen className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {editingPracticeTopic ? 'Edit Practice Question' : 'Add Practice Question'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Publish curriculum practice challenge for students with instant validation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPracticeEditModalOpen(false);
+                  setEditingPracticeTopic(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePracticeQuestion} className="space-y-4 text-xs">
+              {/* Row 1: Target Module & Difficulty */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Target Module <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={practiceFormModule}
+                    onChange={(e) => setPracticeFormModule(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  >
+                    {practiceModulesList.map((m) => (
+                      <option key={m.id} value={m.id} className="dark:bg-[#121620]">
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Difficulty Level <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['EASY', 'MEDIUM', 'HARD'] as const).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setPracticeFormDifficulty(d)}
+                        className={`py-2 px-2 rounded-xl text-xs font-semibold text-center transition cursor-pointer border ${
+                          practiceFormDifficulty === d
+                            ? d === 'EASY'
+                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                              : d === 'MEDIUM'
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                              : 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Problem Title & Concept Title */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Problem Title <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Formatted Temperature Converter"
+                    value={practiceFormTitle}
+                    onChange={(e) => setPracticeFormTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Topic / Concept Tagline
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Master scanf, printf and precise numerical format control"
+                    value={practiceFormTopicTitle}
+                    onChange={(e) => setPracticeFormTopicTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Short Objective / Summary
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Read Fahrenheit float and print Celsius with 2 decimal places"
+                  value={practiceFormSummary}
+                  onChange={(e) => setPracticeFormSummary(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                />
+              </div>
+
+              {/* Educational Syntax Tip */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Educational Syntax / Tip Box Hint
+                </label>
+                <input
+                  type="text"
+                  placeholder='e.g. scanf("%f", &temp); printf("%.2f", (temp-32)*5/9);'
+                  value={practiceFormSyntax}
+                  onChange={(e) => setPracticeFormSyntax(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono text-[11px] focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                />
+              </div>
+
+              {/* Problem Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Problem Statement & Requirements <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe problem requirements, input/output format, constraints..."
+                  value={practiceFormDescription}
+                  onChange={(e) => setPracticeFormDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  required
+                />
+              </div>
+
+              {/* Test Cases Suite */}
+              <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
+                <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span>Verified Test Cases Suite</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Standard I/O validation</span>
+                </div>
+
+                {/* Visible Test Case */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Input:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={practiceFormOpenIn}
+                      onChange={(e) => setPracticeFormOpenIn(e.target.value)}
+                      placeholder="e.g. 98.6"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Expected Output:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={practiceFormOpenOut}
+                      onChange={(e) => setPracticeFormOpenOut(e.target.value)}
+                      placeholder="e.g. 37.00"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    Visible Case Explanation:
+                  </label>
+                  <input
+                    type="text"
+                    value={practiceFormOpenExpl}
+                    onChange={(e) => setPracticeFormOpenExpl(e.target.value)}
+                    placeholder="e.g. 98.6 Fahrenheit is equivalent to 37.00 Celsius"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] text-[11px] focus:outline-none"
+                  />
+                </div>
+
+                {/* Hidden Test Case */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                      Hidden Evaluation Input:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={practiceFormHiddenIn}
+                      onChange={(e) => setPracticeFormHiddenIn(e.target.value)}
+                      placeholder="Hidden case input..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                      Hidden Expected Output:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={practiceFormHiddenOut}
+                      onChange={(e) => setPracticeFormHiddenOut(e.target.value)}
+                      placeholder="Hidden case output..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Starter Code */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  C Starter Boilerplate Code:
+                </label>
+                <textarea
+                  rows={4}
+                  value={practiceFormStarterCode}
+                  onChange={(e) => setPracticeFormStarterCode(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-slate-100 font-mono text-[11px] focus:outline-none"
+                />
+              </div>
+
+              {/* Reference Solution */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Reference Solution Code (Faculty Verification):
+                </label>
+                <textarea
+                  rows={4}
+                  value={practiceFormSolutionCode}
+                  onChange={(e) => setPracticeFormSolutionCode(e.target.value)}
+                  placeholder="Verified reference solution in C..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-emerald-400 font-mono text-[11px] focus:outline-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPracticeEditModalOpen(false);
+                    setEditingPracticeTopic(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                >
+                  Cancel
+                </button>
+                <GalaxyButton
+                  type="submit"
+                  disabled={isSavingPracticeQuestion || !practiceFormTitle.trim()}
+                  size="sm"
+                  text={
+                    isSavingPracticeQuestion
+                      ? 'Saving to Firestore...'
+                      : editingPracticeTopic
+                      ? 'Update Question'
+                      : 'Save & Publish Question'
+                  }
+                  icon={isSavingPracticeQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   iconPosition="left"
                 />
               </div>

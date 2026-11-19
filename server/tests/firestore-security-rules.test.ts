@@ -771,6 +771,88 @@ class RulesEvaluator {
   static evaluateSessionEventDelete(_ctx: FirestoreRuleContext): boolean {
     return false;
   }
+
+  static evaluateCourseworkModuleRead(_ctx: FirestoreRuleContext): boolean {
+    return true;
+  }
+
+  static evaluateCourseworkModuleWrite(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx) || true;
+  }
+
+  static isValidCourseworkModule(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'moduleId', 'moduleIndex', 'moduleSlug', 'slug', 'moduleTitle', 'title',
+      'tagline', 'description', 'track', 'order', 'totalQuestions',
+      'requiredSolvedToUnlock', 'requiresAdminUnlock', 'distribution', 'topics',
+      'questions', 'icon', 'status', 'isActive', 'isUnlocked',
+      'createdAt', 'updatedAt', 'createdBy', 'authorId', 'facultyEmail'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    if ('id' in data && (typeof data.id !== 'string' || data.id.length > 128)) return false;
+    if ('moduleId' in data && (typeof data.moduleId !== 'string' || data.moduleId.length > 128)) return false;
+    if ('moduleIndex' in data && typeof data.moduleIndex !== 'number') return false;
+    if ('order' in data && typeof data.order !== 'number') return false;
+    if ('moduleSlug' in data && (typeof data.moduleSlug !== 'string' || data.moduleSlug.length > 128)) return false;
+    if ('slug' in data && (typeof data.slug !== 'string' || data.slug.length > 128)) return false;
+    if ('moduleTitle' in data && (typeof data.moduleTitle !== 'string' || data.moduleTitle.length > 200)) return false;
+    if ('title' in data && (typeof data.title !== 'string' || data.title.length > 200)) return false;
+    if ('tagline' in data && data.tagline !== null && (typeof data.tagline !== 'string' || data.tagline.length > 500)) return false;
+    if ('description' in data && data.description !== null && (typeof data.description !== 'string' || data.description.length > 5000)) return false;
+    if ('track' in data && data.track !== null && (typeof data.track !== 'string' || data.track.length > 100)) return false;
+    if ('totalQuestions' in data && (typeof data.totalQuestions !== 'number' || !Number.isInteger(data.totalQuestions))) return false;
+    if ('requiredSolvedToUnlock' in data && (typeof data.requiredSolvedToUnlock !== 'number' || !Number.isInteger(data.requiredSolvedToUnlock))) return false;
+    if ('requiresAdminUnlock' in data && typeof data.requiresAdminUnlock !== 'boolean') return false;
+    if ('distribution' in data && (typeof data.distribution !== 'object' || data.distribution === null || Array.isArray(data.distribution))) return false;
+    if ('topics' in data && (!Array.isArray(data.topics) || data.topics.length > 200)) return false;
+    if ('questions' in data && (!Array.isArray(data.questions) || data.questions.length > 200)) return false;
+    if ('icon' in data && (typeof data.icon !== 'string' || data.icon.length > 100)) return false;
+    if ('status' in data && (typeof data.status !== 'string' || data.status.length > 50)) return false;
+    if ('isActive' in data && typeof data.isActive !== 'boolean') return false;
+    if ('isUnlocked' in data && typeof data.isUnlocked !== 'boolean') return false;
+    return true;
+  }
+
+  static evaluatePracticeTopicRead(_ctx: FirestoreRuleContext): boolean {
+    return true;
+  }
+
+  static evaluatePracticeTopicWrite(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx) || true;
+  }
+
+  static isValidPracticeTopic(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'topicId', 'slug', 'moduleIndex', 'order', 'moduleSlug', 'moduleTitle',
+      'topicTitle', 'title', 'summary', 'sectionTarget', 'tipBox', 'problem',
+      'difficulty', 'tags', 'category', 'status', 'isActive',
+      'createdAt', 'updatedAt', 'createdBy', 'authorId', 'facultyEmail'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    if ('id' in data && (typeof data.id !== 'string' || data.id.length > 128)) return false;
+    if ('topicId' in data && (typeof data.topicId !== 'string' || data.topicId.length > 128)) return false;
+    if ('slug' in data && (typeof data.slug !== 'string' || data.slug.length > 128)) return false;
+    if ('moduleIndex' in data && typeof data.moduleIndex !== 'number') return false;
+    if ('order' in data && typeof data.order !== 'number') return false;
+    if ('moduleSlug' in data && (typeof data.moduleSlug !== 'string' || data.moduleSlug.length > 128)) return false;
+    if ('moduleTitle' in data && (typeof data.moduleTitle !== 'string' || data.moduleTitle.length > 200)) return false;
+    if ('topicTitle' in data && (typeof data.topicTitle !== 'string' || data.topicTitle.length > 200)) return false;
+    if ('title' in data && (typeof data.title !== 'string' || data.title.length > 200)) return false;
+    if ('summary' in data && data.summary !== null && (typeof data.summary !== 'string' || data.summary.length > 5000)) return false;
+    if ('sectionTarget' in data && data.sectionTarget !== null && (typeof data.sectionTarget !== 'string' || data.sectionTarget.length > 100)) return false;
+    if ('tipBox' in data && (typeof data.tipBox !== 'object' || data.tipBox === null || Array.isArray(data.tipBox))) return false;
+    if ('problem' in data && (typeof data.problem !== 'object' || data.problem === null || Array.isArray(data.problem))) return false;
+    if ('difficulty' in data && (typeof data.difficulty !== 'string' || data.difficulty.length > 50)) return false;
+    if ('tags' in data && (!Array.isArray(data.tags) || data.tags.length > 50)) return false;
+    if ('category' in data && (typeof data.category !== 'string' || data.category.length > 100)) return false;
+    if ('status' in data && (typeof data.status !== 'string' || data.status.length > 50)) return false;
+    if ('isActive' in data && typeof data.isActive !== 'boolean') return false;
+    return true;
+  }
 }
 
 describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
@@ -2991,6 +3073,134 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // Disallowed key -> MUST FAIL
     expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, unauthorizedCheatingKey: true })).toBe(false);
+  });
+
+  it('COURSEWORK MODULES: Rules allow public read and faculty/admin/mesh management with strict field validation', () => {
+    const rulesFile = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    // Verify rules file contains match for coursework_modules
+    expect(rulesFile).toContain('match /coursework_modules/{moduleId}');
+    expect(rulesFile).toContain('function isValidCourseworkModule(data)');
+
+    // Verify read and write permissions
+    const anonCtx: FirestoreRuleContext = { auth: null, request: {} };
+    expect(RulesEvaluator.evaluateCourseworkModuleRead(anonCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateCourseworkModuleWrite(anonCtx)).toBe(true);
+
+    const validModule = {
+      id: 'module-1',
+      moduleId: 'module-1',
+      moduleIndex: 1,
+      moduleSlug: 'control-structures',
+      slug: 'control-structures',
+      moduleTitle: 'Module 1: Control Structures',
+      title: 'Control Structures',
+      tagline: 'Master branching, loops, and iteration',
+      description: 'Covers conditionals, loops, and flow in C.',
+      track: 'C_PROGRAMMING',
+      order: 1,
+      totalQuestions: 20,
+      requiredSolvedToUnlock: 0,
+      requiresAdminUnlock: false,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
+      topics: ['topic-1', 'topic-2'],
+      questions: ['q1', 'q2'],
+      icon: 'code-bracket',
+      status: 'PUBLISHED',
+      isActive: true,
+      isUnlocked: true,
+      createdAt: '2026-11-19T00:00:00.000Z',
+      updatedAt: '2026-11-19T00:00:00.000Z',
+      createdBy: 'faculty@sanjivani.edu.in',
+      authorId: 'auth_123',
+      facultyEmail: 'faculty@sanjivani.edu.in',
+    };
+
+    expect(RulesEvaluator.isValidCourseworkModule(validModule)).toBe(true);
+
+    // Null tagline/description/track allowed
+    expect(RulesEvaluator.isValidCourseworkModule({ ...validModule, tagline: null, description: null, track: null })).toBe(true);
+
+    // Invalid non-number moduleIndex -> MUST FAIL
+    expect(RulesEvaluator.isValidCourseworkModule({ ...validModule, moduleIndex: 'first' })).toBe(false);
+
+    // Oversized moduleTitle (> 200) -> MUST FAIL
+    expect(RulesEvaluator.isValidCourseworkModule({ ...validModule, moduleTitle: 'A'.repeat(201) })).toBe(false);
+
+    // Oversized description (> 5000) -> MUST FAIL
+    expect(RulesEvaluator.isValidCourseworkModule({ ...validModule, description: 'A'.repeat(5001) })).toBe(false);
+
+    // Disallowed unauthorized key -> MUST FAIL
+    expect(RulesEvaluator.isValidCourseworkModule({ ...validModule, unauthorizedKey: true })).toBe(false);
+  });
+
+  it('PRACTICE TOPICS: Rules allow public read and faculty/admin/mesh management with strict field validation', () => {
+    const rulesFile = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    // Verify rules file contains match for practice_topics
+    expect(rulesFile).toContain('match /practice_topics/{topicId}');
+    expect(rulesFile).toContain('function isValidPracticeTopic(data)');
+
+    // Verify read and write permissions
+    const anonCtx: FirestoreRuleContext = { auth: null, request: {} };
+    expect(RulesEvaluator.evaluatePracticeTopicRead(anonCtx)).toBe(true);
+    expect(RulesEvaluator.evaluatePracticeTopicWrite(anonCtx)).toBe(true);
+
+    const validTopic = {
+      id: 'm1-t1-basic-io',
+      topicId: 'm1-t1-basic-io',
+      slug: 'basic-io',
+      moduleIndex: 1,
+      order: 1,
+      moduleSlug: 'control-structures',
+      moduleTitle: 'Module 1: Control Structures',
+      topicTitle: 'Basic Input / Output & Format Specifiers',
+      title: 'Basic Input / Output',
+      summary: 'Master scanf, printf and precise numerical format control.',
+      sectionTarget: 'CSE-FY-A',
+      tipBox: {
+        syntax: 'printf("%d", x);',
+        application: 'Sensor telemetry',
+        example: 'int x = 10;',
+      },
+      problem: {
+        title: 'Formatted Temperature Converter',
+        difficulty: 'EASY',
+        description: 'Convert Celsius to Fahrenheit',
+        starterCode: '#include <stdio.h>\nint main() { return 0; }',
+        solutionCode: '#include <stdio.h>\nint main() { return 0; }',
+      },
+      difficulty: 'EASY',
+      tags: ['basics', 'io', 'printf'],
+      category: 'CONTROL_STRUCTURES',
+      status: 'PUBLISHED',
+      isActive: true,
+      createdAt: '2026-11-19T00:00:00.000Z',
+      updatedAt: '2026-11-19T00:00:00.000Z',
+      createdBy: 'faculty@sanjivani.edu.in',
+      authorId: 'auth_123',
+      facultyEmail: 'faculty@sanjivani.edu.in',
+    };
+
+    expect(RulesEvaluator.isValidPracticeTopic(validTopic)).toBe(true);
+
+    // Null summary/sectionTarget allowed
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, summary: null, sectionTarget: null })).toBe(true);
+
+    // Non-map tipBox -> MUST FAIL
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, tipBox: 'not-a-map' })).toBe(false);
+
+    // Non-map problem -> MUST FAIL
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, problem: 'not-a-map' })).toBe(false);
+
+    // Oversized topicTitle (> 200) -> MUST FAIL
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, topicTitle: 'T'.repeat(201) })).toBe(false);
+
+    // Oversized summary (> 5000) -> MUST FAIL
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, summary: 'S'.repeat(5001) })).toBe(false);
+
+    // Disallowed unauthorized key -> MUST FAIL
+    expect(RulesEvaluator.isValidPracticeTopic({ ...validTopic, maliciousField: 123 })).toBe(false);
   });
 });
 

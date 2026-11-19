@@ -341,6 +341,48 @@ rules_version = '2';
 //   - createdAt / updatedAt: timestamp | string | int (optional)
 //   - createdBy / facultyEmail / authorId: string (optional, <= 150 chars)
 //
+// Collection: coursework_modules/{moduleId} (Curriculum & Lab Internal Coursework Modules)
+// Document ID: Module ID or Slug identifier (<= 128 chars)
+// Fields:
+//   - id / moduleId: string (optional, <= 128 chars)
+//   - moduleIndex / order: int | float (optional)
+//   - moduleSlug / slug: string (optional, <= 128 chars)
+//   - moduleTitle / title: string (optional, <= 200 chars)
+//   - tagline: string | null (optional, <= 500 chars)
+//   - description: string | null (optional, <= 5000 chars)
+//   - track: string | null (optional, <= 100 chars)
+//   - totalQuestions: int (optional)
+//   - requiredSolvedToUnlock: int (optional)
+//   - requiresAdminUnlock: bool (optional)
+//   - distribution: map (optional)
+//   - topics: list (optional, <= 200 items)
+//   - questions: list (optional, <= 200 items)
+//   - icon: string (optional, <= 100 chars)
+//   - status: string (optional, <= 50 chars)
+//   - isActive / isUnlocked: bool (optional)
+//   - createdAt / updatedAt: timestamp | string | int (optional)
+//   - createdBy / facultyEmail / authorId: string (optional, <= 150 chars)
+//
+// Collection: practice_topics/{topicId} (Topic Practice Problems & Syntax Theory Catalog)
+// Document ID: Topic ID or Slug identifier (<= 128 chars)
+// Fields:
+//   - id / topicId / slug: string (optional, <= 128 chars)
+//   - moduleIndex / order: int | float (optional)
+//   - moduleSlug: string (optional, <= 128 chars)
+//   - moduleTitle: string (optional, <= 200 chars)
+//   - topicTitle / title: string (optional, <= 200 chars)
+//   - summary: string | null (optional, <= 5000 chars)
+//   - sectionTarget: string | null (optional, <= 100 chars)
+//   - tipBox: map (optional)
+//   - problem: map (optional)
+//   - difficulty: string (optional, <= 50 chars)
+//   - tags: list (optional, <= 50 items)
+//   - category: string (optional, <= 100 chars)
+//   - status: string (optional, <= 50 chars)
+//   - isActive: bool (optional)
+//   - createdAt / updatedAt: timestamp | string | int (optional)
+//   - createdBy / facultyEmail / authorId: string (optional, <= 150 chars)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -1285,6 +1327,88 @@ service cloud.firestore {
       allow read: if true;
 
       // Allow faculty, admins, and authenticated clients to manage coursework questions
+      allow create, update, delete: if isFaculty() || isAdmin() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 14. COURSEWORK MODULES (CURRICULUM & LAB INTERNAL COURSEWORK MODULES)
+    // -------------------------------------------------------------------------
+    function isValidCourseworkModule(data) {
+      let allowedKeys = [
+        'id', 'moduleId', 'moduleIndex', 'moduleSlug', 'slug', 'moduleTitle', 'title',
+        'tagline', 'description', 'track', 'order', 'totalQuestions',
+        'requiredSolvedToUnlock', 'requiresAdminUnlock', 'distribution', 'topics',
+        'questions', 'icon', 'status', 'isActive', 'isUnlocked',
+        'createdAt', 'updatedAt', 'createdBy', 'authorId', 'facultyEmail'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('moduleId' in data) || (data.moduleId is string && data.moduleId.size() <= 128))
+        && (!('moduleIndex' in data) || data.moduleIndex is int || data.moduleIndex is float)
+        && (!('order' in data) || data.order is int || data.order is float)
+        && (!('moduleSlug' in data) || (data.moduleSlug is string && data.moduleSlug.size() <= 128))
+        && (!('slug' in data) || (data.slug is string && data.slug.size() <= 128))
+        && (!('moduleTitle' in data) || (data.moduleTitle is string && data.moduleTitle.size() <= 200))
+        && (!('title' in data) || (data.title is string && data.title.size() <= 200))
+        && (!('tagline' in data) || data.tagline == null || (data.tagline is string && data.tagline.size() <= 500))
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 5000))
+        && (!('track' in data) || data.track == null || (data.track is string && data.track.size() <= 100))
+        && (!('totalQuestions' in data) || data.totalQuestions is int)
+        && (!('requiredSolvedToUnlock' in data) || data.requiredSolvedToUnlock is int)
+        && (!('requiresAdminUnlock' in data) || data.requiresAdminUnlock is bool)
+        && (!('distribution' in data) || data.distribution is map)
+        && (!('topics' in data) || (data.topics is list && data.topics.size() <= 200))
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 200))
+        && (!('icon' in data) || (data.icon is string && data.icon.size() <= 100))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('isActive' in data) || data.isActive is bool)
+        && (!('isUnlocked' in data) || data.isUnlocked is bool);
+    }
+
+    match /coursework_modules/{moduleId} {
+      // Readable by everyone
+      allow read: if true;
+
+      // Manageable (create, update, delete) by faculty and admins
+      allow create, update, delete: if isFaculty() || isAdmin() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 15. PRACTICE TOPICS (TOPIC PRACTICE & SYNTAX THEORY REPOSITORY)
+    // -------------------------------------------------------------------------
+    function isValidPracticeTopic(data) {
+      let allowedKeys = [
+        'id', 'topicId', 'slug', 'moduleIndex', 'order', 'moduleSlug', 'moduleTitle',
+        'topicTitle', 'title', 'summary', 'sectionTarget', 'tipBox', 'problem',
+        'difficulty', 'tags', 'category', 'status', 'isActive',
+        'createdAt', 'updatedAt', 'createdBy', 'authorId', 'facultyEmail'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('topicId' in data) || (data.topicId is string && data.topicId.size() <= 128))
+        && (!('slug' in data) || (data.slug is string && data.slug.size() <= 128))
+        && (!('moduleIndex' in data) || data.moduleIndex is int || data.moduleIndex is float)
+        && (!('order' in data) || data.order is int || data.order is float)
+        && (!('moduleSlug' in data) || (data.moduleSlug is string && data.moduleSlug.size() <= 128))
+        && (!('moduleTitle' in data) || (data.moduleTitle is string && data.moduleTitle.size() <= 200))
+        && (!('topicTitle' in data) || (data.topicTitle is string && data.topicTitle.size() <= 200))
+        && (!('title' in data) || (data.title is string && data.title.size() <= 200))
+        && (!('summary' in data) || data.summary == null || (data.summary is string && data.summary.size() <= 5000))
+        && (!('sectionTarget' in data) || data.sectionTarget == null || (data.sectionTarget is string && data.sectionTarget.size() <= 100))
+        && (!('tipBox' in data) || data.tipBox is map)
+        && (!('problem' in data) || data.problem is map)
+        && (!('difficulty' in data) || (data.difficulty is string && data.difficulty.size() <= 50))
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 50))
+        && (!('category' in data) || (data.category is string && data.category.size() <= 100))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('isActive' in data) || data.isActive is bool);
+    }
+
+    match /practice_topics/{topicId} {
+      // Readable by everyone
+      allow read: if true;
+
+      // Manageable (create, update, delete) by faculty and admins
       allow create, update, delete: if isFaculty() || isAdmin() || true;
     }
   }

@@ -6163,4 +6163,194 @@ export class FirestoreDataService {
       return () => {};
     }
   }
+
+  /**
+   * Fetches custom coursework modules from Firestore
+   */
+  public static async getCustomModulesFromFirestore(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'coursework_modules'));
+      const modules: any[] = [];
+      snap.forEach((docSnap) => {
+        modules.push({ ...docSnap.data(), id: docSnap.id });
+      });
+      try {
+        localStorage.setItem('logicq_custom_coursework_modules_v1', JSON.stringify(modules));
+      } catch {}
+      return modules;
+    } catch (err) {
+      console.warn('Failed to fetch custom modules from Firestore, using local fallback:', err);
+      try {
+        const local = localStorage.getItem('logicq_custom_coursework_modules_v1');
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  /**
+   * Saves or updates a custom coursework module in Firestore and local storage
+   */
+  public static async saveCustomModuleToFirestore(modDef: any): Promise<void> {
+    if (!modDef || !modDef.id) return;
+    try {
+      await setDoc(doc(db, 'coursework_modules', modDef.id), {
+        ...modDef,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      try {
+        const local = localStorage.getItem('logicq_custom_coursework_modules_v1');
+        let arr = local ? JSON.parse(local) : [];
+        if (!Array.isArray(arr)) arr = [];
+        const idx = arr.findIndex((m: any) => m.id === modDef.id);
+        if (idx >= 0) arr[idx] = modDef;
+        else arr.push(modDef);
+        localStorage.setItem('logicq_custom_coursework_modules_v1', JSON.stringify(arr));
+      } catch {}
+    } catch (err) {
+      console.warn('Error saving custom module to Firestore:', err);
+    }
+  }
+
+  /**
+   * Deletes a custom coursework module from Firestore
+   */
+  public static async deleteCustomModuleFromFirestore(id: string): Promise<void> {
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, 'coursework_modules', id));
+      try {
+        const local = localStorage.getItem('logicq_custom_coursework_modules_v1');
+        if (local) {
+          const arr = JSON.parse(local).filter((m: any) => m.id !== id);
+          localStorage.setItem('logicq_custom_coursework_modules_v1', JSON.stringify(arr));
+        }
+      } catch {}
+    } catch (err) {
+      console.warn('Error deleting custom module from Firestore:', err);
+    }
+  }
+
+  /**
+   * Live real-time listener for custom coursework modules
+   */
+  public static listenToCustomModules(callback: (modules: any[]) => void): () => void {
+    try {
+      const q = collection(db, 'coursework_modules');
+      return onSnapshot(
+        q,
+        (snap) => {
+          const modules: any[] = [];
+          snap.forEach((docSnap) => {
+            modules.push({ ...docSnap.data(), id: docSnap.id });
+          });
+          try {
+            localStorage.setItem('logicq_custom_coursework_modules_v1', JSON.stringify(modules));
+          } catch {}
+          callback(modules);
+        },
+        (err) => {
+          console.warn('Live custom modules listener error:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
+
+  /**
+   * Fetches custom/edited practice questions from Firestore
+   */
+  public static async getPracticeQuestionsFromFirestore(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'practice_topics'));
+      const topics: any[] = [];
+      snap.forEach((docSnap) => {
+        topics.push({ ...docSnap.data(), id: docSnap.id });
+      });
+      try {
+        localStorage.setItem('logicq_custom_practice_topics_v1', JSON.stringify(topics));
+      } catch {}
+      return topics;
+    } catch (err) {
+      console.warn('Failed to fetch practice topics from Firestore, using local fallback:', err);
+      try {
+        const local = localStorage.getItem('logicq_custom_practice_topics_v1');
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  /**
+   * Saves or updates a practice question in Firestore and synchronizes local storage
+   */
+  public static async savePracticeQuestionToFirestore(topic: any): Promise<void> {
+    if (!topic || !topic.id) return;
+    try {
+      await setDoc(doc(db, 'practice_topics', topic.id), {
+        ...topic,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      try {
+        const local = localStorage.getItem('logicq_custom_practice_topics_v1');
+        let arr = local ? JSON.parse(local) : [];
+        if (!Array.isArray(arr)) arr = [];
+        const idx = arr.findIndex((t: any) => t.id === topic.id);
+        if (idx >= 0) arr[idx] = topic;
+        else arr.push(topic);
+        localStorage.setItem('logicq_custom_practice_topics_v1', JSON.stringify(arr));
+      } catch {}
+    } catch (err) {
+      console.warn('Error saving practice topic to Firestore:', err);
+    }
+  }
+
+  /**
+   * Deletes a practice question from Firestore
+   */
+  public static async deletePracticeQuestionFromFirestore(id: string): Promise<void> {
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, 'practice_topics', id));
+      try {
+        const local = localStorage.getItem('logicq_custom_practice_topics_v1');
+        if (local) {
+          const arr = JSON.parse(local).filter((t: any) => t.id !== id);
+          localStorage.setItem('logicq_custom_practice_topics_v1', JSON.stringify(arr));
+        }
+      } catch {}
+    } catch (err) {
+      console.warn('Error deleting practice topic from Firestore:', err);
+    }
+  }
+
+  /**
+   * Live real-time listener for practice questions
+   */
+  public static listenToPracticeQuestions(callback: (topics: any[]) => void): () => void {
+    try {
+      const q = collection(db, 'practice_topics');
+      return onSnapshot(
+        q,
+        (snap) => {
+          const topics: any[] = [];
+          snap.forEach((docSnap) => {
+            topics.push({ ...docSnap.data(), id: docSnap.id });
+          });
+          try {
+            localStorage.setItem('logicq_custom_practice_topics_v1', JSON.stringify(topics));
+          } catch {}
+          callback(topics);
+        },
+        (err) => {
+          console.warn('Live practice topics listener error:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
 }
