@@ -1050,12 +1050,30 @@ export const AdminQuestionBankTab: React.FC = () => {
                 {/* Starter Code Preview */}
                 {aiDraft.starterCode && (
                   <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      C Starter Code
-                    </label>
-                    <pre className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto max-h-32 border border-slate-800">
-                      <code>{aiDraft.starterCode}</code>
-                    </pre>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                        C Starter Code
+                      </label>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
+                        GCC 14 Template
+                      </span>
+                    </div>
+                    <div className="rounded-xl overflow-hidden border border-slate-700/80 bg-[#070b14] shadow-sm">
+                      <div className="px-3 py-1.5 bg-[#0d1322] border-b border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                          <span className="text-[11px] font-mono text-slate-300 ml-2 font-medium">starter.c</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">C Language</span>
+                      </div>
+                      <pre className="p-3.5 font-mono text-xs leading-relaxed overflow-x-auto max-h-44 bg-[#070b14] text-emerald-400 select-text whitespace-pre m-0">
+                        <code style={{ color: '#34d399' }} className="font-mono text-xs leading-relaxed block text-emerald-400 whitespace-pre">
+                          {aiDraft.starterCode}
+                        </code>
+                      </pre>
+                    </div>
                   </div>
                 )}
 
