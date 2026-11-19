@@ -870,23 +870,6 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
           </div>
         </div>
 
-        {/* Section Faculty Banner */}
-        {isFacultyUser && (
-          <div className="mb-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Section Roster for <strong>{facultySection}</strong> ({students.filter((s) => s.section === facultySection).length} student enrolled).</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedSection(selectedSection === facultySection ? 'ALL' : facultySection)}
-              className="text-[11px] underline font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 cursor-pointer"
-            >
-              {selectedSection === facultySection ? 'Show All University Students' : `Filter to My Section (${facultySection})`}
-            </button>
-          </div>
-        )}
-
         {/* Apple Segmented Filter Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
           <button
