@@ -586,17 +586,6 @@ export const AdminPortalPage: React.FC = () => {
                 FACULTY PORTAL
               </span>
             </div>
-            {isFacultyUser && (
-              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs ml-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300 text-[11px]">
-                  Section: {facultySectionName}
-                </span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200">
-                  {facultySectionCode}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Right Status & Profile Cluster */}
