@@ -2161,7 +2161,6 @@ export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
   ...HARD_PRACTICE_TOPICS,
   ...EXPANSION_PRACTICE_TOPICS_1,
   ...EXPANSION_PRACTICE_TOPICS_2,
-  ...COMPUTER_SCIENCE_PRACTICE_TOPICS,
 ].sort((a, b) => {
   if (a.moduleIndex !== b.moduleIndex) {
     return a.moduleIndex - b.moduleIndex;
