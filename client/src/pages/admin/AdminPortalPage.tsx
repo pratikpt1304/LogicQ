@@ -678,50 +678,6 @@ export const AdminPortalPage: React.FC = () => {
       {/* 2. MAIN WORKSPACE CONTENT (Full Width, Perfectly Responsive)              */}
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Dedicated Faculty Section Overview Banner */}
-        {isFacultyUser && (
-          <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs animate-in fade-in duration-150">
-            <div className="flex items-start gap-3.5">
-              <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0 shadow-xs">
-                <Layers className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
-                    {sections.length > 0 ? sections[0].sectionName : 'Faculty Workspace'} • Section Faculty Portal
-                  </h2>
-                  {sections.length > 0 && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                      Join Code: {sections[0].joinCode}
-                    </span>
-                  )}
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    Academic Year 2026–2027
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Instructor: <strong>{user?.fullName || user?.displayName || 'Faculty Lead'}</strong> ({user?.email}) • Managing student enrollment, custom practice problem modules, and lab internal exams for your section.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setActiveTab('students')}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#1a202c] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Users className="w-3.5 h-3.5 text-emerald-500" />
-                <span>My Students ({stats.totalStudents || 0})</span>
-              </button>
-              <button
-                onClick={() => setActiveTab(sections.length > 0 ? 'question-bank' : 'sections')}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{sections.length > 0 ? 'Create Practice / Questions' : 'Create First Section'}</span>
-              </button>
-            </div>
-          </div>
-        )}
         {activeTab === 'command-center' && (
           <AdminCommandCenterTab
             stats={stats}
