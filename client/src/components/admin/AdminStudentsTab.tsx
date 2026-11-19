@@ -124,6 +124,14 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
   useEffect(() => {
     let isMounted = true;
 
+    const allowedSectionKeys = new Set(
+      (propSections || []).flatMap((s: any) => [
+        String(s.id || '').toUpperCase().trim(),
+        String(s.joinCode || '').toUpperCase().trim(),
+        String(s.sectionName || '').toUpperCase().trim(),
+      ]).filter(Boolean)
+    );
+
     const isRohanRecord = (s: any) => {
       const n = String(s.name || s.fullName || '').toLowerCase();
       const e = String(s.email || '').toLowerCase();
@@ -371,24 +379,16 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
               };
             });
 
-          const allowedSectionKeys = new Set(
-            (propSections || []).flatMap((s: any) => [
-              String(s.id || '').toUpperCase().trim(),
-              String(s.joinCode || '').toUpperCase().trim(),
-              String(s.sectionName || '').toUpperCase().trim(),
-            ]).filter(Boolean)
-          );
-
-          const finalStudentUsers = isSuperAdmin
-            ? studentUsers
-            : studentUsers.filter((st: any) => {
-                if (propStudents && propStudents.length > 0) {
-                  return propStudents.some((p) => (p.prn && p.prn === st.prn) || (p.email && p.email.toLowerCase() === st.email.toLowerCase()) || p.id === st.id);
-                }
-                if (allowedSectionKeys.size === 0) return false;
-                const secStr = String(st.section || '').toUpperCase().trim();
-                return allowedSectionKeys.has(secStr);
-              });
+          const finalStudentUsers = studentUsers.filter((st: any) => {
+            if (propStudents && propStudents.length > 0) {
+              return propStudents.some((p) => (p.prn && p.prn === st.prn) || (p.email && p.email.toLowerCase() === st.email.toLowerCase()) || p.id === st.id);
+            }
+            if (allowedSectionKeys.size > 0) {
+              const secStr = String(st.section || '').toUpperCase().trim();
+              return allowedSectionKeys.has(secStr);
+            }
+            return false;
+          });
 
           setStudents((prev) => {
             const map = new Map<string, AdminStudentRecord>();
@@ -403,12 +403,13 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
             const merged = Array.from(map.values())
               .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
               .filter((s) => {
-                if (isSuperAdmin) return true;
                 if (propStudents && propStudents.length > 0) {
                   return propStudents.some((p) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === s.email.toLowerCase()) || p.id === s.id);
                 }
-                if (allowedSectionKeys.size === 0) return false;
-                return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+                if (allowedSectionKeys.size > 0) {
+                  return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+                }
+                return false;
               });
             try {
               localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
@@ -513,7 +514,17 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
               map.set(k, st);
             }
           });
-          const merged = Array.from(map.values());
+          const merged = Array.from(map.values())
+            .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
+            .filter((s) => {
+              if (propStudents && propStudents.length > 0) {
+                return propStudents.some((p) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === s.email.toLowerCase()) || p.id === s.id);
+              }
+              if (allowedSectionKeys.size > 0) {
+                return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+              }
+              return true;
+            });
           try {
             localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
           } catch {}

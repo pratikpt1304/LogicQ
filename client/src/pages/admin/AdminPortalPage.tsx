@@ -157,14 +157,42 @@ export const AdminPortalPage: React.FC = () => {
         const userSecName = String(user?.sectionName || user?.department || '').toLowerCase().trim();
 
         const isSectionOwnedByFaculty = (sec: any) => {
-          if (isSuperAdmin) return true;
           const secFacultyEmail = (sec.facultyEmail || sec.createdBy || '').toLowerCase().trim();
-          if (facultyEmailClean && secFacultyEmail && secFacultyEmail === facultyEmailClean) return true;
-          if (facultyId && (sec.facultyId === facultyId || sec.createdById === facultyId)) return true;
-          if (userSecId && (sec.id === userSecId || sec.joinCode === userSecId)) return true;
-          if (userSecName && (sec.sectionName || '').toLowerCase().trim() === userSecName) return true;
-          if (facultyEmailClean === 'demostaff@gmail.com' && (sec.id === 'sec-demo-section' || sec.joinCode === 'LQ-DEMO' || (sec.sectionName || '').toLowerCase().includes('demo'))) return true;
-          return false;
+          const secFacultyId = (sec.facultyId || sec.createdById || '').trim();
+
+          // 1. If section is Demo Section, ONLY demostaff@gmail.com can see it
+          if (
+            secFacultyEmail === 'demostaff@gmail.com' ||
+            sec.id === 'sec-demo-section' ||
+            sec.joinCode === 'LQ-DEMO' ||
+            (sec.sectionName || '').toLowerCase().includes('demo')
+          ) {
+            return facultyEmailClean === 'demostaff@gmail.com';
+          }
+
+          // 2. If user is demostaff, they can ONLY see Demo Section
+          if (facultyEmailClean === 'demostaff@gmail.com') {
+            return false;
+          }
+
+          // 3. Normal faculty isolation: if section has explicit faculty email or ID, it must match
+          if (secFacultyEmail && facultyEmailClean) {
+            return secFacultyEmail === facultyEmailClean;
+          }
+          if (secFacultyId && facultyId) {
+            return secFacultyId === facultyId;
+          }
+
+          // 4. Fallback for Integrated Mtech / Arena Admin
+          if (
+            sec.id === 'sec-mw6l4r2s' ||
+            sec.joinCode === 'LQ-INTE34' ||
+            (sec.sectionName || '').toLowerCase().includes('mtech')
+          ) {
+            return facultyEmailClean !== 'demostaff@gmail.com';
+          }
+
+          return isSuperAdmin;
         };
 
         const isolatedSections = validSections.filter(isSectionOwnedByFaculty);
@@ -218,9 +246,7 @@ export const AdminPortalPage: React.FC = () => {
 
         // STRICT MULTI-FACULTY STUDENT ISOLATION:
         // A faculty member can ONLY see students enrolled in their sections.
-        const isolatedStudents = isSuperAdmin
-          ? allStudentUsers
-          : allStudentUsers.filter((st: any) => {
+        const isolatedStudents = allStudentUsers.filter((st: any) => {
               if (isolatedSections.length === 0) return false;
               const stSecId = String(st.sectionId || '').toUpperCase().trim();
               const stJoinCode = String(st.joinCode || '').toUpperCase().trim();
