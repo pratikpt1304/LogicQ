@@ -62,6 +62,8 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({
 }) => {
   const { user, isAdmin } = useAuth();
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+  const isDemostaff = facultyEmailClean === 'demostaff@gmail.com';
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, studentName: '' });
@@ -377,15 +379,27 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({
         ]).filter(Boolean)
       );
 
-      const finalProcessed = isSuperAdmin
-        ? processed
-        : processed.filter((s: any) => {
-            if (propStudents && propStudents.length > 0) {
-              return propStudents.some((p: any) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === (s.email || '').toLowerCase()) || p.id === s.id);
-            }
-            if (allowedSectionKeys.size === 0) return false;
-            return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
-          });
+      const finalProcessed = processed.filter((s: any) => {
+        const prnClean = (s.prn || '').toUpperCase().trim();
+        const isDemo =
+          prnClean === '2026BCSE101' ||
+          prnClean === '2026BCSE102' ||
+          String(s.section || s.sectionName || '').toLowerCase().includes('demo');
+
+        if (isDemostaff) {
+          return isDemo;
+        }
+        if (isDemo) {
+          return false;
+        }
+        if (propStudents && propStudents.length > 0) {
+          return propStudents.some((p: any) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === (s.email || '').toLowerCase()) || p.id === s.id);
+        }
+        if (allowedSectionKeys.size > 0) {
+          return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
+        }
+        return isSuperAdmin;
+      });
 
       // Sort students consistently by last 4 digits of PRN ascending
       finalProcessed.sort((a: any, b: any) => {

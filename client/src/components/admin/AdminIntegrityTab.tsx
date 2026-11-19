@@ -221,6 +221,8 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
 }) => {
   const { user, isAdmin } = useAuth();
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+  const isDemostaff = facultyEmailClean === 'demostaff@gmail.com';
 
   const [activeTab, setActiveTab] = useState<'STUDENTS' | 'INCIDENTS' | 'VIVA' | 'SETTINGS'>('STUDENTS');
   const [searchQuery, setSearchQuery] = useState('');
@@ -500,7 +502,7 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
             const nm = String(s.name || s.fullName || s.displayName || '').trim();
             const prn = String(s.prn || '').trim().toUpperCase();
             if (!prn || prn === '—' || prn === '-' || prn === 'GUEST' || prn === 'UNDEFINED' || prn === 'NULL') return false;
-            if (!nm || nm.toLowerCase() === 'student' || nm.startsWith('Candidate ') || nm.includes('Rahul') || nm.includes('Amit') || nm.includes('Sneha')) return false;
+            if (!nm || nm.toLowerCase() === 'student' || nm.startsWith('Candidate ') || nm === 'Rohan Sharma' || nm.includes('Amit') || nm.includes('Sneha')) return false;
             return true;
           })
           .map((s) => {
@@ -855,15 +857,27 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
           ]).filter(Boolean)
         );
 
-        const isolatedRecords = isSuperAdmin
-          ? records
-          : records.filter((r) => {
-              if (propAllowedStudents && propAllowedStudents.length > 0) {
-                return allowedPrns.has(r.prn.toUpperCase().trim()) || allowedEmails.has(r.email.toLowerCase().trim());
-              }
-              if (allowedSecKeys.size === 0) return false;
-              return allowedSecKeys.has(String(r.section || '').toUpperCase().trim());
-            });
+        const isolatedRecords = records.filter((r) => {
+          const prnClean = (r.prn || '').toUpperCase().trim();
+          const isDemo =
+            prnClean === '2026BCSE101' ||
+            prnClean === '2026BCSE102' ||
+            String(r.section || '').toLowerCase().includes('demo');
+
+          if (isDemostaff) {
+            return isDemo;
+          }
+          if (isDemo) {
+            return false;
+          }
+          if (propAllowedStudents && propAllowedStudents.length > 0) {
+            return allowedPrns.has(prnClean) || allowedEmails.has((r.email || '').toLowerCase().trim());
+          }
+          if (allowedSecKeys.size > 0) {
+            return allowedSecKeys.has(String(r.section || '').toUpperCase().trim());
+          }
+          return isSuperAdmin;
+        });
 
         setStudentsForensics(isolatedRecords);
       } catch (err) {

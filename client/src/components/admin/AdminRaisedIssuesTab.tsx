@@ -127,6 +127,8 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
 }) => {
   const { user, isAdmin } = useAuth();
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+  const isDemostaff = facultyEmailClean === 'demostaff@gmail.com';
   const allowedPrns = useMemo(() => new Set((allowedStudents || []).map((s: any) => String(s.prn || '').toUpperCase().trim())), [allowedStudents]);
   const allowedEmails = useMemo(() => new Set((allowedStudents || []).map((s: any) => String(s.email || '').toLowerCase().trim())), [allowedStudents]);
 
@@ -619,16 +621,19 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
 
   // Visible issues strictly isolated to this faculty's students
   const visibleIssues = useMemo(() => {
-    if (isSuperAdmin || !allowedStudents) return issues;
     return issues.filter((iss) => {
       const p = String(iss.studentPrn || '').toUpperCase().trim();
+      const isDemo = p === '2026BCSE101' || p === '2026BCSE102' || String((iss as any).sectionName || (iss as any).section || '').toLowerCase().includes('demo');
+      if (isDemostaff) return isDemo;
+      if (isDemo) return false;
+      if (isSuperAdmin && !allowedStudents) return true;
       const e = String(iss.studentEmail || '').toLowerCase().trim();
       if (p && allowedPrns.has(p)) return true;
       if (e && allowedEmails.has(e)) return true;
       if (iss.assignedEmail && iss.assignedEmail.toLowerCase().trim() === (user?.email || '').toLowerCase().trim()) return true;
       return false;
     });
-  }, [issues, isSuperAdmin, allowedStudents, allowedPrns, allowedEmails, user]);
+  }, [issues, isSuperAdmin, isDemostaff, allowedStudents, allowedPrns, allowedEmails, user]);
 
   // Filtered issues
   const filteredIssues = useMemo(() => {
