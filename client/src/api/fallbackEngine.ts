@@ -84,7 +84,15 @@ function getStoredPracticeProblems(): PracticeProblemDef[] {
   } catch {
     // ignore
   }
-  return [...STATIC_PRACTICE_PROBLEMS, ...custom];
+  const problemMap = new Map<string, PracticeProblemDef>();
+  STATIC_PRACTICE_PROBLEMS.forEach((p) => problemMap.set(p.slug, p));
+  if (Array.isArray(custom)) {
+    custom.forEach((c) => {
+      const existing = problemMap.get(c.slug);
+      problemMap.set(c.slug, existing ? { ...existing, ...c } : c);
+    });
+  }
+  return Array.from(problemMap.values());
 }
 
 function saveCustomPracticeProblem(prob: PracticeProblemDef) {

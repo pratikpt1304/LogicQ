@@ -136,6 +136,74 @@ export const PracticeModulesPage: React.FC = () => {
   const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'TODO' | 'SOLVED' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Live Firestore synchronization for Custom/Updated Lab Internal Questions
+  const [customQuestions, setCustomQuestions] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    FirestoreDataService.getLabInternalQuestionsFromFirestore().then((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomQuestions(qs);
+    });
+    const unsub = FirestoreDataService.listenToLabInternalQuestions((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomQuestions(qs);
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Compute live module definitions merged with custom/updated questions
+  const currentModuleDefinitions = useMemo(() => {
+    return MODULE_DEFINITIONS.map((def) => {
+      const baseProblems = [...def.problems];
+      const modCustom = customQuestions.filter((q: any) =>
+        Number(q.moduleOrder) === def.order || q.moduleSlug === def.slug
+      );
+
+      const mergedProblems = baseProblems.map((prob) => {
+        const match = modCustom.find((c: any) => c.slug === prob.slug);
+        return match ? { ...prob, ...match } : prob;
+      });
+
+      modCustom.forEach((c: any) => {
+        if (!mergedProblems.some((p) => p.slug === c.slug)) {
+          mergedProblems.push({
+            slug: c.slug,
+            moduleSlug: def.slug,
+            moduleOrder: def.order,
+            title: c.title,
+            difficulty: c.difficulty || 'MEDIUM',
+            category: c.category || def.title,
+            tags: Array.isArray(c.tags) ? c.tags : [def.shortTitle],
+            description: c.description || '',
+            starterCode: c.starterCode || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+            solutionCode: c.solutionCode || '',
+            wrongSolution1: '',
+            wrongSolution2: '',
+            timeLimitMs: Number(c.timeLimitMs) || 2000,
+            memoryLimitMb: Number(c.memoryLimitMb) || 128,
+            basePoints: Number(c.basePoints) || 10,
+            sampleTests: Array.isArray(c.sampleTests) ? c.sampleTests : [],
+            hiddenTests: Array.isArray(c.hiddenTests) ? c.hiddenTests : [],
+          });
+        }
+      });
+
+      return {
+        ...def,
+        problems: mergedProblems,
+      };
+    });
+  }, [customQuestions]);
+
   // Sync and restore solved practice topics from Firestore and local storage
   const refreshSolvedTopics = useCallback(async () => {
     try {
@@ -232,7 +300,7 @@ export const PracticeModulesPage: React.FC = () => {
   // Determine active selected module (1 to 5)
   const selectedModuleOrder = useMemo(() => {
     if (moduleSlug) {
-      const match = MODULE_DEFINITIONS.find(
+      const match = currentModuleDefinitions.find(
         (m) =>
           m.slug === moduleSlug ||
           (m.order === 3 && (moduleSlug === 'arrays-and-strings' || moduleSlug === 'array-and-its-applications')) ||
@@ -244,7 +312,7 @@ export const PracticeModulesPage: React.FC = () => {
     const q = parseInt(searchParams.get('module') || '', 10);
     if (q >= 1 && q <= 4) return q;
     return 1;
-  }, [moduleSlug, searchParams]);
+  }, [moduleSlug, searchParams, currentModuleDefinitions]);
 
   const handleSelectModule = (order: number) => {
     setSearchParams({ module: String(order) });
@@ -252,7 +320,7 @@ export const PracticeModulesPage: React.FC = () => {
 
   // Build module progression cards
   const moduleCards = useMemo(() => {
-    return MODULE_DEFINITIONS.map((def) => {
+    return currentModuleDefinitions.map((def) => {
       const slugs = def.problems.map((p) => p.slug);
       const solvedInModule = slugs.filter((slug) => solvedTopics.includes(slug)).length;
       const totalQuestions = def.problems.length || 20;

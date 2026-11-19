@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GalaxyButton } from '../common/GalaxyButton.js';
 import {
   Sliders,
@@ -29,6 +29,15 @@ import {
   MessageSquare,
   Mail,
   Loader2,
+  Edit3,
+  Search,
+  Filter,
+  Eye,
+  Code2,
+  Layers,
+  FileCode,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -38,6 +47,11 @@ import { NotificationDispatchService } from '../../services/notificationDispatch
 import { TestSubmissionsAuditModal } from './TestSubmissionsAuditModal.js';
 import { WhatsAppBroadcastModal } from './WhatsAppBroadcastModal.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../../data/topic-practice.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../../data/practice-module4.data.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -326,6 +340,218 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [excelFileName, setExcelFileName] = useState('');
   const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
+
+  // =========================================================================
+  // PRIMARY SUB-TABS: 'TESTS' | 'PRACTICE' | 'LAB_INTERNAL'
+  // =========================================================================
+  const [mainSubTab, setMainSubTab] = useState<'TESTS' | 'PRACTICE' | 'LAB_INTERNAL'>('TESTS');
+
+  // Practice Modules State (100 Topic Practice Problems across 4 Modules)
+  const [practiceModuleFilter, setPracticeModuleFilter] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [practiceSearch, setPracticeSearch] = useState('');
+  const [practiceDifficulty, setPracticeDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
+  const [inspectPracticeItem, setInspectPracticeItem] = useState<TopicPracticeItem | null>(null);
+
+  // Lab Internal Modules State (with live Firestore CRUD sync)
+  const [customLabQuestions, setCustomLabQuestions] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    FirestoreDataService.getLabInternalQuestionsFromFirestore().then((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomLabQuestions(qs);
+    });
+    const unsub = FirestoreDataService.listenToLabInternalQuestions((qs) => {
+      if (isMounted && Array.isArray(qs)) setCustomLabQuestions(qs);
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
+
+  const allLabInternalQuestions: PracticeProblemDef[] = useMemo(() => {
+    const base: PracticeProblemDef[] = [
+      ...PRACTICE_MODULE_1_PROBLEMS,
+      ...PRACTICE_MODULE_2_PROBLEMS,
+      ...PRACTICE_MODULE_3_PROBLEMS,
+      ...PRACTICE_MODULE_4_PROBLEMS,
+    ];
+    const problemMap = new Map<string, PracticeProblemDef>();
+    base.forEach((p) => problemMap.set(p.slug, p));
+    if (Array.isArray(customLabQuestions)) {
+      customLabQuestions.forEach((c) => {
+        const existing = problemMap.get(c.slug);
+        problemMap.set(c.slug, existing ? { ...existing, ...c } : c);
+      });
+    }
+    return Array.from(problemMap.values());
+  }, [customLabQuestions]);
+
+  const [labModuleFilter, setLabModuleFilter] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [labSearch, setLabSearch] = useState('');
+  const [labDifficulty, setLabDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
+  const [inspectLabQuestion, setInspectLabQuestion] = useState<PracticeProblemDef | null>(null);
+
+  // Add / Edit Lab Internal Question Modal State
+  const [isLabEditModalOpen, setIsLabEditModalOpen] = useState(false);
+  const [editingLabQuestion, setEditingLabQuestion] = useState<PracticeProblemDef | null>(null);
+  const [labFormModule, setLabFormModule] = useState<1 | 2 | 3 | 4>(1);
+  const [labFormTitle, setLabFormTitle] = useState('');
+  const [labFormDifficulty, setLabFormDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
+  const [labFormDescription, setLabFormDescription] = useState('');
+  const [labFormStarterCode, setLabFormStarterCode] = useState('');
+  const [labFormSolutionCode, setLabFormSolutionCode] = useState('');
+  const [labFormTimeLimitMin, setLabFormTimeLimitMin] = useState(15);
+  const [labFormSampleIn1, setLabFormSampleIn1] = useState('');
+  const [labFormSampleOut1, setLabFormSampleOut1] = useState('');
+  const [labFormSampleIn2, setLabFormSampleIn2] = useState('');
+  const [labFormSampleOut2, setLabFormSampleOut2] = useState('');
+  const [labFormHiddenIn, setLabFormHiddenIn] = useState('');
+  const [labFormHiddenOut, setLabFormHiddenOut] = useState('');
+  const [isSavingLabQuestion, setIsSavingLabQuestion] = useState(false);
+
+  const handleOpenEditLabQuestion = (prob: PracticeProblemDef) => {
+    setEditingLabQuestion(prob);
+    setLabFormModule((Number(prob.moduleOrder) as 1 | 2 | 3 | 4) || 1);
+    setLabFormTitle(prob.title || '');
+    setLabFormDifficulty(prob.difficulty || 'MEDIUM');
+    setLabFormDescription(prob.description || '');
+    setLabFormStarterCode(prob.starterCode || '#include <stdio.h>\n\nint main() {\n    // Write your solution here\n    return 0;\n}');
+    setLabFormSolutionCode(prob.solutionCode || '');
+    setLabFormTimeLimitMin(Math.round((prob.timeLimitMs || 900000) / 60000) || 15);
+    setLabFormSampleIn1(prob.sampleTests?.[0]?.input || '');
+    setLabFormSampleOut1(prob.sampleTests?.[0]?.expectedOutput || '');
+    setLabFormSampleIn2(prob.sampleTests?.[1]?.input || '');
+    setLabFormSampleOut2(prob.sampleTests?.[1]?.expectedOutput || '');
+    setLabFormHiddenIn(prob.hiddenTests?.[0]?.input || '');
+    setLabFormHiddenOut(prob.hiddenTests?.[0]?.expectedOutput || '');
+    setIsLabEditModalOpen(true);
+  };
+
+  const handleOpenAddLabQuestion = (defaultMod: 1 | 2 | 3 | 4 = 1) => {
+    setEditingLabQuestion(null);
+    setLabFormModule(defaultMod);
+    setLabFormTitle('');
+    setLabFormDifficulty('MEDIUM');
+    setLabFormDescription('');
+    setLabFormStarterCode('#include <stdio.h>\n\nint main() {\n    // Write your solution here\n    return 0;\n}');
+    setLabFormSolutionCode('');
+    setLabFormTimeLimitMin(15);
+    setLabFormSampleIn1('5\n1 2 3 4 5');
+    setLabFormSampleOut1('15');
+    setLabFormSampleIn2('');
+    setLabFormSampleOut2('');
+    setLabFormHiddenIn('3\n10 20 30');
+    setLabFormHiddenOut('60');
+    setIsLabEditModalOpen(true);
+  };
+
+  const handleSaveLabQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labFormTitle.trim()) {
+      toast.error('Please enter a problem title');
+      return;
+    }
+    setIsSavingLabQuestion(true);
+    try {
+      const moduleSlugMap: Record<number, { slug: string; name: string }> = {
+        1: { slug: 'control-structures', name: 'Control Structures' },
+        2: { slug: 'pointers-and-functions', name: 'Pointers and Functions' },
+        3: { slug: 'array-and-its-applications', name: 'Array and its Applications' },
+        4: { slug: 'advanced-data-types-dynamic-memory', name: 'Advanced Data Types & Dynamic Memory' },
+      };
+      const modMeta = moduleSlugMap[labFormModule] || moduleSlugMap[1];
+      const cleanSlug = editingLabQuestion?.slug || `practice-m${labFormModule}-${labFormTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30)}-${Date.now().toString().slice(-4)}`;
+
+      const sampleTests = [
+        { input: labFormSampleIn1, expectedOutput: labFormSampleOut1 },
+        ...(labFormSampleIn2 ? [{ input: labFormSampleIn2, expectedOutput: labFormSampleOut2 }] : [])
+      ];
+      const hiddenTests = [
+        { input: labFormHiddenIn, expectedOutput: labFormHiddenOut }
+      ];
+
+      const savedProblem: PracticeProblemDef = {
+        slug: cleanSlug,
+        moduleSlug: modMeta.slug,
+        moduleOrder: labFormModule,
+        title: labFormTitle.trim(),
+        difficulty: labFormDifficulty,
+        category: modMeta.name,
+        tags: [modMeta.name, 'Lab Internal'],
+        description: labFormDescription.trim() || `Problem on ${modMeta.name} for Lab Internal practical examination.`,
+        starterCode: labFormStarterCode.trim() || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+        solutionCode: labFormSolutionCode.trim(),
+        wrongSolution1: '',
+        wrongSolution2: '',
+        timeLimitMs: (labFormTimeLimitMin || 15) * 60 * 1000,
+        memoryLimitMb: 128,
+        basePoints: labFormDifficulty === 'EASY' ? 10 : labFormDifficulty === 'MEDIUM' ? 20 : 30,
+        sampleTests,
+        hiddenTests,
+      };
+
+      await FirestoreDataService.saveLabInternalQuestionToFirestore(savedProblem);
+      toast.success(
+        editingLabQuestion
+          ? `Question "${savedProblem.title}" updated! Changes are live in Student Lab Internal.`
+          : `New Question "${savedProblem.title}" added to Module ${labFormModule}!`
+      );
+      setIsLabEditModalOpen(false);
+      setEditingLabQuestion(null);
+    } catch (err: any) {
+      toast.error('Failed to save question: ' + (err?.message || err));
+    } finally {
+      setIsSavingLabQuestion(false);
+    }
+  };
+
+  const handleDeleteLabQuestion = async (prob: PracticeProblemDef) => {
+    if (!confirm(`Are you sure you want to remove "${prob.title}" from Lab Internal?`)) return;
+    try {
+      await FirestoreDataService.deleteLabInternalQuestionFromFirestore(prob.slug);
+      toast.success(`Question "${prob.title}" removed.`);
+    } catch (err: any) {
+      toast.error('Failed to remove question: ' + (err?.message || err));
+    }
+  };
+
+  // Filtered Practice Topics (100 total)
+  const filteredPracticeTopics = useMemo(() => {
+    return TOPIC_PRACTICE_DATA.filter((item) => {
+      if (practiceModuleFilter !== 0 && item.moduleIndex !== practiceModuleFilter) return false;
+      if (practiceDifficulty !== 'ALL' && item.problem.difficulty !== practiceDifficulty) return false;
+      if (practiceSearch.trim()) {
+        const q = practiceSearch.toLowerCase().trim();
+        const matchesTitle = item.problem.title.toLowerCase().includes(q) || item.topicTitle.toLowerCase().includes(q);
+        const matchesSummary = item.summary.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesSummary) return false;
+      }
+      return true;
+    });
+  }, [practiceModuleFilter, practiceDifficulty, practiceSearch]);
+
+  // Filtered Lab Internal Questions
+  const filteredLabInternalQuestions = useMemo(() => {
+    return allLabInternalQuestions.filter((item) => {
+      if (labModuleFilter !== 0 && Number(item.moduleOrder) !== labModuleFilter) return false;
+      if (labDifficulty !== 'ALL' && item.difficulty !== labDifficulty) return false;
+      if (labSearch.trim()) {
+        const q = labSearch.toLowerCase().trim();
+        const matchesTitle = item.title.toLowerCase().includes(q);
+        const matchesDesc = (item.description || '').toLowerCase().includes(q);
+        if (!matchesTitle && !matchesDesc) return false;
+      }
+      return true;
+    });
+  }, [allLabInternalQuestions, labModuleFilter, labDifficulty, labSearch]);
 
   // Question Bank live pool
   const bankQuestions = getStoredBankQuestions();
@@ -749,27 +975,76 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ========================================================================= */}
-      {/* 1. APPLE MINIMALIST HEADER & 1-CLICK SCHEDULE BUTTON                      */}
+      {/* 0. PRIMARY ASSESSMENT SUB-TABS: PRACTICE / LAB INTERNAL / TESTS          */}
       {/* ========================================================================= */}
-      <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                <Sliders className="w-5 h-5" />
-              </span>
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Assessments &amp; Examinations
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                {visibleTests.length} {visibleTests.length === 1 ? 'Test' : 'Tests'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Schedule practical examinations, configure time limits, and monitor live evaluations.
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded-2xl bg-white/70 dark:bg-[#121620]/75 border border-slate-200/80 dark:border-white/10 backdrop-blur-xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/50 dark:border-white/5">
+          <button
+            type="button"
+            onClick={() => setMainSubTab('PRACTICE')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer ${
+              mainSubTab === 'PRACTICE'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Practice</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              mainSubTab === 'PRACTICE' ? 'bg-white/20 text-white' : 'bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-slate-300'
+            }`}>
+              100
+            </span>
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setMainSubTab('LAB_INTERNAL')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer ${
+              mainSubTab === 'LAB_INTERNAL'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Lab Internal</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              mainSubTab === 'LAB_INTERNAL' ? 'bg-white/20 text-white' : 'bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-slate-300'
+            }`}>
+              {allLabInternalQuestions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMainSubTab('TESTS')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer ${
+              mainSubTab === 'TESTS'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>Tests</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              mainSubTab === 'TESTS' ? 'bg-white/20 text-white' : 'bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-slate-300'
+            }`}>
+              {visibleTests.length}
+            </span>
+          </button>
+        </div>
+
+        {mainSubTab === 'LAB_INTERNAL' && (
+          <GalaxyButton
+            onClick={() => handleOpenAddLabQuestion(labModuleFilter !== 0 ? (labModuleFilter as any) : 1)}
+            size="sm"
+            text="+ Add Lab Internal Question"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            iconPosition="left"
+            className="shrink-0"
+          />
+        )}
+        {mainSubTab === 'TESTS' && (
           <GalaxyButton
             onClick={() => setIsCreateModalOpen(true)}
             size="sm"
@@ -778,58 +1053,488 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
             iconPosition="left"
             className="shrink-0"
           />
-        </div>
+        )}
+      </div>
 
-        {/* Apple Segmented Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
-          <button
-            type="button"
-            onClick={() => setActiveFilter('ALL')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-              activeFilter === 'ALL'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-            }`}
-          >
-            All Tests ({visibleTests.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveFilter('ACTIVE')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-              activeFilter === 'ACTIVE'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Live Active ({activeCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveFilter('UPCOMING')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-              activeFilter === 'UPCOMING'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-            }`}
-          >
-            Scheduled ({upcomingCount})
-          </button>
-          {completedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveFilter('COMPLETED')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-                activeFilter === 'COMPLETED'
-                  ? 'bg-slate-700 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Completed ({completedCount})
-            </button>
+      {/* ========================================================================= */}
+      {/* 1. SUB-TAB: PRACTICE MODULES & TOPICS (100 Problems across 4 Modules)     */}
+      {/* ========================================================================= */}
+      {mainSubTab === 'PRACTICE' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <BookOpen className="w-5 h-5" />
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    Practice Coursework Modules
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    100 Problems
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  100 curriculum topic practice problems organized across 4 modules (25 problems per module).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Showing:</span>
+                <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-bold font-mono">
+                  {filteredPracticeTopics.length} of 100
+                </span>
+              </div>
+            </div>
+
+            {/* Module Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+              {[
+                { id: 0, label: 'All Modules', count: 100 },
+                { id: 1, label: 'Mod 1: Control Structures', count: 25 },
+                { id: 2, label: 'Mod 2: Pointers & Functions', count: 25 },
+                { id: 3, label: 'Mod 3: Array & Applications', count: 25 },
+                { id: 4, label: 'Mod 4: Advanced & DMA', count: 25 },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPracticeModuleFilter(m.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                    practiceModuleFilter === m.id
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                  }`}
+                >
+                  {m.label} ({m.count})
+                </button>
+              ))}
+            </div>
+
+            {/* Search & Difficulty Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={practiceSearch}
+                  onChange={(e) => setPracticeSearch(e.target.value)}
+                  placeholder="Search problem title, topic, or keyword..."
+                  className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                {practiceSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPracticeSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                {(['ALL', 'EASY', 'MEDIUM', 'HARD'] as const).map((diff) => (
+                  <button
+                    key={diff}
+                    type="button"
+                    onClick={() => setPracticeDifficulty(diff)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex-1 sm:flex-none text-center ${
+                      practiceDifficulty === diff
+                        ? diff === 'EASY'
+                          ? 'bg-emerald-500 text-white'
+                          : diff === 'MEDIUM'
+                          ? 'bg-amber-500 text-white'
+                          : diff === 'HARD'
+                          ? 'bg-rose-500 text-white'
+                          : 'bg-blue-600 text-white'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Practice Questions Grid */}
+          {filteredPracticeTopics.length === 0 ? (
+            <div className="py-14 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-3">
+              <BookOpen className="w-8 h-8 mx-auto text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No practice questions match your filter</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPracticeModuleFilter(0);
+                  setPracticeSearch('');
+                  setPracticeDifficulty('ALL');
+                }}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Reset filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPracticeTopics.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-4 sm:p-5 shadow-xs hover:border-blue-500/30 transition flex flex-col justify-between space-y-3 group"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        Mod {item.moduleIndex} • #{idx + 1}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          item.problem.difficulty === 'EASY'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : item.problem.difficulty === 'MEDIUM'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                        }`}
+                      >
+                        {item.problem.difficulty}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-2">
+                      {item.problem.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {item.summary}
+                    </p>
+
+                    {item.tipBox?.syntax && (
+                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-[11px] font-mono text-slate-600 dark:text-slate-300 truncate">
+                        💡 {item.tipBox.syntax}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      In: <code className="text-slate-600 dark:text-slate-300">{item.problem.openTestCase.input.slice(0, 10)}</code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInspectPracticeItem(item)}
+                      className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Inspect</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. SUB-TAB: LAB INTERNAL COURSEWORK MODULES (Full Add/Edit/Update CRUD)   */}
+      {/* ========================================================================= */}
+      {mainSubTab === 'LAB_INTERNAL' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <GraduationCap className="w-5 h-5" />
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    Lab Internal Coursework Modules
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    {allLabInternalQuestions.length} Questions
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Manage questions for student Lab Internal practical exams & coursework. Add new questions or edit existing ones directly.
+                </p>
+              </div>
+
+              <GalaxyButton
+                onClick={() => handleOpenAddLabQuestion(labModuleFilter !== 0 ? (labModuleFilter as any) : 1)}
+                size="sm"
+                text="+ Add Lab Internal Question"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                iconPosition="left"
+                className="shrink-0"
+              />
+            </div>
+
+            {/* Module Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+              {[
+                { id: 0, label: 'All Modules', count: allLabInternalQuestions.length },
+                { id: 1, label: 'Mod 1: Decisions & Loops', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 1).length },
+                { id: 2, label: 'Mod 2: Addresses & Recursion', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 2).length },
+                { id: 3, label: 'Mod 3: Matrices & Sorting', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 3).length },
+                { id: 4, label: 'Mod 4: Structs & Heap', count: allLabInternalQuestions.filter((q) => Number(q.moduleOrder) === 4).length },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setLabModuleFilter(m.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                    labModuleFilter === m.id
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                  }`}
+                >
+                  {m.label} ({m.count})
+                </button>
+              ))}
+            </div>
+
+            {/* Search & Difficulty Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={labSearch}
+                  onChange={(e) => setLabSearch(e.target.value)}
+                  placeholder="Search lab questions by title or description..."
+                  className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+                {labSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setLabSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                {(['ALL', 'EASY', 'MEDIUM', 'HARD'] as const).map((diff) => (
+                  <button
+                    key={diff}
+                    type="button"
+                    onClick={() => setLabDifficulty(diff)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex-1 sm:flex-none text-center ${
+                      labDifficulty === diff
+                        ? diff === 'EASY'
+                          ? 'bg-emerald-500 text-white'
+                          : diff === 'MEDIUM'
+                          ? 'bg-amber-500 text-white'
+                          : diff === 'HARD'
+                          ? 'bg-rose-500 text-white'
+                          : 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Lab Internal Questions Grid */}
+          {filteredLabInternalQuestions.length === 0 ? (
+            <div className="py-14 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-3">
+              <GraduationCap className="w-8 h-8 mx-auto text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No lab internal questions match your filter</p>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabModuleFilter(0);
+                    setLabSearch('');
+                    setLabDifficulty('ALL');
+                  }}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  Reset filters
+                </button>
+                <span className="text-slate-300 dark:text-white/20">•</span>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddLabQuestion(labModuleFilter !== 0 ? (labModuleFilter as any) : 1)}
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                >
+                  + Add Question Now
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredLabInternalQuestions.map((prob, idx) => (
+                <div
+                  key={prob.slug || idx}
+                  className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-4 sm:p-5 shadow-xs hover:border-emerald-500/30 transition flex flex-col justify-between space-y-3 group"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        Mod {prob.moduleOrder} • #{idx + 1}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            prob.difficulty === 'EASY'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : prob.difficulty === 'MEDIUM'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                          }`}
+                        >
+                          {prob.difficulty}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {Math.round((prob.timeLimitMs || 900000) / 60000)}m
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-2">
+                      {prob.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {prob.description ? prob.description.replace(/###|\*\*/g, '').slice(0, 120) : 'Standard Lab Internal challenge.'}
+                    </p>
+
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-[11px] font-mono text-slate-600 dark:text-slate-300 flex items-center justify-between">
+                      <span>Tests: {(prob.sampleTests?.length || 0) + (prob.hiddenTests?.length || 0)} cases</span>
+                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]">{prob.slug}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setInspectLabQuestion(prob)}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                      title="Inspect full problem statement and test suite"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Inspect</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditLabQuestion(prob)}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        title="Edit question title, statement, starter code or test cases"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      {customLabQuestions.some((c) => c.slug === prob.slug) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLabQuestion(prob)}
+                          className="p-1.5 rounded-xl hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition cursor-pointer"
+                          title="Delete custom question"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. SUB-TAB: SCHEDULED TESTS & TIMED ASSESSMENTS ORCHESTRATOR              */}
+      {/* ========================================================================= */}
+      {mainSubTab === 'TESTS' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    <Sliders className="w-5 h-5" />
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    Assessments &amp; Examinations
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                    {visibleTests.length} {visibleTests.length === 1 ? 'Test' : 'Tests'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Schedule practical examinations, configure time limits, and monitor live evaluations.
+                </p>
+              </div>
+
+              <GalaxyButton
+                onClick={() => setIsCreateModalOpen(true)}
+                size="sm"
+                text="Schedule Test"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                iconPosition="left"
+                className="shrink-0"
+              />
+            </div>
+
+            {/* Apple Segmented Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+              <button
+                type="button"
+                onClick={() => setActiveFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  activeFilter === 'ALL'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                All Tests ({visibleTests.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('ACTIVE')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  activeFilter === 'ACTIVE'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                Live Active ({activeCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('UPCOMING')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  activeFilter === 'UPCOMING'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                Scheduled ({upcomingCount})
+              </button>
+              {completedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter('COMPLETED')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                    activeFilter === 'COMPLETED'
+                      ? 'bg-slate-700 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                  }`}
+                >
+                  Completed ({completedCount})
+                </button>
+              )}
+            </div>
+          </div>
 
       {/* ========================================================================= */}
       {/* 2. APPLE-GRADE ASSESSMENTS GRID                                           */}
@@ -1271,6 +1976,8 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
               </div>
             </div>
           ))}
+        </div>
+      )}
         </div>
       )}
 
@@ -1815,6 +2522,604 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         onClose={() => setSelectedWhatsAppTest(null)}
         test={selectedWhatsAppTest}
       />
+
+      {/* ========================================================================= */}
+      {/* 6. INSPECT PRACTICE TOPIC QUESTION MODAL                                 */}
+      {/* ========================================================================= */}
+      {inspectPracticeItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <BookOpen className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      Module {inspectPracticeItem.moduleIndex}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        inspectPracticeItem.problem.difficulty === 'EASY'
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : inspectPracticeItem.problem.difficulty === 'MEDIUM'
+                          ? 'bg-amber-500/10 text-amber-600'
+                          : 'bg-rose-500/10 text-rose-600'
+                      }`}
+                    >
+                      {inspectPracticeItem.problem.difficulty}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white mt-1">
+                    {inspectPracticeItem.problem.title}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setInspectPracticeItem(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Summary & Syntax Tip */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 space-y-1.5">
+                <div className="font-semibold text-slate-700 dark:text-slate-300">Topic Summary:</div>
+                <div className="text-slate-600 dark:text-slate-400">{inspectPracticeItem.summary}</div>
+                {inspectPracticeItem.tipBox?.syntax && (
+                  <div className="mt-2 p-2 rounded-xl bg-white dark:bg-[#161b26] border border-slate-200/80 dark:border-white/10 font-mono text-[11px] text-blue-600 dark:text-blue-400">
+                    💡 Syntax: {inspectPracticeItem.tipBox.syntax}
+                  </div>
+                )}
+              </div>
+
+              {/* Problem Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Problem Description & Requirements:
+                </label>
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                  {inspectPracticeItem.problem.description}
+                </div>
+              </div>
+
+              {/* Test Cases */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/20 space-y-1">
+                  <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Visible Open Test Case</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                    <div><strong>Input:</strong> <code className="bg-white/80 dark:bg-black/30 px-1 py-0.5 rounded">{inspectPracticeItem.problem.openTestCase.input}</code></div>
+                    <div className="mt-1"><strong>Output:</strong> <code className="bg-white/80 dark:bg-black/30 px-1 py-0.5 rounded">{inspectPracticeItem.problem.openTestCase.expectedOutput}</code></div>
+                  </div>
+                  {inspectPracticeItem.problem.openTestCase.explanation && (
+                    <div className="text-[10px] text-slate-500 mt-1 italic">
+                      Note: {inspectPracticeItem.problem.openTestCase.explanation}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-2xl bg-indigo-500/[0.04] border border-indigo-500/20 space-y-1">
+                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Hidden Automated Test</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
+                    <div><strong>Input:</strong> <code className="bg-white/80 dark:bg-black/30 px-1 py-0.5 rounded">{inspectPracticeItem.problem.hiddenTestCase.input}</code></div>
+                    <div className="mt-1"><strong>Expected:</strong> <code className="bg-white/80 dark:bg-black/30 px-1 py-0.5 rounded">{inspectPracticeItem.problem.hiddenTestCase.expectedOutput}</code></div>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    Evaluated securely during student test runs.
+                  </div>
+                </div>
+              </div>
+
+              {/* Starter Code */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    C Starter Code:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inspectPracticeItem.problem.starterCode);
+                      toast.success('Starter code copied to clipboard!');
+                    }}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <pre className="p-3 rounded-2xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-40">
+                  {inspectPracticeItem.problem.starterCode}
+                </pre>
+              </div>
+
+              {/* Solution Code */}
+              {inspectPracticeItem.problem.solutionCode && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Verified Reference Solution:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inspectPracticeItem.problem.solutionCode);
+                        toast.success('Solution code copied to clipboard!');
+                      }}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <pre className="p-3 rounded-2xl bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-44">
+                    {inspectPracticeItem.problem.solutionCode}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setInspectPracticeItem(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. INSPECT LAB INTERNAL QUESTION MODAL                                    */}
+      {/* ========================================================================= */}
+      {inspectLabQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <GraduationCap className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      Module {inspectLabQuestion.moduleOrder} • {inspectLabQuestion.category || 'Lab Internal'}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        inspectLabQuestion.difficulty === 'EASY'
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : inspectLabQuestion.difficulty === 'MEDIUM'
+                          ? 'bg-amber-500/10 text-amber-600'
+                          : 'bg-rose-500/10 text-rose-600'
+                      }`}
+                    >
+                      {inspectLabQuestion.difficulty}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ⏱️ {Math.round((inspectLabQuestion.timeLimitMs || 900000) / 60000)}m
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white mt-1">
+                    {inspectLabQuestion.title}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prob = inspectLabQuestion;
+                    setInspectLabQuestion(null);
+                    handleOpenEditLabQuestion(prob);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 hover:bg-emerald-500 cursor-pointer shadow-xs"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Question</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectLabQuestion(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Problem Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Problem Description & Requirements:
+                </label>
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed font-sans">
+                  {inspectLabQuestion.description}
+                </div>
+              </div>
+
+              {/* Test Cases */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {inspectLabQuestion.sampleTests && inspectLabQuestion.sampleTests.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-emerald-500/[0.04] border border-emerald-500/20 space-y-1.5">
+                    <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Sample Test Cases ({inspectLabQuestion.sampleTests.length})</span>
+                    </div>
+                    {inspectLabQuestion.sampleTests.map((st, sidx) => (
+                      <div key={sidx} className="font-mono text-[11px] p-2 rounded-xl bg-white/80 dark:bg-black/30 border border-slate-200/50 dark:border-white/5 space-y-1">
+                        <div><strong>Case {sidx + 1} In:</strong> <code className="text-slate-800 dark:text-slate-200">{st.input}</code></div>
+                        <div><strong>Expected Out:</strong> <code className="text-emerald-600 dark:text-emerald-400">{st.expectedOutput}</code></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {inspectLabQuestion.hiddenTests && inspectLabQuestion.hiddenTests.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-indigo-500/[0.04] border border-indigo-500/20 space-y-1.5">
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Hidden Test Cases ({inspectLabQuestion.hiddenTests.length})</span>
+                    </div>
+                    {inspectLabQuestion.hiddenTests.map((ht, hidx) => (
+                      <div key={hidx} className="font-mono text-[11px] p-2 rounded-xl bg-white/80 dark:bg-black/30 border border-slate-200/50 dark:border-white/5 space-y-1">
+                        <div><strong>Hidden {hidx + 1} In:</strong> <code className="text-slate-800 dark:text-slate-200">{ht.input}</code></div>
+                        <div><strong>Expected Out:</strong> <code className="text-indigo-600 dark:text-indigo-400">{ht.expectedOutput}</code></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Starter Code */}
+              {inspectLabQuestion.starterCode && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      C Starter Code:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inspectLabQuestion.starterCode);
+                        toast.success('Starter code copied!');
+                      }}
+                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <pre className="p-3 rounded-2xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-40">
+                    {inspectLabQuestion.starterCode}
+                  </pre>
+                </div>
+              )}
+
+              {/* Solution Code */}
+              {inspectLabQuestion.solutionCode && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Reference Solution Code:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inspectLabQuestion.solutionCode);
+                        toast.success('Solution copied!');
+                      }}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <pre className="p-3 rounded-2xl bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-44">
+                    {inspectLabQuestion.solutionCode}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400 font-mono">
+                Slug: {inspectLabQuestion.slug}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInspectLabQuestion(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. ADD / EDIT LAB INTERNAL QUESTION MODAL (Full Coursework Form)          */}
+      {/* ========================================================================= */}
+      {isLabEditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Edit3 className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                    {editingLabQuestion ? `Edit Question: ${editingLabQuestion.title}` : 'Add New Lab Internal Question'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    This challenge will be live on student portals under <code className="text-emerald-600 font-mono">/lab-internal</code>.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLabEditModalOpen(false);
+                  setEditingLabQuestion(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLabQuestion} className="space-y-4 text-xs">
+              {/* Row 1: Module & Difficulty & Time Limit */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Target Module <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={labFormModule}
+                    onChange={(e) => setLabFormModule(Number(e.target.value) as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  >
+                    <option value={1}>Module 1: Control Structures</option>
+                    <option value={2}>Module 2: Pointers & Functions</option>
+                    <option value={3}>Module 3: Array & Applications</option>
+                    <option value={4}>Module 4: Advanced Data Types & DMA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Difficulty Profile <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={labFormDifficulty}
+                    onChange={(e) => setLabFormDifficulty(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  >
+                    <option value="EASY">EASY (10 pts)</option>
+                    <option value="MEDIUM">MEDIUM (20 pts)</option>
+                    <option value="HARD">HARD (30 pts)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Time Limit (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={labFormTimeLimitMin}
+                    onChange={(e) => setLabFormTimeLimitMin(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Problem Title */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Problem Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Matrix Spiral Traversal and Dynamic Inversion"
+                  value={labFormTitle}
+                  onChange={(e) => setLabFormTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  required
+                />
+              </div>
+
+              {/* Row 3: Problem Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Problem Statement & Requirements <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="Describe the problem, input format, output format, and constraints..."
+                  value={labFormDescription}
+                  onChange={(e) => setLabFormDescription(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-sans text-xs focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                  required
+                />
+              </div>
+
+              {/* Row 4: Test Cases Suite */}
+              <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
+                <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span>Verified Test Cases Suite</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Standard I/O stream verification</span>
+                </div>
+
+                {/* Visible Test Case 1 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Test 1 Input:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormSampleIn1}
+                      onChange={(e) => setLabFormSampleIn1(e.target.value)}
+                      placeholder="e.g. 5&#10;1 2 3 4 5"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Test 1 Expected Output:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormSampleOut1}
+                      onChange={(e) => setLabFormSampleOut1(e.target.value)}
+                      placeholder="e.g. 15"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Visible Test Case 2 (Optional) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Test 2 Input (Optional):
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormSampleIn2}
+                      onChange={(e) => setLabFormSampleIn2(e.target.value)}
+                      placeholder="e.g. 3&#10;10 20 30"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Visible Test 2 Expected Output:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormSampleOut2}
+                      onChange={(e) => setLabFormSampleOut2(e.target.value)}
+                      placeholder="e.g. 60"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Hidden Test Case */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                  <div>
+                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                      Hidden Evaluation Input:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormHiddenIn}
+                      onChange={(e) => setLabFormHiddenIn(e.target.value)}
+                      placeholder="Hidden case input for automated grading..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                      Hidden Expected Output:
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={labFormHiddenOut}
+                      onChange={(e) => setLabFormHiddenOut(e.target.value)}
+                      placeholder="Hidden case expected output..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-[#161b26] font-mono text-[11px] focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Starter Code */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  C Starter Boilerplate Code:
+                </label>
+                <textarea
+                  rows={4}
+                  value={labFormStarterCode}
+                  onChange={(e) => setLabFormStarterCode(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-slate-100 font-mono text-[11px] focus:outline-none"
+                />
+              </div>
+
+              {/* Reference Solution Code */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Reference Solution Code (Faculty Verification):
+                </label>
+                <textarea
+                  rows={4}
+                  value={labFormSolutionCode}
+                  onChange={(e) => setLabFormSolutionCode(e.target.value)}
+                  placeholder="Optional reference solution code in C..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 text-emerald-400 font-mono text-[11px] focus:outline-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLabEditModalOpen(false);
+                    setEditingLabQuestion(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                >
+                  Cancel
+                </button>
+                <GalaxyButton
+                  type="submit"
+                  disabled={isSavingLabQuestion || !labFormTitle.trim()}
+                  size="sm"
+                  text={
+                    isSavingLabQuestion
+                      ? 'Saving to Firestore...'
+                      : editingLabQuestion
+                      ? 'Update Question'
+                      : 'Save & Publish Question'
+                  }
+                  icon={isSavingLabQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  iconPosition="left"
+                />
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

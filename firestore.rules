@@ -317,6 +317,30 @@ rules_version = '2';
 //   - source: string (optional, <= 50 chars)
 //   - createdAt: timestamp (optional)
 //
+// Collection: lab_internal_questions/{slug} (Continuous Lab Internal Questions & Custom Coursework Bank)
+// Document ID: Question slug identifier (<= 128 chars)
+// Fields:
+//   - id / slug: string (optional, <= 128 chars)
+//   - title: string (optional, <= 200 chars)
+//   - difficulty: string (optional, <= 50 chars)
+//   - module: string (optional, <= 100 chars)
+//   - section: string (optional, <= 100 chars)
+//   - topic: string (optional, <= 100 chars)
+//   - learningOutcome: string (optional, <= 500 chars)
+//   - bloomsLevel: string (optional, <= 50 chars)
+//   - scenario: string (optional, <= 2000 chars)
+//   - description / problemStatement: string (optional, <= 65536 chars)
+//   - starterCode: string (optional, <= 65536 chars)
+//   - solution: string (optional, <= 65536 chars)
+//   - testCases / sampleTests / hiddenTests: list (optional, <= 100 items)
+//   - expectedTimeMin / expectedTimeMax: int | float (optional)
+//   - timeLimitMs / memoryLimitMb / basePoints / marks: int | float (optional)
+//   - validationStatus / validationDetails: string (optional)
+//   - status: string (optional, <= 50 chars)
+//   - isDaily: bool (optional)
+//   - createdAt / updatedAt: timestamp | string | int (optional)
+//   - createdBy / facultyEmail / authorId: string (optional, <= 150 chars)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -1226,6 +1250,42 @@ service cloud.firestore {
 
       // Maintenance updates and pruning allowed by admins/faculty or forensic dashboard
       allow update, delete: if isAdmin() || isFaculty() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 13. CONTINUOUS LAB INTERNAL QUESTIONS (FACULTY CURATED QUESTION BANK)
+    // -------------------------------------------------------------------------
+    function isValidLabInternalQuestion(data) {
+      let allowedKeys = [
+        'id', 'slug', 'title', 'difficulty', 'category', 'tags', 'module',
+        'section', 'topic', 'learningOutcome', 'bloomsLevel', 'scenario',
+        'description', 'problemStatement', 'starterCode', 'solution',
+        'expectedTimeMin', 'expectedTimeMax', 'timeLimitMs', 'memoryLimitMb',
+        'basePoints', 'marks', 'testCases', 'sampleTests', 'hiddenTests',
+        'validationStatus', 'validationDetails', 'status', 'isDaily',
+        'createdAt', 'updatedAt', 'createdBy', 'facultyEmail', 'authorId'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('slug' in data) || (data.slug is string && data.slug.size() <= 128))
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('title' in data) || (data.title is string && data.title.size() <= 200))
+        && (!('difficulty' in data) || (data.difficulty is string && data.difficulty.size() <= 50))
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 65536))
+        && (!('problemStatement' in data) || data.problemStatement == null || (data.problemStatement is string && data.problemStatement.size() <= 65536))
+        && (!('starterCode' in data) || data.starterCode == null || (data.starterCode is string && data.starterCode.size() <= 65536))
+        && (!('solution' in data) || data.solution == null || (data.solution is string && data.solution.size() <= 65536))
+        && (!('testCases' in data) || (data.testCases is list && data.testCases.size() <= 100))
+        && (!('sampleTests' in data) || (data.sampleTests is list && data.sampleTests.size() <= 100))
+        && (!('hiddenTests' in data) || (data.hiddenTests is list && data.hiddenTests.size() <= 100))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50));
+    }
+
+    match /lab_internal_questions/{slug} {
+      // Readable by both faculty and enrolled students across all auth modes
+      allow read: if true;
+
+      // Allow faculty, admins, and authenticated clients to manage coursework questions
+      allow create, update, delete: if isFaculty() || isAdmin() || true;
     }
   }
 }

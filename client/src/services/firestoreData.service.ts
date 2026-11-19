@@ -6068,4 +6068,99 @@ export class FirestoreDataService {
       return () => {};
     }
   }
+
+  /**
+   * Fetches custom/edited lab internal questions from Firestore
+   */
+  public static async getLabInternalQuestionsFromFirestore(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'lab_internal_questions'));
+      const questions: any[] = [];
+      snap.forEach((docSnap) => {
+        questions.push({ ...docSnap.data(), slug: docSnap.id });
+      });
+      try {
+        localStorage.setItem('logicq_fallback_practice_custom_problems_v1', JSON.stringify(questions));
+      } catch {}
+      return questions;
+    } catch (err) {
+      console.warn('Failed to fetch lab internal questions from Firestore, using local fallback:', err);
+      try {
+        const local = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  /**
+   * Saves or updates a lab internal question in Firestore and synchronizes local storage
+   */
+  public static async saveLabInternalQuestionToFirestore(question: any): Promise<void> {
+    if (!question || !question.slug) return;
+    try {
+      await setDoc(doc(db, 'lab_internal_questions', question.slug), {
+        ...question,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      try {
+        const local = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+        let arr = local ? JSON.parse(local) : [];
+        if (!Array.isArray(arr)) arr = [];
+        const idx = arr.findIndex((q: any) => q.slug === question.slug);
+        if (idx >= 0) arr[idx] = question;
+        else arr.push(question);
+        localStorage.setItem('logicq_fallback_practice_custom_problems_v1', JSON.stringify(arr));
+      } catch {}
+    } catch (err) {
+      console.warn('Error saving lab internal question to Firestore:', err);
+    }
+  }
+
+  /**
+   * Deletes a lab internal question from Firestore
+   */
+  public static async deleteLabInternalQuestionFromFirestore(slug: string): Promise<void> {
+    if (!slug) return;
+    try {
+      await deleteDoc(doc(db, 'lab_internal_questions', slug));
+      try {
+        const local = localStorage.getItem('logicq_fallback_practice_custom_problems_v1');
+        if (local) {
+          const arr = JSON.parse(local).filter((q: any) => q.slug !== slug);
+          localStorage.setItem('logicq_fallback_practice_custom_problems_v1', JSON.stringify(arr));
+        }
+      } catch {}
+    } catch (err) {
+      console.warn('Error deleting lab internal question from Firestore:', err);
+    }
+  }
+
+  /**
+   * Live real-time listener for lab internal questions
+   */
+  public static listenToLabInternalQuestions(callback: (questions: any[]) => void): () => void {
+    try {
+      const q = collection(db, 'lab_internal_questions');
+      return onSnapshot(
+        q,
+        (snap) => {
+          const questions: any[] = [];
+          snap.forEach((docSnap) => {
+            questions.push({ ...docSnap.data(), slug: docSnap.id });
+          });
+          try {
+            localStorage.setItem('logicq_fallback_practice_custom_problems_v1', JSON.stringify(questions));
+          } catch {}
+          callback(questions);
+        },
+        (err) => {
+          console.warn('Live lab internal questions listener error:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
 }
