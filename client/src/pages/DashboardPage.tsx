@@ -15,7 +15,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth, db } from '../config/firebase.js';
-import { collection, doc, getDoc, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
@@ -811,12 +811,15 @@ export const DashboardPage: React.FC = () => {
 
   // Sync and restore solved practice topics from Firestore across mobile & laptop
   React.useEffect(() => {
-    if (!user?.id && !user?.prn) return;
+    if (!user?.id && !user?.prn && !user?.email) return;
     (async () => {
       try {
         const identifier = user?.prn || user?.id || '';
         const prnClean = (user?.prn || '').toUpperCase().trim();
+        const emailLower = (user?.email || '').toLowerCase().trim();
         let cohortProblems: string[] = [];
+
+        // 1. Direct fetch from cohort_progress/{prn}
         if (prnClean) {
           try {
             const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
@@ -829,29 +832,72 @@ export const DashboardPage: React.FC = () => {
           } catch {}
         }
 
+        // 1.1 Fallback query by bound email if PRN lookup missed
+        if (cohortProblems.length === 0 && emailLower) {
+          try {
+            const q = query(collection(db, 'cohort_progress'), where('studentEmail', '==', emailLower));
+            const qSnap = await getDocs(q).catch(() => null);
+            if (qSnap && !qSnap.empty) {
+              const cData = qSnap.docs[0].data();
+              if (Array.isArray(cData?.completedProblems)) {
+                cohortProblems = cData.completedProblems;
+              }
+            }
+          } catch {}
+        }
+
+        // 2. Resilient submission check: Include any problems with ACCEPTED/PASSED submissions
+        let subProblems: string[] = [];
+        try {
+          const userSubs = await FirestoreDataService.getUserSubmissions(identifier).catch(() => []);
+          subProblems = userSubs
+            .filter((s: any) => s.verdict === 'ACCEPTED' || s.status === 'PASSED' || (Number(s.pointsAwarded || s.points || 0) > 0))
+            .map((s: any) => s.problemId || s.problemSlug)
+            .filter((p): p is string => Boolean(p && typeof p === 'string' && p.startsWith('m')));
+        } catch {}
+
         const stats = await FirestoreDataService.getStatsBackup(identifier);
         const prog = await FirestoreDataService.getPracticeProgress(identifier);
         const cloudSolved = Array.from(
           new Set([
             ...cohortProblems,
+            ...subProblems,
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
             ...getSolvedPracticeTopicIds(user?.id),
             ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
           ])
         );
+
         if (cloudSolved.length > 0) {
           cloudSolved.forEach((id) => {
             markPracticeTopicSolved(id, user?.id);
             if (user?.prn) markPracticeTopicSolved(id, user.prn);
           });
           setSolvedTopicIds(cloudSolved);
+
+          // If submissions discovered more solved problems than stored in cohort_progress, sync back
+          if (prnClean && cloudSolved.length > cohortProblems.length) {
+            try {
+              const cohortRef = doc(db, 'cohort_progress', prnClean);
+              await setDoc(
+                cohortRef,
+                {
+                  completedProblems: cloudSolved,
+                  totalSolved: cloudSolved.length,
+                  totalPoints: cloudSolved.length * 20,
+                  updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+              );
+            } catch {}
+          }
         }
       } catch (err) {
         console.warn('Dashboard restore error:', err);
       }
     })();
-  }, [user?.id, user?.prn]);
+  }, [user?.id, user?.prn, user?.email]);
 
 
   const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])

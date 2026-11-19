@@ -311,18 +311,24 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
 
               const uniqueProblems = new Set<string>();
               matchedSubs.forEach((s: any) => {
-                if (s.verdict === 'ACCEPTED' || s.status === 'PASSED' || s.academicScore > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed))) {
-                  uniqueProblems.add(s.problemId || s.problemTitle || s.problemSlug || s.title || s.id);
+                if (s.verdict === 'ACCEPTED' || s.status === 'PASSED' || Number(s.academicScore || s.score || s.points || 0) > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed))) {
+                  const probKey = s.problemId || s.problemSlug;
+                  if (probKey && typeof probKey === 'string' && probKey.startsWith('m')) {
+                    uniqueProblems.add(probKey);
+                  }
                 }
               });
               if (Array.isArray(cData.completedProblems)) {
-                cData.completedProblems.forEach((p: string) => uniqueProblems.add(p));
+                cData.completedProblems.forEach((p: string) => {
+                  if (p && typeof p === 'string' && p.startsWith('m')) uniqueProblems.add(p);
+                });
               }
 
               const totalSolved = Math.max(
                 uniqueProblems.size,
-                cData.totalSolved ?? 0,
-                anyUser.totalSolved ?? 0
+                Number(cData.totalSolved) || 0,
+                Number(anyUser.totalSolved) || 0,
+                Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0
               );
 
               const pointsFromSubs = Math.round(
