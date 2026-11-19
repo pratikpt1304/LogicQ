@@ -2496,6 +2496,17 @@ export class FirestoreDataService {
     try {
       localStorage.removeItem('logicq_deleted_sections_tombstones');
       localStorage.removeItem('logicq_purge_all_sections_flag_v4');
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const cleaned = list.filter((k: string) => {
+            const up = String(k).toUpperCase();
+            return up !== 'LQ-DEMO' && up !== 'SEC-DEMO-SECTION' && up !== 'DEMO SECTION';
+          });
+          localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(cleaned));
+        }
+      }
     } catch {}
   }
 
@@ -2523,14 +2534,15 @@ export class FirestoreDataService {
 
     const upperCode = (joinCode || '').toUpperCase();
     const upperId = (id || '').toUpperCase();
+    const upperName = (name || '').toUpperCase();
 
-    // Never consider authoritative active sections (LQ-C31A) as legacy
-    if (upperCode === 'LQ-C31A' || upperId === 'LQ-C31A') {
+    // Never consider authoritative active sections (LQ-C31A, sec-demo-section, LQ-DEMO) as legacy
+    if (
+      upperCode === 'LQ-C31A' || upperId === 'LQ-C31A' ||
+      upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO' || upperId === 'SEC-DEMO-SECTION' ||
+      upperName === 'DEMO SECTION'
+    ) {
       return false;
-    }
-
-    if (upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO') {
-      return true;
     }
 
     return (
@@ -2556,7 +2568,6 @@ export class FirestoreDataService {
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       const list: string[] = raw ? JSON.parse(raw) : [];
       [
-        'LQ-DEMO', 'lq-demo',
         'LQ-DC85', 'lq-dc85',
         'LQ-4904', 'lq-4904',
         'LQ-CE68', 'lq-ce68',
@@ -2614,6 +2625,15 @@ export class FirestoreDataService {
     const cleanId = sectionId ? String(sectionId).trim().toUpperCase() : '';
     const cleanCode = joinCode ? String(joinCode).trim().toUpperCase() : '';
     const cleanName = sectionName ? String(sectionName).trim().toUpperCase() : '';
+
+    // Active official sections can NEVER be marked deleted
+    if (
+      cleanCode === 'LQ-C31A' || cleanId === 'LQ-C31A' ||
+      cleanCode === 'LQ-DEMO' || cleanId === 'LQ-DEMO' || cleanId === 'SEC-DEMO-SECTION' ||
+      cleanName === 'DEMO SECTION'
+    ) {
+      return false;
+    }
 
     if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
       return true;

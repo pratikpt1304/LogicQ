@@ -115,11 +115,23 @@ export const AdminPortalPage: React.FC = () => {
   // Real-time synchronization & fake cache purge
   React.useEffect(() => {
     try {
+      FirestoreDataService.clearStaleSectionTombstones();
       localStorage.removeItem('logicq_admin_sections');
       localStorage.removeItem('logicq_faculty_sections_backup_v2');
       localStorage.removeItem('logicq_admin_students');
       localStorage.removeItem('logicq_admin_students_list');
       localStorage.removeItem('logicq_admin_tests');
+      const delRaw = localStorage.getItem('logicq_deleted_section_ids_v1');
+      if (delRaw) {
+        const parsed = JSON.parse(delRaw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((k: string) => {
+            const up = String(k).toUpperCase();
+            return up !== 'LQ-DEMO' && up !== 'SEC-DEMO-SECTION' && up !== 'DEMO SECTION';
+          });
+          localStorage.setItem('logicq_deleted_section_ids_v1', JSON.stringify(filtered));
+        }
+      }
     } catch {}
 
     const loadRealData = async () => {
@@ -151,6 +163,7 @@ export const AdminPortalPage: React.FC = () => {
           if (facultyId && (sec.facultyId === facultyId || sec.createdById === facultyId)) return true;
           if (userSecId && (sec.id === userSecId || sec.joinCode === userSecId)) return true;
           if (userSecName && (sec.sectionName || '').toLowerCase().trim() === userSecName) return true;
+          if (facultyEmailClean === 'demostaff@gmail.com' && (sec.id === 'sec-demo-section' || sec.joinCode === 'LQ-DEMO' || (sec.sectionName || '').toLowerCase().includes('demo'))) return true;
           return false;
         };
 
