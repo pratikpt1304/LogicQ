@@ -156,43 +156,36 @@ export const AdminPortalPage: React.FC = () => {
         const userSecId = String(user?.sectionId || '').trim();
         const userSecName = String(user?.sectionName || user?.department || '').toLowerCase().trim();
 
+        const isDemostaff = facultyEmailClean === 'demostaff@gmail.com';
+
         const isSectionOwnedByFaculty = (sec: any) => {
           const secFacultyEmail = (sec.facultyEmail || sec.createdBy || '').toLowerCase().trim();
-          const secFacultyId = (sec.facultyId || sec.createdById || '').trim();
-
-          // 1. If section is Demo Section, ONLY demostaff@gmail.com can see it
-          if (
+          const isDemoSec =
             secFacultyEmail === 'demostaff@gmail.com' ||
             sec.id === 'sec-demo-section' ||
             sec.joinCode === 'LQ-DEMO' ||
-            (sec.sectionName || '').toLowerCase().includes('demo')
-          ) {
-            return facultyEmailClean === 'demostaff@gmail.com';
+            (sec.sectionName || '').toLowerCase().includes('demo');
+
+          // 1. If section is Demo Section, ONLY demostaff@gmail.com can see it
+          if (isDemoSec) {
+            return isDemostaff;
           }
 
           // 2. If user is demostaff, they can ONLY see Demo Section
-          if (facultyEmailClean === 'demostaff@gmail.com') {
+          if (isDemostaff) {
             return false;
           }
 
-          // 3. Normal faculty isolation: if section has explicit faculty email or ID, it must match
-          if (secFacultyEmail && facultyEmailClean) {
+          // 3. Normal faculty isolation: if section has explicit faculty email or ID, it must match (unless superadmin)
+          if (secFacultyEmail && facultyEmailClean && !isSuperAdmin) {
             return secFacultyEmail === facultyEmailClean;
           }
-          if (secFacultyId && facultyId) {
-            return secFacultyId === facultyId;
+          if (sec.facultyId && facultyId && !isSuperAdmin) {
+            return sec.facultyId === facultyId || sec.createdById === facultyId;
           }
 
-          // 4. Fallback for Integrated Mtech / Arena Admin
-          if (
-            sec.id === 'sec-mw6l4r2s' ||
-            sec.joinCode === 'LQ-INTE34' ||
-            (sec.sectionName || '').toLowerCase().includes('mtech')
-          ) {
-            return facultyEmailClean !== 'demostaff@gmail.com';
-          }
-
-          return isSuperAdmin;
+          // 4. Default for SuperAdmin (LogicQ Arena): sees authentic academic sections (Integrated Mtech)
+          return true;
         };
 
         const isolatedSections = validSections.filter(isSectionOwnedByFaculty);
@@ -247,25 +240,48 @@ export const AdminPortalPage: React.FC = () => {
         // STRICT MULTI-FACULTY STUDENT ISOLATION:
         // A faculty member can ONLY see students enrolled in their sections.
         const isolatedStudents = allStudentUsers.filter((st: any) => {
-              if (isolatedSections.length === 0) return false;
-              const stSecId = String(st.sectionId || '').toUpperCase().trim();
-              const stJoinCode = String(st.joinCode || '').toUpperCase().trim();
-              const stSecName = String(st.sectionName || st.section || st.department || '').toUpperCase().trim();
-              if (stSecId && isolatedSectionKeys.has(stSecId)) return true;
-              if (stJoinCode && isolatedSectionKeys.has(stJoinCode)) return true;
-              if (stSecName && isolatedSectionKeys.has(stSecName)) return true;
-              if (Array.isArray(st.sections) && st.sections.some((s: any) => {
-                const sid = String(s.id || s.joinCode || '').toUpperCase().trim();
-                return isolatedSectionKeys.has(sid);
-              })) return true;
-              return isolatedSections.some((sec) =>
-                Array.isArray(sec.students) && sec.students.some((s: any) =>
-                  (s.prn && String(s.prn).toUpperCase().trim() === (st.prn || '').toUpperCase().trim()) ||
-                  (s.email && (s.email || '').toLowerCase().trim() === (st.email || '').toLowerCase().trim()) ||
-                  (s.id && s.id === st.id)
-                )
-              );
-            });
+          const prnClean = (st.prn || '').toUpperCase().trim();
+          const isDemoStudent =
+            prnClean === '2026BCSE101' ||
+            prnClean === '2026BCSE102' ||
+            st.sectionId === 'sec-demo-section' ||
+            st.joinCode === 'LQ-DEMO' ||
+            String(st.sectionName || st.section || '').toLowerCase().includes('demo');
+
+          if (isDemostaff) {
+            return isDemoStudent;
+          }
+
+          // Non-demostaff must NEVER see demo students
+          if (isDemoStudent) {
+            return false;
+          }
+
+          // SuperAdmin (LogicQ Arena) sees all cohort students (119)
+          if (isSuperAdmin) {
+            return true;
+          }
+
+          if (isolatedSections.length === 0) return false;
+          const stSecId = String(st.sectionId || '').toUpperCase().trim();
+          const stJoinCode = String(st.joinCode || '').toUpperCase().trim();
+          const stSecName = String(st.sectionName || st.section || st.department || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().trim();
+
+          if (stSecId && isolatedSectionKeys.has(stSecId)) return true;
+          if (stJoinCode && isolatedSectionKeys.has(stJoinCode)) return true;
+          if (stSecName && Array.from(isolatedSectionKeys).some((k) => k.replace(/[^a-zA-Z0-9]/g, '') === stSecName)) return true;
+          if (Array.isArray(st.sections) && st.sections.some((s: any) => {
+            const sid = String(s.id || s.joinCode || '').toUpperCase().trim();
+            return isolatedSectionKeys.has(sid);
+          })) return true;
+          return isolatedSections.some((sec) =>
+            Array.isArray(sec.students) && sec.students.some((s: any) =>
+              (s.prn && String(s.prn).toUpperCase().trim() === prnClean) ||
+              (s.email && (s.email || '').toLowerCase().trim() === (st.email || '').toLowerCase().trim()) ||
+              (s.id && s.id === st.id)
+            )
+          );
+        });
 
         // Authoritatively synchronize each isolated section's roster and count directly with isolatedStudents
         const syncedSections = isolatedSections.map((sec) => {

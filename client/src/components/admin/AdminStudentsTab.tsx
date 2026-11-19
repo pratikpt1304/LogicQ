@@ -84,6 +84,8 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
 }) => {
   const { user, isAdmin, isFaculty } = useAuth();
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const facultyEmailClean = (user?.email || '').toLowerCase().trim();
+  const isDemostaff = facultyEmailClean === 'demostaff@gmail.com';
   const isFacultyUser = Boolean(!isSuperAdmin && (user?.role === 'FACULTY' || isFaculty));
   const facultySection = propSections && propSections.length > 0 ? propSections[0].sectionName : (user?.sectionName || user?.department || 'Computer Science');
 
@@ -100,7 +102,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
 
   // Sync when propStudents updates from parent
   useEffect(() => {
-    if (propStudents && Array.isArray(propStudents)) {
+    if (propStudents && Array.isArray(propStudents) && propStudents.length > 0) {
       setStudents(propStudents);
       setIsLoading(false);
     }
@@ -148,6 +150,36 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
       );
     };
 
+    const filterByOwnership = (st: any) => {
+      const prnClean = (st.prn || '').toUpperCase().trim();
+      const isDemo =
+        prnClean === '2026BCSE101' ||
+        prnClean === '2026BCSE102' ||
+        st.sectionId === 'sec-demo-section' ||
+        st.joinCode === 'LQ-DEMO' ||
+        String(st.section || st.sectionName || '').toLowerCase().includes('demo');
+
+      if (isDemostaff) {
+        return isDemo;
+      }
+      // Strictly prevent demo students from leaking into non-demostaff admin/faculty
+      if (isDemo) {
+        return false;
+      }
+      // SuperAdmin sees all authentic cohort students
+      if (isSuperAdmin) {
+        return true;
+      }
+      if (propStudents && propStudents.length > 0) {
+        return propStudents.some((p) => (p.prn && p.prn === st.prn) || (p.email && p.email.toLowerCase() === st.email.toLowerCase()) || p.id === st.id);
+      }
+      if (allowedSectionKeys.size > 0) {
+        const secStr = String(st.section || '').toUpperCase().trim();
+        return allowedSectionKeys.has(secStr);
+      }
+      return true;
+    };
+
     const loadStudents = async (showLoading = true) => {
       try {
         if (showLoading) setIsLoading(true);
@@ -160,6 +192,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
             if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
               const cleaned = parsed
                 .filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
+                .filter(filterByOwnership)
                 .map((s: any) => {
                   const prnC = (s.prn || '').toUpperCase().trim();
                   const cs = prnC ? findCohortStudent(prnC) : null;
@@ -379,16 +412,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
               };
             });
 
-          const finalStudentUsers = studentUsers.filter((st: any) => {
-            if (propStudents && propStudents.length > 0) {
-              return propStudents.some((p) => (p.prn && p.prn === st.prn) || (p.email && p.email.toLowerCase() === st.email.toLowerCase()) || p.id === st.id);
-            }
-            if (allowedSectionKeys.size > 0) {
-              const secStr = String(st.section || '').toUpperCase().trim();
-              return allowedSectionKeys.has(secStr);
-            }
-            return false;
-          });
+          const finalStudentUsers = studentUsers.filter(filterByOwnership);
 
           setStudents((prev) => {
             const map = new Map<string, AdminStudentRecord>();
@@ -402,15 +426,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
             });
             const merged = Array.from(map.values())
               .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
-              .filter((s) => {
-                if (propStudents && propStudents.length > 0) {
-                  return propStudents.some((p) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === s.email.toLowerCase()) || p.id === s.id);
-                }
-                if (allowedSectionKeys.size > 0) {
-                  return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
-                }
-                return false;
-              });
+              .filter(filterByOwnership);
             try {
               localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
             } catch {}
@@ -516,15 +532,7 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
           });
           const merged = Array.from(map.values())
             .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
-            .filter((s) => {
-              if (propStudents && propStudents.length > 0) {
-                return propStudents.some((p) => (p.prn && p.prn === s.prn) || (p.email && p.email.toLowerCase() === s.email.toLowerCase()) || p.id === s.id);
-              }
-              if (allowedSectionKeys.size > 0) {
-                return allowedSectionKeys.has(String(s.section || '').toUpperCase().trim());
-              }
-              return true;
-            });
+            .filter(filterByOwnership);
           try {
             localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
           } catch {}
