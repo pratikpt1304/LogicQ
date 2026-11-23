@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt.js';
 import { prisma } from '../utils/prisma.js';
@@ -6,6 +7,26 @@ import { isExplicitAdminEmail } from '../controllers/auth.controller.js';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
+}
+
+interface CachedUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  isBanned: boolean;
+  profileComplete: boolean;
+}
+
+const authUserCache = new Map<string, { user: CachedUser; cachedAt: number }>();
+const AUTH_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export function invalidateAuthCache(userId?: string) {
+  if (userId) {
+    authUserCache.delete(userId);
+  } else {
+    authUserCache.clear();
+  }
 }
 
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -22,32 +43,26 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
-    let payload = verifyAccessToken(token);
-    if (!payload && (token.startsWith('logicq_sess_') || token.startsWith('fallback-jwt-'))) {
-      const parts = token.split('_');
-      // Format: logicq_sess_<id_or_prn>_<timestamp>
-      const rawId = parts.slice(2, -1).join('_') || parts[2] || '';
-      const cleanPrn = rawId.replace(/^cohort-/, '').replace(/^std_/, '').toUpperCase();
-      if (cleanPrn) {
-        payload = {
-          userId: rawId.startsWith('cohort-') ? rawId : `cohort-${cleanPrn.toLowerCase()}`,
-          role: 'STUDENT',
-          username: cleanPrn.toLowerCase(),
-          prn: cleanPrn,
-          email: `${cleanPrn.toLowerCase()}@university.edu.in`,
-        };
-      }
-    }
+    const payload = verifyAccessToken(token);
     if (!payload) {
       res.status(401).json({ success: false, message: 'Invalid or expired access token' });
       return;
     }
 
-    // 1. First attempt: locate user by id
-    let dbUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
-    });
+    // 0. Check in-memory cache to prevent slamming Postgres on concurrent requests
+    const now = Date.now();
+    const cached = authUserCache.get(payload.userId);
+    let dbUser: CachedUser | null = null;
+
+    if (cached && (now - cached.cachedAt < AUTH_CACHE_TTL_MS)) {
+      dbUser = cached.user;
+    } else {
+      // 1. First attempt: locate user by id
+      dbUser = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
+      });
+    }
 
     // 2. Self-healing fallback: If Render container restarted and SQLite was re-initialized,
     // recover user by email or username from cryptographically verified JWT payload
@@ -74,7 +89,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
         if (isAdminAccount) {
           const targetEmail = payload.email?.toLowerCase() || (isExplicitAdminEmail(payload.username) ? payload.username : 'logicqarena@gmail.com');
           const isPratik = targetEmail.includes('thorat');
-          const placeholderHash = await bcrypt.hash('AdminPassword123!', 10);
+          const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
 
           dbUser = await prisma.user.upsert({
             where: { email: targetEmail },
@@ -94,7 +109,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
           });
         } else if (payload.email) {
           // Auto-restore enrolled student/faculty from valid signed JWT
-          const placeholderHash = await bcrypt.hash('AutoRestoredStudent123!', 10);
+          const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
           const targetEmail = payload.email.toLowerCase().trim();
           const targetUsername = payload.username || targetEmail.split('@')[0];
 
@@ -202,6 +217,10 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
+    if (dbUser && !dbUser.isBanned) {
+      authUserCache.set(payload.userId, { user: dbUser, cachedAt: now });
+    }
+
     req.user = {
       userId: dbUser.id,
       username: dbUser.username,
@@ -239,10 +258,20 @@ export async function optionalAuthenticate(req: AuthRequest, res: Response, next
         }
       }
       if (payload) {
-        let dbUser = await prisma.user.findUnique({
-          where: { id: payload.userId },
-          select: { id: true, email: true, username: true, role: true, isBanned: true },
-        });
+        const cached = authUserCache.get(payload.userId);
+        let dbUser: any = null;
+
+        if (cached && (Date.now() - cached.cachedAt < AUTH_CACHE_TTL_MS)) {
+          dbUser = cached.user;
+        } else {
+          dbUser = await prisma.user.findUnique({
+            where: { id: payload.userId },
+            select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
+          });
+          if (dbUser && !dbUser.isBanned) {
+            authUserCache.set(payload.userId, { user: dbUser, cachedAt: Date.now() });
+          }
+        }
 
         if (!dbUser && (payload.email || payload.username)) {
           if (payload.email) {

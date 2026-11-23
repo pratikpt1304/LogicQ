@@ -30,5 +30,5 @@ ENV PORT=5000
 ENV JUDGE_TYPE=local_gcc
 ENV DATABASE_URL="file:./prisma/prod.db"
 
-# Ensure SQLite schema is prepared and start server
-CMD ["sh", "-c", "npx prisma db push && npm start"]
+# Start server directly without wiping or modifying production schema
+CMD ["npm", "start"]
