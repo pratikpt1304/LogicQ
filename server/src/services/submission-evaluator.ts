@@ -124,8 +124,24 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
           // Output comparison
           const actual = normalizeOutput(exec.stdout);
           const expected = normalizeOutput(tc.expectedOutput);
+          const relax = (s: string) =>
+            (s || '')
+              .toLowerCase()
+              .replace(/[\r\n]+/g, ' ')
+              .replace(/\s*:\s*/g, ': ')
+              .replace(/\s*,\s*/g, ', ')
+              .replace(/\s*=\s*/g, '=')
+              .replace(/\s+/g, ' ')
+              .trim();
+          const aNums = (actual.match(/-?\d+(?:\.\d+)?/g) || []).join(',');
+          const eNums = (expected.match(/-?\d+(?:\.\d+)?/g) || []).join(',');
+          const hasMatchingNumbers = Boolean(aNums && eNums && aNums === eNums);
+          const isMatch =
+            actual === expected ||
+            relax(actual) === relax(expected) ||
+            (hasMatchingNumbers && actual.toLowerCase().replace(/[^a-z]/g, '') === expected.toLowerCase().replace(/[^a-z]/g, ''));
 
-          if (actual === expected) {
+          if (isMatch) {
             testResults.push({
               testCaseId: tc.id,
               verdict: Verdict.ACCEPTED,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2, Cloud, AlertCircle } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2, Cloud, AlertCircle, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
 import { extractMonacoMarkers, MonacoGccMarker } from '../../utils/gccErrorTranslator.js';
@@ -26,14 +26,23 @@ interface CodeEditorProps {
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
   { label: 'Tab', insertText: '    ' },
-  { label: '{', insertText: '{' },
-  { label: '}', insertText: '}' },
+  { label: '{ }', insertText: '{\n    \n}' },
+  { label: '( )', insertText: '()' },
   { label: ';', insertText: ';' },
-  { label: '*', insertText: '*' },
+  { label: '"', insertText: '""' },
+  { label: 'printf', insertText: 'printf("%d\\n", );' },
+  { label: 'scanf', insertText: 'scanf("%d", &);' },
+  { label: 'int', insertText: 'int ' },
+  { label: 'return', insertText: 'return 0;\n' },
+  { label: '==', insertText: ' == ' },
+  { label: '!=', insertText: ' != ' },
   { label: '&', insertText: '&' },
-  { label: '#', insertText: '#' },
+  { label: '*', insertText: '*' },
   { label: '<', insertText: '<' },
   { label: '>', insertText: '>' },
+  { label: '[ ]', insertText: '[]' },
+  { label: '#', insertText: '#' },
+  { label: '\\n', insertText: '\\n' },
 ];
 
 let themesRegistered = false;
@@ -137,6 +146,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const isSubmittingRef = React.useRef(isSubmitting);
   const isRunningRef = React.useRef(isRunning);
   const readOnlyRef = React.useRef(readOnly);
+  const hasWarnedWasdRef = React.useRef(false);
 
   onChangeRef.current = onChange;
   onRunRef.current = onRun;
@@ -207,7 +217,46 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
 
     editor.onKeyDown((e: any) => {
+      // 1. WASD hardware arrow swap detection (Fn+W on Gaming Laptops & Keyboards)
+      // When a student accidentally presses Fn+W, their keyboard hardware swaps W,A,S,D with Arrow Keys.
+      // Monaco would normally move the cursor instead of typing. Here we intercept and type the letter!
+      const browserEvent = e.browserEvent as KeyboardEvent | undefined;
+      if (browserEvent && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const rawCode = browserEvent.code;
+        const rawKey = browserEvent.key;
+
+        let charToInsert: string | null = null;
+        if (rawCode === 'KeyS' && rawKey === 'ArrowDown') {
+          charToInsert = e.shiftKey ? 'S' : 's';
+        } else if (rawCode === 'KeyA' && rawKey === 'ArrowLeft') {
+          charToInsert = e.shiftKey ? 'A' : 'a';
+        } else if (rawCode === 'KeyD' && rawKey === 'ArrowRight') {
+          charToInsert = e.shiftKey ? 'D' : 'd';
+        } else if (rawCode === 'KeyW' && rawKey === 'ArrowUp') {
+          charToInsert = e.shiftKey ? 'W' : 'w';
+        }
+
+        if (charToInsert) {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.trigger('keyboard', 'type', { text: charToInsert });
+          if (!hasWarnedWasdRef.current) {
+            hasWarnedWasdRef.current = true;
+            toast.info('🎮 Keyboard Fn+W Mode Detected', {
+              description: 'WASD is sending arrow keys. Press Fn+W to toggle normal mode, or continue typing—LogicQ auto-typed it for you!',
+              duration: 6000,
+            });
+          }
+          return;
+        }
+      }
+
       if (disableCopyPasteRef.current) {
+        // Normal typing without Ctrl or Meta is 100% safe and must never be intercepted
+        if (!e.ctrlKey && !e.metaKey) {
+          return;
+        }
+
         // Any Shift key combination (Shift + [, Shift + ], Shift + 9, Shift alone, uppercase letters, etc.) is NEVER copy-paste
         if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
           return;
@@ -341,6 +390,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       if (!readOnlyRef.current && onRunRef.current && !isRunningRef.current) {
         onRunRef.current();
       }
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      // Prevent browser default "Save Webpage As..." dialog
+      toast.success('💾 Code draft saved automatically.', { duration: 1500 });
     });
 
     return () => {
@@ -612,6 +666,27 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               </button>
             )}
 
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.info('⌨️ Keyboard Typing Help', {
+                    description: 'If keys A, S, D, or W move the cursor instead of typing, press Fn + W on your laptop keyboard (this toggles gaming arrow mode). Also ensure Windows keyboard language is set to English (US).',
+                    duration: 9000,
+                  });
+                }}
+                title="Typing help: If A, S, D, W move the cursor instead of typing letters, press Fn+W"
+                className={`hidden sm:flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md transition-colors cursor-pointer ${
+                  effectiveTheme === 'dark'
+                    ? 'text-slate-400 hover:text-cyan-300 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60'
+                    : 'text-slate-500 hover:text-indigo-600 bg-slate-100/80 hover:bg-slate-200/80 border border-slate-200'
+                }`}
+              >
+                <Keyboard className="w-3 h-3 text-amber-400" />
+                <span>Fn+W Help</span>
+              </button>
+            )}
+
             {!disableCopyPaste && (
               <button
                 type="button"
@@ -715,11 +790,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       )}
 
-      {/* Mobile C Symbol Helper Bar (Tab, {, }, ;, *, &, #, <, >) */}
+      {/* Mobile C Symbol Helper Bar with Smooth Touch Scrolling */}
       <div
         data-testid="mobile-c-symbol-bar"
         aria-label="C Symbol Helper Bar"
-        className={`lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 border-t overflow-x-auto shrink-0 ${
+        className={`lg:hidden flex items-center gap-1.5 px-2.5 py-2 border-t overflow-x-auto touch-pan-x overscroll-x-contain scrollbar-none shrink-0 ${
           effectiveTheme === 'dark'
             ? 'bg-[#090d16] border-slate-800'
             : 'bg-[var(--bg-surface)] border-[var(--border-line)]'
@@ -731,10 +806,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             type="button"
             disabled={readOnly}
             onClick={() => handleInsertSymbol(sym.insertText)}
-            className={`min-w-[38px] min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-mono font-bold active:border-[var(--color-accent)] disabled:opacity-50 shrink-0 ${
+            className={`min-w-[42px] min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-mono font-bold active:scale-95 active:border-[var(--color-accent)] transition-transform disabled:opacity-50 shrink-0 select-none ${
               effectiveTheme === 'dark'
-                ? 'bg-slate-900 border-slate-700 text-slate-200'
-                : 'bg-[var(--bg-panel)] border-[var(--border-line)] text-[var(--text-main)]'
+                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-100 shadow-xs'
+                : 'bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border-[var(--border-line)] text-[var(--text-main)] shadow-xs'
             }`}
           >
             {sym.label}

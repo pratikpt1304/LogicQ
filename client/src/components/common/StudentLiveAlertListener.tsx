@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ShieldAlert, AlertTriangle, CheckCircle2, Lock, Sparkles, BookOpen } from 'lucide-react';
 import { StudentIssuesModal } from './StudentIssuesModal.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { IssueSyncService } from '../../services/issueSync.service.js';
 
 function playNotificationChime() {
   try {
@@ -122,53 +123,37 @@ export const StudentLiveAlertListener: React.FC = () => {
       } catch {}
     };
 
-    const unsubIssues = onSnapshot(
-      collection(db, 'raised_issues'),
-      (snap) => {
-        snap.forEach((d) => {
-          const data = d.data();
-          const pPrn = String(data.studentPrn || '').toUpperCase().trim();
-          const pEmail = String(data.studentEmail || '').toLowerCase().trim();
-          const pId = String(data.studentId || '').trim();
+    const unsubIssues = IssueSyncService.listenToStudentIssues(cleanPrn, userEmail, userId, (issues) => {
+      issues.forEach((data) => {
+        const issueId = data.id;
+        const currentStatus = String(data.status || 'OPEN').toUpperCase();
+        const prevStatus = knownStatusMapRef.current[issueId];
 
-          const isMine =
-            (cleanPrn && pPrn && (pPrn === cleanPrn || cleanPrn.includes(pPrn) || pPrn.includes(cleanPrn))) ||
-            (userEmail && pEmail && pEmail === userEmail) ||
-            (userId && pId && pId === userId);
+        // Check if it transitioned to RESOLVED or is a newly resolved issue not yet seen
+        const alreadyNotified = getNotified().includes(issueId);
 
-          if (!isMine) return;
+        if (currentStatus === 'RESOLVED') {
+          if ((prevStatus && prevStatus !== 'RESOLVED') || (!alreadyNotified && !initialLoadRef.current)) {
+            addNotified(issueId);
+            playNotificationChime();
+            realtimeSync.emit('ISSUES');
 
-          const issueId = d.id;
-          const currentStatus = String(data.status || 'OPEN').toUpperCase();
-          const prevStatus = knownStatusMapRef.current[issueId];
-
-          // Check if it transitioned to RESOLVED or is a newly resolved issue not yet seen
-          const alreadyNotified = getNotified().includes(issueId);
-
-          if (currentStatus === 'RESOLVED') {
-            if ((prevStatus && prevStatus !== 'RESOLVED') || (!alreadyNotified && !initialLoadRef.current)) {
-              addNotified(issueId);
-              playNotificationChime();
-              realtimeSync.emit('ISSUES');
-
-              toast.success(`🎉 Issue Resolved by Faculty!`, {
-                description: `Your reported issue on "${data.questionTitle || 'Question'}" has been reviewed and resolved by faculty.`,
-                duration: 9000,
-                action: {
-                  label: 'View Resolution',
-                  onClick: () => setSelectedIssueModalOpen(true),
-                },
-              });
-            }
+            toast.success(`🎉 Issue Resolved by Faculty!`, {
+              description: `Your reported issue on "${data.questionTitle || 'Question'}" has been reviewed and resolved by faculty.`,
+              duration: 9000,
+              action: {
+                label: 'View Resolution',
+                onClick: () => setSelectedIssueModalOpen(true),
+              },
+            });
           }
+        }
 
-          knownStatusMapRef.current[issueId] = currentStatus;
-        });
+        knownStatusMapRef.current[issueId] = currentStatus;
+      });
 
-        initialLoadRef.current = false;
-      },
-      () => {}
-    );
+      initialLoadRef.current = false;
+    });
 
     return () => {
       unsubIssues();

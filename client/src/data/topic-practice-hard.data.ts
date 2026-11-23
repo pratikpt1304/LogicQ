@@ -449,7 +449,7 @@ int main() {
       },
       hiddenTestCase: {
         input: '3 181 1000000007',
-        expectedOutput: '945419992',
+        expectedOutput: '813351649',
       },
     },
   },

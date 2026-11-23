@@ -49,8 +49,12 @@ export const RadialActionMenu: React.FC = () => {
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Hidden in exam workspaces, login/verify, and strictly hidden for Admin/Faculty and Admin portal routes
-  const isExamPage = location.pathname.startsWith('/exam');
+  // Hidden in exam workspaces, lab internal, tests, problem workspaces, login/verify, and strictly hidden for Admin/Faculty and Admin portal routes
+  const isExamOrLab =
+    location.pathname.startsWith('/exam') ||
+    location.pathname.startsWith('/tests') ||
+    location.pathname.startsWith('/lab-internal') ||
+    (location.pathname.startsWith('/practice/') && location.pathname.split('/').length > 2);
   const isLoginOrVerify = location.pathname === '/login' || location.pathname.startsWith('/verify');
   const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/faculty');
   const isAdminOrFaculty = Boolean(
@@ -63,13 +67,13 @@ export const RadialActionMenu: React.FC = () => {
 
   // Auto-show guided intro once for every student (1.2s delay after page load)
   useEffect(() => {
-    if (!hasSeenGuide && !isOpen && !isExamPage && !isLoginOrVerify && !isAdminOrFaculty) {
+    if (!hasSeenGuide && !isOpen && !isExamOrLab && !isLoginOrVerify && !isAdminOrFaculty) {
       const timer = setTimeout(() => {
         setShowFeatureGuide(true);
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [hasSeenGuide, isOpen, isExamPage, isLoginOrVerify, isAdminOrFaculty]);
+  }, [hasSeenGuide, isOpen, isExamOrLab, isLoginOrVerify, isAdminOrFaculty]);
 
   const dismissGuide = (openMenu = false) => {
     setShowFeatureGuide(false);
@@ -135,7 +139,7 @@ export const RadialActionMenu: React.FC = () => {
     };
   }, [isOpen]);
 
-  if (!user || isAdminOrFaculty || isAdminRoute || isExamPage || isLoginOrVerify) return null;
+  if (!user || isAdminOrFaculty || isAdminRoute || isExamOrLab || isLoginOrVerify) return null;
 
   const radius = 114; // distance of petals from center in pixels
 

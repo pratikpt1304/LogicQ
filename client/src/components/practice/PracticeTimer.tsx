@@ -5,6 +5,8 @@ import { getDeviceLabel } from '../../services/draftSync.service.js';
 
 export interface PracticeTimerProps {
   problemId: string;
+  difficulty?: string;
+  allocatedMinutes?: number;
   initialActiveSeconds?: number;
   isSolved?: boolean;
   timeToSolveSeconds?: number | null;
@@ -34,6 +36,8 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
   (
     {
       problemId,
+      difficulty = 'EASY',
+      allocatedMinutes,
       initialActiveSeconds = 0,
       isSolved = false,
       timeToSolveSeconds = null,
@@ -42,12 +46,25 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
     },
     ref
   ) => {
-    // Current total active seconds (resumes from DB/initial value)
+    const diffUpper = String(difficulty || 'EASY').toUpperCase();
+    const effectiveAllocatedMinutes = allocatedMinutes || (diffUpper === 'HARD' ? 30 : diffUpper === 'MEDIUM' ? 20 : 10);
+    const allocatedSeconds = effectiveAllocatedMinutes * 60;
+
+    // Current total active seconds (resumes from DB/initial value or local question cache)
     const [activeSeconds, setActiveSeconds] = useState<number>(() => {
       if (isSolved && timeToSolveSeconds !== null && timeToSolveSeconds !== undefined) {
         return timeToSolveSeconds;
       }
-      return initialActiveSeconds || 0;
+      if (initialActiveSeconds && initialActiveSeconds > 0) {
+        return initialActiveSeconds;
+      }
+      if (problemId) {
+        try {
+          const cached = localStorage.getItem(`logicq_active_sec_${problemId}`);
+          if (cached) return Number(cached) || 0;
+        } catch {}
+      }
+      return 0;
     });
 
     // Local toggle override (defaults to profile preference)
@@ -64,14 +81,33 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
     // Activity threshold: 2 minutes (120,000 ms) of no keyboard/mouse/touch
     const INACTIVITY_TIMEOUT_MS = 120_000;
 
-    // Update refs when props change
+    // Synchronize when problemId or solved state changes
     useEffect(() => {
       isSolvedRef.current = isSolved;
+      unsyncedDeltaRef.current = 0;
+      lastActiveTimestampRef.current = Date.now();
+
       if (isSolved && timeToSolveSeconds !== null && timeToSolveSeconds !== undefined) {
         setActiveSeconds(timeToSolveSeconds);
         activeSecondsRef.current = timeToSolveSeconds;
+      } else if (initialActiveSeconds && initialActiveSeconds > 0) {
+        setActiveSeconds(initialActiveSeconds);
+        activeSecondsRef.current = initialActiveSeconds;
+      } else if (problemId) {
+        try {
+          const cached = localStorage.getItem(`logicq_active_sec_${problemId}`);
+          const sec = cached ? Number(cached) || 0 : 0;
+          setActiveSeconds(sec);
+          activeSecondsRef.current = sec;
+        } catch {
+          setActiveSeconds(0);
+          activeSecondsRef.current = 0;
+        }
+      } else {
+        setActiveSeconds(0);
+        activeSecondsRef.current = 0;
       }
-    }, [isSolved, timeToSolveSeconds]);
+    }, [problemId, isSolved, timeToSolveSeconds, initialActiveSeconds]);
 
     useEffect(() => {
       setIsVisuallyHidden(hideTimerPreference);
@@ -193,7 +229,15 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
         const isUserActive = now - lastActiveTimestampRef.current < INACTIVITY_TIMEOUT_MS;
 
         if (isTabVisible && isUserActive && !isSolvedRef.current) {
-          setActiveSeconds((prev) => prev + 1);
+          setActiveSeconds((prev) => {
+            const next = prev + 1;
+            if (problemId && next % 3 === 0) {
+              try {
+                localStorage.setItem(`logicq_active_sec_${problemId}`, String(next));
+              } catch {}
+            }
+            return next;
+          });
           unsyncedDeltaRef.current += 1;
         }
       }, 1000);
@@ -253,11 +297,19 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
       setTimeout(() => setScreenReaderAnnouncement(''), 4000);
     };
 
+    const isOvertime = !isSolved && activeSeconds > allocatedSeconds;
     const formattedTime = formatPracticeTime(activeSeconds);
+    const formattedAllocatedTime = formatPracticeTime(allocatedSeconds);
 
     return (
       <div
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)]/80 border border-[var(--border-line)] text-xs font-mono select-none transition-colors"
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono select-none transition-colors ${
+          isSolved
+            ? 'bg-emerald-500/10 border-emerald-500/30'
+            : isOvertime
+            ? 'bg-rose-500/10 border-rose-500/40'
+            : 'bg-[var(--bg-surface)]/90 border-[var(--border-line)]'
+        }`}
         role="region"
         aria-label="Practice problem active timer"
       >
@@ -270,20 +322,46 @@ export const PracticeTimer = React.forwardRef<PracticeTimerHandle, PracticeTimer
         {isSolved ? (
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
         ) : (
-          <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0 animate-pulse" aria-hidden="true" />
+          <Clock className={`w-3.5 h-3.5 shrink-0 ${isOvertime ? 'text-rose-400 animate-bounce' : 'text-cyan-400 animate-pulse'}`} aria-hidden="true" />
         )}
 
         {/* Timer Display or Hidden Placeholder */}
         {isVisuallyHidden ? (
           <span className="text-[var(--text-muted)] text-[11px] font-sans">Timer hidden</span>
         ) : isSolved ? (
-          <span className="text-emerald-400 font-semibold tracking-tight">
-            Solved in {formattedTime}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-emerald-400 font-semibold tracking-tight">
+              Solved in {formattedTime}
+            </span>
+            <span className="text-[10px] text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded font-mono border border-emerald-500/30">
+              Limit: {effectiveAllocatedMinutes}m
+            </span>
+          </div>
         ) : (
-          <span className="text-[var(--text-main)] font-semibold tabular-nums tracking-tight min-w-[42px] text-center">
-            {formattedTime}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`font-bold tabular-nums tracking-tight min-w-[38px] text-center ${
+              isOvertime ? 'text-rose-400' : 'text-[var(--text-main)]'
+            }`}>
+              {formattedTime}
+            </span>
+            <span className="text-[var(--text-muted)] text-[11px] font-normal">
+              / {formattedAllocatedTime}
+            </span>
+            <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded border uppercase tracking-wider ${
+              diffUpper === 'HARD'
+                ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                : diffUpper === 'MEDIUM'
+                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+            }`}>
+              {diffUpper} ({effectiveAllocatedMinutes}m)
+            </span>
+            {isOvertime && (
+              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                Overtime
+              </span>
+            )}
+          </div>
         )}
 
         {/* Toggle Visibility Button */}

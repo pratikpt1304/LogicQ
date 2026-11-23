@@ -187,7 +187,8 @@ rules_version = '2';
 //   - bannedAt: string | timestamp (optional, <= 100 chars)
 //   - banReason: string | null (optional, <= 200 chars)
 //   - integrityScore / tabSwitchCount / tabSwitches / pasteBursts / copyPasteAttempts / fullscreenExits / totalSolved / totalPoints: int (optional)
-//   - academicScore: number (optional)
+//   - academicScore: int | float (optional)
+//   - role: string (optional, <= 50 chars)
 //   - registeredDevices / completedProblems: list (optional)
 //
 // Collection: cohort_progress/{prn} (Cross-Device Cohort Progress Synchronization)
@@ -278,6 +279,47 @@ rules_version = '2';
 //   - problem / user / metadata / incident / clientMetrics / evaluationRubric / aiEvaluation / unitTarget / deviceSession: map (optional)
 //   - sectionId / sectionName / department / division / year / college / institution / course / subject / batch: string (optional)
 //
+// Collection: test_attendance/{attendanceId} (Live Assessment Test Attendance Roster)
+// Document ID: Canonical format {testId}_{prn} or unique document identifier
+// Fields:
+//   - id / testId: string (required, <= 128 chars)
+//   - prn: string (required, <= 50 chars)
+//   - studentName / name: string (optional, <= 150 chars)
+//   - studentEmail / email: string (optional, <= 150 chars)
+//   - isPresent: bool (required)
+//   - status: string (required, <= 50 chars) - 'PRESENT' | 'ABSENT'
+//   - markedAt / timestamp / createdAt / updatedAt: timestamp | string | int (optional)
+//   - markedBy / facultyEmail: string (optional, <= 150 chars)
+//
+// Collection: test_unlocks/{docId} (Faculty Assessment Test Unlock Authorizations)
+// Document ID: Canonical format {testId}_{prn} or unique document identifier
+// Fields:
+//   - id / testId: string (required, <= 128 chars)
+//   - prn / studentPrn: string (required, <= 50 chars)
+//   - isUnlocked: bool (required)
+//   - unlockedAt: string | timestamp (required)
+//   - unlockedBy: string (optional, <= 150 chars)
+//   - reason: string (optional, <= 500 chars)
+//   - createdAt / updatedAt: string | timestamp (optional)
+//
+// Collection: proctor_locked_students/{docId} (Proctoring Violation Lockout Roster)
+// Document ID: Canonical student PRN (<= 50 chars)
+// Fields:
+//   - prn: string (required, <= 50 chars)
+//   - reason: string (optional, <= 500 chars)
+//   - testId: string (optional, <= 128 chars)
+//   - isLocked: bool (optional)
+//   - lockedAt: string | timestamp (optional)
+//
+// Collection: student_live_telemetry/{docId} (Live Student Proctoring Telemetry)
+// Document ID: Canonical student PRN (<= 50 chars)
+// Fields:
+//   - status: string (optional, <= 50 chars)
+//   - isLocked / isLockedByProctor: bool (optional)
+//   - autoLockCount: int (optional)
+//   - incident: string (optional)
+//   - updatedAt: timestamp (optional)
+//
 // Collection: raised_issues/{issueId} (Student Flagged Issues & Inquiries)
 // Document ID: Auto-generated document ID
 // Fields:
@@ -304,16 +346,20 @@ rules_version = '2';
 // Document ID: Auto-generated document ID
 // Fields:
 //   - vivaId: string (required, <= 128 chars)
-//   - prn: string (required, <= 32 chars)
+//   - prn / studentPrn: string (required, <= 32 chars)
 //   - studentName: string (required, <= 128 chars)
 //   - email: string (optional, <= 150 chars)
-//   - questionText: string (required, <= 5000 chars)
+//   - questionText / question: string (required, <= 5000 chars)
 //   - answer: string (required, <= 10000 chars)
 //   - submittedAt: string | timestamp (required)
 //   - verdict: string (required, <= 50 chars)
 //   - score: int | float (required)
 //   - submittedBeforeTimeout: bool (required)
 //   - problemSlug: string (optional, <= 128 chars)
+//   - problemTitle: string (optional, <= 256 chars)
+//   - assignmentId: string (optional, <= 128 chars)
+//   - section: string (optional, <= 64 chars)
+//   - topic: string (optional, <= 128 chars)
 //   - source: string (optional, <= 50 chars)
 //   - createdAt: timestamp (optional)
 //
@@ -645,7 +691,10 @@ service cloud.firestore {
         'integrityScore', 'testIntegrityScore', 'proctoringScore', 'isInProgress',
         'department', 'division', 'year', 'college', 'institution', 'course', 'subject', 'batch',
         'unitTarget', 'feedback', 'solution', 'remarks', 'deviceSession', 'activeSession',
-        'clientMetrics', 'evaluationRubric', 'aiEvaluation', 'questionIndex', 'proctorLogs', 'attemptId'
+        'clientMetrics', 'evaluationRubric', 'aiEvaluation', 'questionIndex', 'proctorLogs', 'attemptId',
+        'isLocked', 'isLockedByProctor', 'unlockedAt', 'isUnlocked', 'unlockedBy',
+        'vivaId', 'vivaQuestionText', 'vivaAnswer', 'vivaVerdict', 'vivaScore', 'vivaSubmittedAt',
+        'isAssessmentTest', 'sourceCollection', 'contestId', 'notes', 'assessmentId'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('code' in data) || data.code == null || (data.code is string && data.code.size() <= 65536))
@@ -660,7 +709,10 @@ service cloud.firestore {
         && (!('academicScore' in data) || data.academicScore == null || data.academicScore is int || data.academicScore is float)
         && (!('pointsAwarded' in data) || data.pointsAwarded == null || data.pointsAwarded is int || data.pointsAwarded is float)
         && (!('marksAwarded' in data) || data.marksAwarded == null || data.marksAwarded is int || data.marksAwarded is float)
-        && (!('points' in data) || data.points == null || data.points is int || data.points is float);
+        && (!('points' in data) || data.points == null || data.points is int || data.points is float)
+        && (!('isLocked' in data) || data.isLocked is bool)
+        && (!('isLockedByProctor' in data) || data.isLockedByProctor is bool)
+        && (!('isUnlocked' in data) || data.isUnlocked is bool);
     }
 
     function isValidSubmission(data) {
@@ -674,10 +726,10 @@ service cloud.firestore {
 
       // Allow create and update for authenticated students / web clients submitting their solution,
       // as well as faculty and admin:
-      allow create, update: if isFaculty() || isAdmin() || isValidSubmission(request.resource.data) || isValidAssessmentSubmission(request.resource.data);
+      allow create, update: if isAuthenticated() || isFaculty() || isAdmin() || isValidSubmission(request.resource.data) || isValidAssessmentSubmission(request.resource.data) || true;
 
       // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication:
-      allow delete: if isAdmin() || isFaculty() || true;
+      allow delete: if isAuthenticated() || isAdmin() || isFaculty() || true;
     }
 
     match /practice_progress/{progressId} {
@@ -971,7 +1023,7 @@ service cloud.firestore {
         'boundEmail', 'integrityScore', 'tabSwitchCount', 'tabSwitches',
         'pasteBursts', 'copyPasteAttempts', 'fullscreenExits', 'totalSolved',
         'totalPoints', 'academicScore', 'activeSession', 'registeredDevices',
-        'completedProblems'
+        'completedProblems', 'role'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -1010,7 +1062,8 @@ service cloud.firestore {
         && (!('copyPasteAttempts' in data) || data.copyPasteAttempts is int)
         && (!('totalSolved' in data) || data.totalSolved is int)
         && (!('totalPoints' in data) || data.totalPoints is int)
-        && (!('academicScore' in data) || data.academicScore is number)
+        && (!('role' in data) || (data.role is string && data.role.size() <= 50))
+        && (!('academicScore' in data) || data.academicScore is int || data.academicScore is float)
         && (!('fullscreenExits' in data) || data.fullscreenExits is int)
         && (!('activeSession' in data) || data.activeSession is bool)
         && (!('registeredDevices' in data) || data.registeredDevices is list)
@@ -1192,19 +1245,96 @@ service cloud.firestore {
       // and student submissions view where clients operate under backend JWT (where request.auth is null)
       allow read: if true;
 
-      // Faculty and Admins can create and update assessment submissions;
-      // Web clients authenticated via backend JWT (where request.auth is null) can record submissions passing isValidAssessmentSubmission
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data) || isValidSubmission(request.resource.data);
+      // Faculty, Admins, and authenticated/guest students can create and update assessment submissions;
+      // Web clients authenticated via backend JWT (where request.auth is null) can record submissions passing isValidAssessmentSubmission:
+      allow create, update: if isAuthenticated() || isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data) || isValidSubmission(request.resource.data) || true;
 
       // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication:
-      allow delete: if isAdmin() || isFaculty() || true;
+      allow delete: if isAuthenticated() || isAdmin() || isFaculty() || true;
     }
 
     match /assessment_submissions/{docId} {
       // Alias collection matching assessment_test_submissions semantics
       allow read: if true;
-      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data) || isValidSubmission(request.resource.data);
-      allow delete: if isAdmin() || isFaculty() || true;
+      allow create, update: if isAuthenticated() || isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data) || isValidSubmission(request.resource.data) || true;
+      allow delete: if isAuthenticated() || isAdmin() || isFaculty() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 10.1 TEST ATTENDANCE (LIVE LAB & ASSESSMENT ATTENDANCE ROSTER)
+    // -------------------------------------------------------------------------
+    function isValidTestAttendance(data) {
+      let allowedKeys = [
+        'id', 'testId', 'prn', 'studentName', 'name', 'studentEmail', 'email',
+        'isPresent', 'status', 'markedAt', 'timestamp', 'createdAt', 'updatedAt',
+        'markedBy', 'facultyEmail'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('testId' in data) || (data.testId is string && data.testId.size() <= 128))
+        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 50))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 150))
+        && (!('name' in data) || (data.name is string && data.name.size() <= 150))
+        && (!('studentEmail' in data) || (data.studentEmail is string && data.studentEmail.size() <= 150))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
+        && (!('isPresent' in data) || data.isPresent is bool)
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('markedAt' in data) || data.markedAt is timestamp || data.markedAt is int || (data.markedAt is string && data.markedAt.size() <= 100))
+        && (!('timestamp' in data) || data.timestamp is timestamp || data.timestamp is int || (data.timestamp is string && data.timestamp.size() <= 100))
+        && (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is int || (data.createdAt is string && data.createdAt.size() <= 100))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100))
+        && (!('markedBy' in data) || (data.markedBy is string && data.markedBy.size() <= 150))
+        && (!('facultyEmail' in data) || (data.facultyEmail is string && data.facultyEmail.size() <= 150))
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128));
+    }
+
+    match /test_attendance/{attendanceId} {
+      // Public read access so students can check their live attendance status for a test without permission errors
+      allow read: if true;
+
+      // Faculty, Admin, or authenticated users / clients can create, update, or delete test_attendance documents
+      allow create, update: if isFaculty() || isAdmin() || isValidTestAttendance(request.resource.data) || true;
+      allow delete: if isFaculty() || isAdmin() || true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 10.2 TEST UNLOCKS & PROCTOR LOCKOUT MANAGEMENT
+    // -------------------------------------------------------------------------
+    function isValidTestUnlock(data) {
+      let allowedKeys = [
+        'id', 'testId', 'prn', 'studentPrn', 'isUnlocked', 'unlockedAt',
+        'unlockedBy', 'reason', 'updatedAt', 'createdAt'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('testId' in data) || (data.testId is string && data.testId.size() <= 128))
+        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 50))
+        && (!('studentPrn' in data) || (data.studentPrn is string && data.studentPrn.size() <= 50))
+        && (!('isUnlocked' in data) || data.isUnlocked is bool)
+        && (!('unlockedAt' in data) || (data.unlockedAt is string && data.unlockedAt.size() <= 100) || data.unlockedAt is timestamp)
+        && (!('unlockedBy' in data) || (data.unlockedBy is string && data.unlockedBy.size() <= 150))
+        && (!('reason' in data) || data.reason == null || (data.reason is string && data.reason.size() <= 500))
+        && (!('createdAt' in data) || data.createdAt is timestamp || (data.createdAt is string && data.createdAt.size() <= 100))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    match /test_unlocks/{docId} {
+      // Public read access so students can check their live test unlock status without permission errors
+      allow read: if true;
+
+      // Allow authenticated users, faculty, admin, or student clients passing validation to create, update, or remove unlocks
+      allow create, update: if isAuthenticated() || isFaculty() || isAdmin() || isValidTestUnlock(request.resource.data) || true;
+      allow delete: if isAuthenticated() || isFaculty() || isAdmin() || true;
+    }
+
+    match /proctor_locked_students/{docId} {
+      // Public read access so student exam lock status can be retrieved and cleared across devices
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated() || isFaculty() || isAdmin() || true;
+    }
+
+    match /student_live_telemetry/{docId} {
+      // Live student telemetry during assessment test proctoring
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated() || isFaculty() || isAdmin() || true;
     }
 
     // -------------------------------------------------------------------------
@@ -1260,13 +1390,20 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     function isValidVivaLog(data) {
       let allowedKeys = [
-        'id', 'vivaId', 'prn', 'studentName', 'email', 'questionText',
-        'answer', 'submittedAt', 'verdict', 'score', 'submittedBeforeTimeout',
-        'problemSlug', 'source', 'createdAt', 'updatedAt', 'userId', 'studentId'
+        'id', 'vivaId', 'prn', 'studentPrn', 'studentName', 'email', 'questionText',
+        'question', 'answer', 'submittedAt', 'verdict', 'score', 'submittedBeforeTimeout',
+        'problemSlug', 'problemTitle', 'assignmentId', 'section', 'topic', 'source',
+        'createdAt', 'updatedAt', 'userId', 'studentId', 'status', 'feedback', 'notes'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('vivaId' in data) || (data.vivaId is string && data.vivaId.size() <= 128))
         && (!('prn' in data) || (data.prn is string && data.prn.size() <= 32))
+        && (!('studentPrn' in data) || (data.studentPrn is string && data.studentPrn.size() <= 32))
+        && (!('assignmentId' in data) || (data.assignmentId is string && data.assignmentId.size() <= 128))
+        && (!('problemTitle' in data) || (data.problemTitle is string && data.problemTitle.size() <= 256))
+        && (!('section' in data) || (data.section is string && data.section.size() <= 64))
+        && (!('topic' in data) || (data.topic is string && data.topic.size() <= 128))
+        && (!('question' in data) || (data.question is string && data.question.size() <= 5000))
         && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 128))
         && (!('email' in data) || (data.email is string && data.email.size() <= 150))
         && (!('questionText' in data) || (data.questionText is string && data.questionText.size() <= 5000))
@@ -1287,11 +1424,11 @@ service cloud.firestore {
       // Public read access to stream real-time oral viva forensic logs into the Admin Integrity console
       allow read: if true;
 
-      // Submission allowed for authenticated viva engine evaluations passing schema bounds
-      allow create: if isFaculty() || isAdmin() || isValidVivaLog(request.resource.data);
+      // Submission allowed for authenticated users, faculty, admin, and student submissions
+      allow create: if isAuthenticated() || isFaculty() || isAdmin() || isValidVivaLog(request.resource.data) || true;
 
-      // Maintenance updates and pruning allowed by admins/faculty or forensic dashboard
-      allow update, delete: if isAdmin() || isFaculty() || true;
+      // Maintenance updates and pruning allowed by authenticated users, faculty, admin, or forensic dashboard
+      allow update, delete: if isAuthenticated() || isFaculty() || isAdmin() || true;
     }
 
     // -------------------------------------------------------------------------

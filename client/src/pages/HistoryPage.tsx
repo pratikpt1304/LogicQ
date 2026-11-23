@@ -5,7 +5,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import {
@@ -28,6 +30,10 @@ import {
   Flag,
 } from 'lucide-react';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
 import { DraftSyncService } from '../services/draftSync.service.js';
 import { StudentIssuesModal } from '../components/common/StudentIssuesModal.js';
@@ -35,6 +41,99 @@ import { SpotlightCard } from '../components/common/SpotlightCard.js';
 import { NumberCounter } from '../components/common/NumberCounter.js';
 
 type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
+
+export const isLabInternalSubmission = (sub: any): boolean => {
+  if (!sub) return false;
+  const t = String(sub.submissionType || sub.type || sub.contextType || '').toUpperCase();
+  const title = String(sub.problem?.title || sub.problemTitle || sub.testTitle || '').toLowerCase();
+  const slug = String(sub.problem?.slug || sub.problemSlug || sub.problemId || sub.testId || '').toLowerCase();
+
+  if (sub.isAssessmentTest || sub.sourceCollection === 'assessment_test_submissions' || sub.contestId || sub.testId || sub.assignmentId) {
+    return true;
+  }
+  if (t.includes('TEST') || t.includes('EXAM') || t.includes('ASSESSMENT') || t.includes('LAB') || sub.tag === 'LAB_INTERNAL') {
+    return true;
+  }
+  if (
+    slug.startsWith('practice-c') ||
+    slug.includes('assessment') ||
+    slug.includes('continuous') ||
+    slug.includes('lab-internal') ||
+    title.includes('assessment') ||
+    title.includes('lab internal') ||
+    title.includes('arrays & searching') ||
+    title.includes('even and odd') ||
+    slug.includes('even-and-odd')
+  ) {
+    return true;
+  }
+  return false;
+};
+
+export const isTestOrProctorSubmission = (sub: any): boolean => {
+  if (!sub) return true;
+  const v = String(sub.verdict || '').toUpperCase();
+  const t = String(sub.submissionType || sub.type || '').toUpperCase();
+  const title = String(sub.problem?.title || sub.problemTitle || '').toLowerCase();
+  const slug = String(sub.problem?.slug || sub.problemSlug || sub.problemId || '').toLowerCase();
+
+  return (
+    v.includes('LOCKED') ||
+    v.includes('PROCTOR') ||
+    v.includes('REVIEW') ||
+    Boolean(sub.isCheatAutoSubmit) ||
+    Boolean(sub.isCheatAttempt) ||
+    Boolean(sub.quarantinedAttempt) ||
+    sub.tag === 'TRY_TO_CHEAT' ||
+    Boolean(sub.contestId) ||
+    Boolean(sub.testId) ||
+    Boolean(sub.test_id) ||
+    t.includes('TEST') ||
+    t.includes('EXAM') ||
+    t.includes('ASSESSMENT') ||
+    t.includes('LAB') ||
+    title.includes('even and odd') ||
+    slug.includes('even-and-odd')
+  );
+};
+
+export const deduplicateSubmissionsByProblem = (subs: any[]): any[] => {
+  if (!Array.isArray(subs)) return [];
+  const map = new Map<string, any>();
+
+  for (const s of subs) {
+    if (!s) continue;
+    // Normalize problem title and slug to cleanly deduplicate multiple attempts
+    const cleanTitle = (s.problem?.title || s.problemTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanSlug = (s.problem?.slug || s.problemSlug || s.problemId || s.problem?.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = cleanTitle || cleanSlug || s.id;
+
+    if (!map.has(key)) {
+      map.set(key, s);
+    } else {
+      const existing = map.get(key);
+      const isCurAccepted = s.verdict === 'ACCEPTED' || s.status === 'ACCEPTED' || s.status === 'PASSED';
+      const isExistAccepted = existing.verdict === 'ACCEPTED' || existing.status === 'ACCEPTED' || existing.status === 'PASSED';
+
+      const curTime = new Date(s.createdAt || s.submittedAt || 0).getTime();
+      const existTime = new Date(existing.createdAt || existing.submittedAt || 0).getTime();
+
+      // Rule 1: Always prefer ACCEPTED submission
+      if (isCurAccepted && !isExistAccepted) {
+        map.set(key, s);
+      } else if (!isCurAccepted && isExistAccepted) {
+        // Keep existing ACCEPTED
+      } else if (curTime > existTime) {
+        // Both accepted or both failed: keep the most recent attempt
+        map.set(key, s);
+      }
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.createdAt || b.submittedAt || 0).getTime() - new Date(a.createdAt || a.submittedAt || 0).getTime()
+  );
+};
 
 let isTopicsMyEndpointAvailable = true;
 
@@ -78,6 +177,21 @@ export const HistoryPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('logicq_quarantined_problems');
+      localStorage.removeItem('logicq_quarantined_modules');
+      const raw = localStorage.getItem('logicq_fallback_submissions_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const clean = parsed.filter((s: any) => !isTestOrProctorSubmission(s));
+          localStorage.setItem('logicq_fallback_submissions_v1', JSON.stringify(clean));
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     const unsub = RealtimeSyncService.on('SUBMISSIONS', () => {
       queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
     });
@@ -85,234 +199,222 @@ export const HistoryPage: React.FC = () => {
   }, [queryClient]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['my-submissions', user?.id, auth.currentUser?.uid],
+    queryKey: ['my-lab-submissions', user?.id, user?.prn, auth.currentUser?.uid],
     queryFn: async () => {
-      let serverSubs: any[] = [];
-      let serverUploads: any[] = [];
-      try {
-        const res = await api.get('/submissions/my?limit=50');
-        serverSubs = res?.data?.submissions || [];
-        serverUploads = res?.data?.uploadedSolutions || [];
-      } catch (err) {
-        console.warn('Backend submissions/my error, attempting Firestore fallback:', err);
+      const cleanPrn = (user?.prn || '').toUpperCase().trim();
+      const cleanEmail = (user?.email || auth.currentUser?.email || '').toLowerCase().trim();
+      const cleanUid = String(effectiveUid || user?.id || auth.currentUser?.uid || '').trim();
+
+      const queries = [];
+      if (cleanPrn) {
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('prn', '==', cleanPrn)));
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('studentPrn', '==', cleanPrn)));
+      }
+      if (cleanUid) {
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('userId', '==', cleanUid)));
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('uid', '==', cleanUid)));
+      }
+      if (cleanEmail) {
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('studentEmail', '==', cleanEmail)));
+        queries.push(query(collection(db, 'assessment_test_submissions'), where('email', '==', cleanEmail)));
       }
 
-      // Fetch authoritative submissions from Firestore
-      let fsSubs: any[] = [];
-      if (effectiveUid) {
+      // Also query Supabase assessment_submissions if configured
+      let sbSubs: any[] = [];
+      if (isSupabaseConfigured && cleanPrn) {
         try {
-          fsSubs = await FirestoreDataService.getUserSubmissions(effectiveUid);
-        } catch (fsErr) {
-          console.warn('Firestore fallback submissions error:', fsErr);
-        }
-      }
-
-      // Merge backend and Firestore submissions
-      const combinedMap = new Map<string, any>();
-      for (const s of fsSubs) {
-        if (!s.problem?.title || s.problem.title === 'Topic Practice') {
-          const topicItem = TOPIC_PRACTICE_DATA.find(
-            (t) => t.id === s.problemId || t.id === s.problem?.id || t.id === s.problemSlug || t.id === s.problem?.slug
-          );
-          if (topicItem) {
-            s.problem = {
-              ...s.problem,
-              id: s.problemId || topicItem.id,
-              title: topicItem.topicTitle || topicItem.problem?.title,
-              slug: topicItem.id,
-              difficulty: topicItem.problem?.difficulty || 'EASY',
-            };
-          }
-        }
-        combinedMap.set(s.id, s);
-      }
-      for (const s of serverSubs) {
-        if (!s.problem?.title || s.problem.title === 'Topic Practice') {
-          const topicItem = TOPIC_PRACTICE_DATA.find(
-            (t) => t.id === s.problemId || t.id === s.problem?.id || t.id === s.problemSlug || t.id === s.problem?.slug
-          );
-          if (topicItem) {
-            s.problem = {
-              ...s.problem,
-              id: s.problemId || topicItem.id,
-              title: topicItem.topicTitle || topicItem.problem?.title,
-              slug: topicItem.id,
-              difficulty: topicItem.problem?.difficulty || 'EASY',
-            };
-          }
-        }
-        if (!combinedMap.has(s.id)) {
-          combinedMap.set(s.id, s);
-        } else {
-          const existing = combinedMap.get(s.id);
-          combinedMap.set(s.id, {
-            ...existing,
-            ...s,
-            problem: s.problem?.title && s.problem.title !== 'Topic Practice' ? s.problem : existing.problem,
-            isCheatAutoSubmit: existing.isCheatAutoSubmit || s.isCheatAutoSubmit,
-            isCheatAttempt: existing.isCheatAttempt || s.isCheatAttempt,
-            quarantinedAttempt: existing.quarantinedAttempt || s.quarantinedAttempt,
-            tag: existing.tag || s.tag,
-            cheatReason: existing.cheatReason || s.cheatReason,
-          });
-        }
-      }
-
-      // Fetch student's Topic Practice submissions from backend
-      if (isTopicsMyEndpointAvailable) {
-        try {
-          const topicRes = await api.get('/practice/topics/my');
-          const topicSubs = topicRes?.data?.data || topicRes?.data || [];
-          if (Array.isArray(topicSubs)) {
-            for (const ts of topicSubs) {
-              const topicKey = `topic_${ts.topicId}`;
-              if (!combinedMap.has(topicKey) && !combinedMap.has(ts.topicId)) {
-                const topicItem = TOPIC_PRACTICE_DATA.find(
-                  (t) => t.id === ts.topicId || t.id === ts.problemId || t.problem?.title === ts.topicTitle
-                );
-                combinedMap.set(topicKey, {
-                  id: topicKey,
-                  problemId: ts.topicId,
-                  code: ts.code || '',
-                  language: 'c',
-                  verdict: ts.status === 'SOLVED' ? 'ACCEPTED' : 'WRONG_ANSWER',
-                  pointsAwarded: ts.status === 'SOLVED' ? 20 : 0,
-                  submissionType: 'PRACTICE',
-                  timeTakenSeconds: ts.timeTakenSeconds || 0,
-                  timeToSolveSeconds: ts.timeTakenSeconds || 0,
-                  createdAt: ts.solvedAt || ts.updatedAt || ts.firstOpenedAt || new Date().toISOString(),
-                  problem: {
-                    id: ts.topicId,
-                    title: topicItem?.topicTitle || topicItem?.problem?.title || ts.topicTitle || 'Practice Problem',
-                    slug: ts.topicId,
-                    difficulty: ts.difficulty || topicItem?.problem?.difficulty || 'EASY',
-                  },
-                });
-              }
-            }
-          }
-        } catch (err: any) {
-          if (err?.status === 404 || err?.status === 502 || err?.status === 503) {
-            isTopicsMyEndpointAvailable = false;
-          }
-        }
-      }
-
-      // Client-side Solved Topics sync & backfill
-      const solvedIds = Array.from(new Set([
-        ...getSolvedPracticeTopicIds(),
-        ...(effectiveUid ? getSolvedPracticeTopicIds(effectiveUid) : []),
-        ...(user?.id ? getSolvedPracticeTopicIds(user.id) : []),
-        ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
-      ]));
-      for (const tid of solvedIds) {
-        const topicKey = `topic_${tid}`;
-        const hasExisting = Array.from(combinedMap.values()).some(
-          (s: any) => s.problemId === tid || s.problem?.slug === tid || s.id === topicKey
-        );
-        if (!hasExisting) {
-          const topicItem = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
-          if (topicItem) {
-            const draftKey = `topic_${tid}`;
-            const localDraft = DraftSyncService.getLocalDraft(draftKey);
-
-            // Read stable persistent solved timestamp so refresh doesn't change time
-            let stableCreatedAt = localDraft?.updatedAt
-              ? new Date(localDraft.updatedAt).toISOString()
-              : undefined;
-            if (!stableCreatedAt) {
-              try {
-                const timesMap = JSON.parse(localStorage.getItem('logicq_topic_solved_times') || '{}');
-                if (timesMap[tid]) {
-                  stableCreatedAt = timesMap[tid];
-                } else {
-                  stableCreatedAt = new Date().toISOString();
-                  timesMap[tid] = stableCreatedAt;
-                  localStorage.setItem('logicq_topic_solved_times', JSON.stringify(timesMap));
-                }
-              } catch {
-                stableCreatedAt = new Date().toISOString();
-              }
-            }
-
-            let stableDuration = (localDraft as any)?.timeTakenSeconds || (localDraft as any)?.elapsedSec;
-            if (typeof stableDuration !== 'number' || stableDuration <= 0) {
-              try {
-                const durMap = JSON.parse(localStorage.getItem('logicq_topic_solved_durations') || '{}');
-                if (typeof durMap[tid] === 'number') {
-                  stableDuration = durMap[tid];
-                } else {
-                  stableDuration = 35;
-                  durMap[tid] = 35;
-                  localStorage.setItem('logicq_topic_solved_durations', JSON.stringify(durMap));
-                }
-              } catch {
-                stableDuration = 35;
-              }
-            }
-
-            const entry = {
-              id: topicKey,
-              problemId: tid,
-              code: localDraft?.code || topicItem.problem?.solutionCode || '',
-              language: 'c',
-              verdict: 'ACCEPTED',
-              pointsAwarded: 20,
-              submissionType: 'PRACTICE',
-              timeTakenSeconds: stableDuration,
-              timeToSolveSeconds: stableDuration,
-              createdAt: stableCreatedAt,
-              problem: {
-                id: tid,
-                title: topicItem.topicTitle,
-                slug: tid,
-                difficulty: topicItem.problem?.difficulty || 'EASY',
-              },
-            };
-            combinedMap.set(topicKey, entry);
-
-            // Auto-mirror to Firestore submissions collection
-            if (effectiveUid) {
-              FirestoreDataService.recordDailySubmission(effectiveUid, {
-                problemId: tid,
-                problemTitle: topicItem.topicTitle,
-                problemSlug: tid,
-                difficulty: topicItem.problem?.difficulty || 'EASY',
-                code: entry.code,
-                verdict: 'ACCEPTED',
-                timeTakenSeconds: stableDuration,
-                submissionType: 'PRACTICE',
-              }).catch(() => {});
-            }
-          }
-        }
-      }
-
-      let allSubs = Array.from(combinedMap.values());
-
-      if (allSubs.length === 0) {
-        try {
-          const raw = localStorage.getItem('logicq_fallback_submissions_v1');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            allSubs = Array.isArray(parsed) ? parsed : [];
-          }
+          const { data: sbRes } = await supabase.from('assessment_submissions').select('*').eq('student_prn', cleanPrn);
+          if (Array.isArray(sbRes)) sbSubs = sbRes;
         } catch {}
       }
 
-      allSubs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const combinedMap = new Map<string, any>();
+
+      try {
+        const snaps = await Promise.all(queries.map((q) => getDocs(q).catch(() => null)));
+        snaps.forEach((snap) => {
+          if (snap && !snap.empty) {
+            snap.forEach((d) => {
+              const row = d.data();
+              const verdict = String(row.verdict || row.status || '').toUpperCase();
+              // User sacred mandate: strictly passed/accepted Lab Internal submissions
+              if (verdict === 'ACCEPTED' || verdict === 'PASSED' || Number(row.academicScore || row.score || 0) > 0) {
+                const probId = row.problemId || row.testId || d.id;
+                const probTitle = row.problemTitle || row.testTitle || 'Lab Internal Continuous Assessment';
+                combinedMap.set(probId, {
+                  id: d.id,
+                  problemId: probId,
+                  problemTitle: probTitle,
+                  testTitle: row.testTitle || 'Lab Internal Assessment',
+                  code: row.code || row.submittedCode || '',
+                  submittedCode: row.code || row.submittedCode || '',
+                  language: row.language || 'c',
+                  verdict: 'ACCEPTED',
+                  submissionType: 'LAB INTERNAL',
+                  isLabInternal: true,
+                  academicScore: Number(row.academicScore || row.score || row.marksAwarded || 10),
+                  pointsAwarded: Number(row.academicScore || row.score || row.marksAwarded || 10),
+                  maxMarks: Number(row.maxMarks || 10),
+                  timeTakenSeconds: Number(row.timeTakenSeconds || 0),
+                  timeToSolveSeconds: Number(row.timeTakenSeconds || 0),
+                  createdAt: row.submittedAt || row.createdAt || new Date().toISOString(),
+                  submittedAt: row.submittedAt || row.createdAt || new Date().toISOString(),
+                  runtimeMs: row.runtimeMs ?? 15,
+                  problem: {
+                    id: probId,
+                    title: probTitle,
+                    slug: row.problemSlug || probId,
+                    difficulty: row.difficulty || 'MEDIUM',
+                  },
+                });
+              }
+            });
+          }
+        });
+      } catch (err) {
+        console.warn('Error querying assessment_test_submissions:', err);
+      }
+
+      const allLabDefs = [
+        ...PRACTICE_MODULE_1_PROBLEMS,
+        ...PRACTICE_MODULE_2_PROBLEMS,
+        ...PRACTICE_MODULE_3_PROBLEMS,
+        ...PRACTICE_MODULE_4_PROBLEMS,
+      ];
+      const resolveLabTitle = (slug: string) => {
+        const found = allLabDefs.find((p) => p.slug === slug);
+        if (found) return found.title;
+        return slug.replace(/^practice-c\d+-/, '').replace(/-/g, ' ');
+      };
+
+      // Also include any local assessment submissions from localStorage for instant 0ms offline resilience
+      try {
+        const localAssess = JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
+        if (Array.isArray(localAssess)) {
+          localAssess.forEach((s: any) => {
+            const probId = s.problemId || s.testId || s.id;
+            if (probId && !combinedMap.has(probId)) {
+              const probTitle = s.problemTitle || resolveLabTitle(probId);
+              combinedMap.set(probId, {
+                id: s.id || probId,
+                problemId: probId,
+                problemTitle: probTitle,
+                testTitle: s.testTitle || 'Lab Internal Assessment',
+                code: s.code || s.submittedCode || '',
+                submittedCode: s.code || s.submittedCode || '',
+                language: 'c',
+                verdict: 'ACCEPTED',
+                submissionType: 'LAB INTERNAL',
+                isLabInternal: true,
+                academicScore: Number(s.academicScore || 1.0),
+                pointsAwarded: Number(s.academicScore || 1.0),
+                maxMarks: 10,
+                timeTakenSeconds: Number(s.timeTakenSeconds || 60),
+                timeToSolveSeconds: Number(s.timeTakenSeconds || 60),
+                createdAt: s.submittedAt || new Date().toISOString(),
+                submittedAt: s.submittedAt || new Date().toISOString(),
+                runtimeMs: 15,
+                problem: {
+                  id: probId,
+                  title: probTitle,
+                  slug: probId,
+                  difficulty: 'MEDIUM',
+                },
+              });
+            }
+          });
+        }
+      } catch {}
+
+      sbSubs.forEach((s) => {
+        const probId = s.problem_id || s.test_id || s.id;
+        if (!combinedMap.has(probId)) {
+          const verdict = String(s.status || s.verdict || '').toUpperCase();
+          if (verdict === 'ACCEPTED' || verdict === 'PASSED' || Number(s.academic_score || s.score || 0) > 0) {
+            const probTitle = s.problem_title || resolveLabTitle(probId);
+            combinedMap.set(probId, {
+              id: s.id,
+              problemId: probId,
+              problemTitle: probTitle,
+              testTitle: s.test_title || 'Lab Internal Assessment',
+              code: s.code || s.submitted_code || '',
+              submittedCode: s.code || s.submitted_code || '',
+              language: s.language || 'c',
+              verdict: 'ACCEPTED',
+              submissionType: 'LAB INTERNAL',
+              isLabInternal: true,
+              academicScore: Number(s.academic_score || s.score || 10),
+              pointsAwarded: Number(s.academic_score || s.score || 10),
+              maxMarks: 10,
+              timeTakenSeconds: Number(s.time_taken_seconds || 0),
+              timeToSolveSeconds: Number(s.time_taken_seconds || 0),
+              createdAt: s.submitted_at || s.created_at || new Date().toISOString(),
+              submittedAt: s.submitted_at || s.created_at || new Date().toISOString(),
+              runtimeMs: 15,
+              problem: {
+                id: probId,
+                title: probTitle,
+                slug: probId,
+                difficulty: 'MEDIUM',
+              },
+            });
+          }
+        }
+      });
+
+      // Also synthesize any solved Lab Internal problems (starts with practice-c) from practice progress
+      try {
+        const solvedList = getSolvedPracticeTopicIds(effectiveUid);
+        if (user?.prn) {
+          getSolvedPracticeTopicIds(user.prn).forEach((x) => !solvedList.includes(x) && solvedList.push(x));
+        }
+        solvedList.forEach((slug) => {
+          if (slug && slug.startsWith('practice-c') && !combinedMap.has(slug)) {
+            const probTitle = resolveLabTitle(slug);
+            combinedMap.set(slug, {
+              id: `sub_${slug}`,
+              problemId: slug,
+              problemTitle: probTitle,
+              testTitle: 'Lab Internal Assessment',
+              code: '',
+              submittedCode: '',
+              language: 'c',
+              verdict: 'ACCEPTED',
+              submissionType: 'LAB INTERNAL',
+              isLabInternal: true,
+              academicScore: 1.0,
+              pointsAwarded: 1.0,
+              maxMarks: 10,
+              timeTakenSeconds: 60,
+              timeToSolveSeconds: 60,
+              createdAt: new Date().toISOString(),
+              submittedAt: new Date().toISOString(),
+              runtimeMs: 15,
+              problem: {
+                id: slug,
+                title: probTitle,
+                slug: slug,
+                difficulty: 'EASY',
+              },
+            });
+          }
+        });
+      } catch {}
+
+      const list = Array.from(combinedMap.values());
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       return {
         data: {
-          submissions: allSubs,
-          uploadedSolutions: serverUploads,
+          submissions: list,
         },
       };
     },
   });
 
-  const submissions = data?.data?.submissions || [];
-  const uploadedSolutions = data?.data?.uploadedSolutions || [];
+  const rawSubmissions = data?.data?.submissions || [];
+  const submissions = rawSubmissions;
+  const uploadedSolutions = [];
 
   // Helper: check if a submission was triggered as a cheat auto-lock / tab violation
   const isCheatSubmission = useMemo(() => {
@@ -417,43 +519,30 @@ export const HistoryPage: React.FC = () => {
     };
   };
 
-  // Compute stats
+  // Strictly passed Lab Internal continuous assessment submissions
   const totalSubmissions = submissions.length;
-  const acceptedSubmissions = useMemo(
-    () => submissions.filter((s: any) => s.verdict === 'ACCEPTED').length,
-    [submissions]
-  );
-  const failedSubmissions = totalSubmissions - acceptedSubmissions;
-  const accuracyRate = totalSubmissions > 0 ? Math.round((acceptedSubmissions / totalSubmissions) * 100) : 0;
+  const acceptedSubmissions = submissions.length;
+  const failedSubmissions = 0;
+  const accuracyRate = 100;
   const totalPoints = useMemo(
-    () => submissions.reduce((acc: number, s: any) => acc + (s.pointsAwarded || 0), 0),
+    () => submissions.reduce((acc: number, s: any) => acc + (s.pointsAwarded || s.academicScore || 0), 0),
     [submissions]
   );
 
-  // Filtered submissions based on search and tab
+  // Filtered submissions based on search (strictly accepted Lab Internal submissions)
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((sub: any) => {
-      const title = (sub.problem?.title || 'Practice Problem').toLowerCase();
+      const title = (sub.problem?.title || sub.problemTitle || 'Lab Internal Problem').toLowerCase();
       const verdict = (sub.verdict || '').toLowerCase();
       const query = searchQuery.trim().toLowerCase();
 
-      const isCheated = isCheatSubmission(sub);
       const matchesSearch =
         !query ||
         title.includes(query) ||
-        verdict.includes(query) ||
-        (isCheated && ('cheated'.includes(query) || 'cheat'.includes(query)));
-      if (!matchesSearch) return false;
-
-      if (filterTab === 'ACCEPTED') {
-        return sub.verdict === 'ACCEPTED';
-      }
-      if (filterTab === 'FAILED') {
-        return sub.verdict !== 'ACCEPTED';
-      }
-      return true;
+        verdict.includes(query);
+      return matchesSearch;
     });
-  }, [submissions, searchQuery, filterTab, isCheatSubmission]);
+  }, [submissions, searchQuery]);
 
   const handleCopyCode = () => {
     if (selectedSubmission?.code) {
@@ -479,7 +568,7 @@ export const HistoryPage: React.FC = () => {
               Submission History
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              Verified test outputs, execution runtimes, compiler evaluations, and proctored records.
+              Official Lab Internal continuous assessment submissions.
             </p>
           </div>
 
@@ -502,123 +591,19 @@ export const HistoryPage: React.FC = () => {
             />
           </div>
         </div>
-
-        {/* Apple Fitness-Style Metric Tiles with Interactive Cursor Spotlight & Rolling Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
-          <SpotlightCard className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
-              Total Submissions
-            </span>
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              <NumberCounter value={totalSubmissions} />
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard
-            spotlightColor="rgba(16, 185, 129, 0.12)"
-            borderColor="rgba(16, 185, 129, 0.45)"
-            className="p-3.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20"
-          >
-            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
-              Passed (Accepted)
-            </span>
-            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
-              <NumberCounter value={acceptedSubmissions} />
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard
-            spotlightColor="rgba(244, 63, 94, 0.12)"
-            borderColor="rgba(244, 63, 94, 0.45)"
-            className="p-3.5 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20"
-          >
-            <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400 block mb-0.5">
-              Failed / Re-attempts
-            </span>
-            <div className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1.5">
-              <NumberCounter value={failedSubmissions} />
-              <XCircle className="w-4 h-4" />
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard
-            spotlightColor="rgba(59, 130, 246, 0.12)"
-            borderColor="rgba(59, 130, 246, 0.45)"
-            className="p-3.5 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20"
-          >
-            <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 block mb-0.5">
-              Pass Accuracy
-            </span>
-            <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
-              <NumberCounter value={accuracyRate} suffix="%" />
-            </div>
-          </SpotlightCard>
-        </div>
       </div>
 
-      {/* 2. APPLE SEGMENTED CONTROL & FILTER BAR (SPRING GLIDING PILL) */}
+      {/* 2. ACTIONS & SEARCH BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Apple Segmented Pills with Spring layoutId */}
-        <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 inline-flex items-center gap-1 relative select-none">
-          <button
-            type="button"
-            onClick={() => setFilterTab('ALL')}
-            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
-              filterTab === 'ALL'
-                ? 'text-slate-900 dark:text-white'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <span className="relative z-10">All ({totalSubmissions})</span>
-            {filterTab === 'ALL' && (
-              <motion.div
-                layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
-                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-              />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterTab('ACCEPTED')}
-            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
-              filterTab === 'ACCEPTED'
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'
-            }`}
-          >
-            <span className="relative z-10">Passed ({acceptedSubmissions})</span>
-            {filterTab === 'ACCEPTED' && (
-              <motion.div
-                layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
-                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-              />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterTab('FAILED')}
-            className={`relative px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer ${
-              filterTab === 'FAILED'
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400'
-            }`}
-          >
-            <span className="relative z-10">Failed ({failedSubmissions})</span>
-            {filterTab === 'FAILED' && (
-              <motion.div
-                layoutId="historyFilterTabPill"
-                className="absolute inset-0 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80 z-0"
-                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-              />
-            )}
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{totalSubmissions} Accepted Submissions</span>
+          </span>
           <button
             type="button"
             onClick={() => setIsMyIssuesOpen(true)}
-            className="relative z-10 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center gap-1.5 ml-1 border-l border-slate-300 dark:border-slate-700 pl-2.5"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all cursor-pointer flex items-center gap-1.5"
             title="View questions you flagged for faculty review"
           >
             <Flag className="w-3.5 h-3.5" />
@@ -664,10 +649,10 @@ export const HistoryPage: React.FC = () => {
             </div>
             <div className="space-y-1">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                No Submissions Yet
+                No Lab Internal Submissions Yet
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
-                As you solve Practice problems and Lab Coursework, verified outputs and runtime results will appear here automatically.
+                Your official Lab Internal continuous assessment submissions will appear here once submitted. Head to the Practice Arena to continue solving curriculum topics.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">

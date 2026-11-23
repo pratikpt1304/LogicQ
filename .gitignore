@@ -68,3 +68,37 @@ server/audit-users.json
 audit-users.json
 
 server/src/judge/logicq_judge_*/
+
+# Scratch & Maintenance Scripts
+scripts/inspect-*
+scripts/sync-*
+scripts/reset-*
+scripts/solve-*
+scripts/test-*
+scripts/check-*
+scripts/find-*
+scripts/clean-*
+scripts/clear-*
+scripts/execute-*
+scripts/upsert-*
+scripts/update-*
+scripts/investigate-*
+scripts/set-*
+scripts/target-*
+scripts/simulate-*
+scripts/collect-*
+scripts/compare-*
+scripts/fix-*
+scripts/get-*
+scripts/parse-*
+scripts/publish-*
+scripts/purge-*
+scripts/restore-*
+scripts/scan-keys.mjs
+scripts/search-*
+scripts/seed-*
+scripts/build_*.js
+scripts/create_*.js
+scripts/data_*.js
+scripts/generate_*.js
+skills-lock.json

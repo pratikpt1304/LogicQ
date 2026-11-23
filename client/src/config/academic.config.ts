@@ -329,7 +329,9 @@ export function resolveGreetingName(
   fallbackAuthName?: string | null
 ): string {
   const prn = (user as any)?.prn?.toUpperCase();
-  if (prn === '2126PMIM1039') return 'Pratik Thorat';
+  if (prn === '2126PMIM1039') {
+    return user?.displayName || user?.fullName || 'Pratik Balasaheb Thorat';
+  }
   if (user) {
     if (isRealPersonName(user.displayName)) return user.displayName!.trim();
     if (isRealPersonName(user.fullName)) return user.fullName!.trim();

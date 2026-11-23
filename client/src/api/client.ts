@@ -255,8 +255,8 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   let useFallback = false;
 
   // Resilient retry loop to smoothly absorb Render free tier cold-starts (502/503/504)
-  // For auth/login & change-password, use a fast 6s timeout and 1 attempt so users never wait 135s cold-starts
-  const isFastAuth = cleanEndpoint === '/auth/login' || cleanEndpoint === '/auth/change-password' || cleanEndpoint.includes('-otp');
+  // For fast endpoints (auth, viva, exam start), use a fast timeout and 1 attempt so users never wait
+  const isFastAuth = cleanEndpoint === '/auth/login' || cleanEndpoint === '/auth/change-password' || cleanEndpoint.includes('-otp') || cleanEndpoint.includes('/viva') || cleanEndpoint === '/exam/start-question' || cleanEndpoint.startsWith('/exam');
   const maxAttempts = isFastAuth
     ? 1
     : (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice') || cleanEndpoint.startsWith('/submissions')) ? 3 : 1;
@@ -264,7 +264,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     try {
       const fetchConfig: RequestInit = { ...config };
       if (!fetchConfig.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-        const timeoutMs = isFastAuth ? 6000 : 45000;
+        const timeoutMs = (cleanEndpoint === '/exam/start-question' || cleanEndpoint.startsWith('/exam')) ? 2500 : (isFastAuth ? 6000 : 45000);
         fetchConfig.signal = (AbortSignal as any).timeout(timeoutMs);
       }
       response = await fetch(url, fetchConfig);
@@ -289,25 +289,22 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     }
   }
 
-  // Primary student data (auth, submissions, practice progress, profile) must never silently decay
+  // Primary student data (auth, profile) must never silently decay
   // into browser localStorage fallback in production.
+  // Practice submissions are allowed to use resilient fallback execution when remote judge is unreachable.
   if (useFallback || !response) {
-    if (cleanEndpoint === '/submissions/submit' || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
+    if ((import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
-      let errorMsg = cleanEndpoint === '/submissions/submit'
-        ? 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.'
-        : 'Server is temporarily unavailable. Please try again in a moment.';
+      let errorMsg = 'Server is temporarily unavailable. Please try again in a moment.';
       let errorCode = 'SERVER_UNAVAILABLE';
 
       if (isOffline) {
         errorMsg = 'You are currently offline. Please reconnect to the internet and click Retry.';
         errorCode = 'OFFLINE';
       } else if (response && !isJsonResponse(response)) {
-        errorMsg = cleanEndpoint === '/submissions/submit'
-          ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
-          : 'Server returned an unexpected response. Please try again.';
-        errorCode = cleanEndpoint === '/submissions/submit' ? 'JUDGE_UNREACHABLE' : 'SERVER_ERROR';
+        errorMsg = 'Server returned an unexpected response. Please try again.';
+        errorCode = 'SERVER_ERROR';
       }
 
       const err = new Error(errorMsg) as LogicQApiError;
@@ -345,30 +342,27 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     }
 
-    if (cleanEndpoint !== '/submissions/submit') {
+    try {
+      const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
+      if (fallbackRes !== null && fallbackRes !== undefined) {
+        return fallbackRes as T;
+      }
+    } catch (fallbackErr: any) {
+      // Continue to server error if fallback didn't resolve
+    }
+
+    // Code runs in sandbox/practice should never fail with a blocking session expiration error
+    if (cleanEndpoint === '/submissions/run' || cleanEndpoint === '/problems/run' || cleanEndpoint === '/submissions/submit') {
       try {
         const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
-        if (fallbackRes !== null && fallbackRes !== undefined) {
-          return fallbackRes as T;
-        }
-      } catch (fallbackErr: any) {
-        // Continue to server error if fallback didn't resolve
-      }
+        if (fallbackRes) return fallbackRes as T;
+      } catch {}
+    }
 
-      // Code runs in sandbox/practice should never fail with a blocking session expiration error
-      if (cleanEndpoint === '/submissions/run' || cleanEndpoint === '/problems/run') {
-        try {
-          const body = options.body && typeof options.body === 'string' ? JSON.parse(options.body) : {};
-          const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
-          if (fallbackRes) return fallbackRes as T;
-        } catch {}
-      }
-
-      if (data && data.message) {
-        const err = new Error(data.message) as LogicQApiError;
-        err.status = response.status;
-        throw err;
-      }
+    if (data && data.message) {
+      const err = new Error(data.message) as LogicQApiError;
+      err.status = response.status;
+      throw err;
     }
     let errorMsg = data?.message || (!data 
       ? (cleanEndpoint.startsWith('/submissions')

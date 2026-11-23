@@ -6,6 +6,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client.js';
 import { auth } from '../../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../../config/supabase.js';
+import { AttendanceSyncService } from '../../services/attendanceSync.service.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
@@ -98,6 +100,58 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     refetchOnWindowFocus: true,
   });
 
+  const studentPrn = useMemo(() => {
+    return String(
+      user?.prn ||
+      (user as any)?.studentPrn ||
+      (user as any)?.rollNo ||
+      (user as any)?.rollNumber ||
+      FirestoreDataService.resolvePrn((user as any)?.uid || user?.id || user?.email || targetUid) ||
+      (typeof window !== 'undefined' ? (localStorage.getItem('logicq_student_prn') || localStorage.getItem('logicq_user_prn') || '') : '')
+    ).toUpperCase().trim();
+  }, [user, targetUid]);
+
+  const { data: sbAssessmentSubs = [] } = useQuery({
+    queryKey: ['supabase-assessment-subs', studentPrn, user?.email],
+    queryFn: async () => {
+      if (!isSupabaseConfigured) return [];
+      try {
+        let q = supabase.from('assessment_submissions').select('*');
+        if (studentPrn && user?.email) {
+          q = q.or(`student_prn.eq.${studentPrn},student_email.eq.${user.email}`);
+        } else if (studentPrn) {
+          q = q.eq('student_prn', studentPrn);
+        } else if (user?.email) {
+          q = q.eq('student_email', user.email);
+        } else {
+          return [];
+        }
+        const { data } = await q;
+        return data || [];
+      } catch {
+        return [];
+      }
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: sbStudentLocks = [] } = useQuery({
+    queryKey: ['supabase-student-locks', studentPrn],
+    queryFn: async () => {
+      if (!isSupabaseConfigured || !studentPrn) return [];
+      try {
+        const { data } = await supabase
+          .from('student_locks')
+          .select('*')
+          .eq('student_prn', studentPrn);
+        return data || [];
+      } catch {
+        return [];
+      }
+    },
+    refetchOnWindowFocus: true,
+  });
+
   const { data: reportData } = useQuery({
     queryKey: ['student-report-data', selectedReportTestId],
     queryFn: () => api.get(`/analytics/student/report/${selectedReportTestId}`),
@@ -107,11 +161,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   // Calculate real solved practice topics across user id and PRN
   const solvedTopicIds = useMemo(() => {
     try {
-      return Array.from(new Set([
+      const raw = Array.from(new Set([
         ...getSolvedPracticeTopicIds(),
         ...(user?.id ? getSolvedPracticeTopicIds(user.id) : []),
         ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
       ]));
+      const validPracticeSet = new Set(TOPIC_PRACTICE_DATA.map((t) => t.id));
+      return raw.filter((id) => validPracticeSet.has(id));
     } catch {
       return [];
     }
@@ -244,42 +300,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     };
   }, [modulesProgress]);
 
-  // Proctoring telemetry calculations - strictly isolated to Practice Arena
-  const practiceIncidents = useMemo(() => {
-    return (fsTelemetry?.incidents || []).filter((inc: any) => {
-      if (inc.category === 'LAB_INTERNAL' || inc.category === 'ASSESSMENT') return false;
-      if (inc.testId || inc.assignmentId) return false;
-      const title = String(inc.moduleTitle || inc.problemTitle || inc.problemSlug || '').toLowerCase();
-      if (
-        title.includes('assessment') ||
-        title.includes('lab internal') ||
-        title.includes('test') ||
-        title.includes('exam') ||
-        title.includes('asub_') ||
-        title.startsWith('unit_')
-      ) return false;
-      return true;
-    });
-  }, [fsTelemetry?.incidents]);
-
-  const totalTabSwitches = useMemo(() => {
-    return practiceIncidents.filter((i: any) => i.type === 'TAB_SWITCH' || i.type === 'EXCEEDED_TAB_SWITCHES').length;
-  }, [practiceIncidents]);
-
-  const totalClipboardAttempts = useMemo(() => {
-    return practiceIncidents.filter((i: any) => i.type === 'COPY_PASTE' || i.type === 'EXCEEDED_COPY_PASTE').length;
-  }, [practiceIncidents]);
-
-  const autoLockCount = useMemo(() => {
-    return practiceIncidents.filter((i: any) => i.type === 'EXCEEDED_TAB_SWITCHES' || i.type === 'EXCEEDED_COPY_PASTE').length;
-  }, [practiceIncidents]);
-
-  const totalFullscreenExits = useMemo(() => {
-    return practiceIncidents.filter((i: any) => i.type === 'FULLSCREEN_EXIT').length;
-  }, [practiceIncidents]);
-
-  // Hariprasad Sir Sacred Mandate: "Sirf Lab Internal mein hi integrity kam hogi, Practice mein nahi"
-  // Practice mode tab switches & pastes = 0 deduction. Deductions ONLY apply during Lab Internal / Exam incidents:
+  // Hariprasad Sir Sacred Mandate: Strictly isolate proctoring & integrity telemetry to Lab Internal / Exam evaluations!
+  // Practice mode tab switches & pastes = 0 deduction & 0 violations shown.
   const labInternalIncidents = useMemo(() => {
     return (fsTelemetry?.incidents || []).filter((inc: any) => {
       if (inc.category === 'LAB_INTERNAL' || inc.category === 'Lab Internal' || inc.category === 'ASSESSMENT') return true;
@@ -296,19 +318,34 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     });
   }, [fsTelemetry?.incidents]);
 
-  const labTabSwitches = useMemo(() => {
+  // Sacred Mandate: Academic Behavioral Integrity on Student Portal is strictly for Lab Internal Coursework.
+  // Test / Exam proctoring telemetry has its own isolated integrity track visible ONLY to Faculty/Admin in Admin Portal.
+  const isStudentLocked = useMemo(() => {
+    return AttendanceSyncService.isStudentLockedByProctor(studentPrn);
+  }, [studentPrn]);
+
+  const totalTabSwitches = useMemo(() => {
     return labInternalIncidents.filter((i: any) => i.type === 'TAB_SWITCH' || i.type === 'EXCEEDED_TAB_SWITCHES').length;
   }, [labInternalIncidents]);
 
-  const labClipboardAttempts = useMemo(() => {
+  const totalClipboardAttempts = useMemo(() => {
     return labInternalIncidents.filter((i: any) => i.type === 'COPY_PASTE' || i.type === 'EXCEEDED_COPY_PASTE').length;
   }, [labInternalIncidents]);
 
-  const finalIntegrityScore = useMemo(() => {
-    return Math.max(0, Math.min(100, 100 - (labTabSwitches * 5) - (labClipboardAttempts * 10)));
-  }, [labTabSwitches, labClipboardAttempts]);
+  const autoLockCount = useMemo(() => {
+    return labInternalIncidents.filter((i: any) => i.type === 'EXCEEDED_TAB_SWITCHES' || i.type === 'EXCEEDED_COPY_PASTE').length;
+  }, [labInternalIncidents]);
 
-  const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
+  const totalFullscreenExits = useMemo(() => {
+    return labInternalIncidents.filter((i: any) => i.type === 'FULLSCREEN_EXIT').length;
+  }, [labInternalIncidents]);
+
+  const finalIntegrityScore = useMemo(() => {
+    if (isStudentLocked) return 0;
+    return Math.max(0, Math.min(100, 100 - (totalTabSwitches * 10) - (totalClipboardAttempts * 10) - (totalFullscreenExits * 15)));
+  }, [totalTabSwitches, totalClipboardAttempts, totalFullscreenExits, isStudentLocked]);
+
+  const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0 && !isStudentLocked;
 
   // Dynamic Typing Speed & Keystroke Cadence (CPM / WPM)
   const typingMetrics = useMemo(() => {
@@ -323,6 +360,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       const sec = Number(s.timeTakenSeconds || s.durationSeconds || s.timeToSolveSeconds) || 0;
       if (k > 0) totalKeys += k;
       if (sec > 0) totalActiveSec += sec;
+    });
+
+    sbAssessmentSubs.forEach((s: any) => {
+      const v = Number(s.typing_velocity_cpm || s.cpm) || 0;
+      if (v > directCpm) directCpm = v;
+      const k = Number(s.total_keystrokes) || 0;
+      if (k > 0) totalKeys += k;
     });
 
     let localCpm = 0;
@@ -356,7 +400,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       hasData: cpm > 0,
       totalKeys,
     };
-  }, [userSubmissions, user, solvedTopicIds.length]);
+  }, [userSubmissions, sbAssessmentSubs, user, solvedTopicIds.length]);
 
   // Process question-by-question proctoring audit log with exact timestamps, track, and module classification
   const questionIncidentsList = useMemo(() => {
@@ -438,51 +482,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 1, moduleTitle: 'Module 1: C Fundamentals' };
     };
 
-    const rawIncidents = fsTelemetry?.incidents || [];
     const map = new Map<string, QuestionAuditItem>();
 
-    // Check localStorage quarantined problems as well
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
-          const val = JSON.parse(localStorage.getItem(key) || '[]');
-          if (Array.isArray(val)) {
-            val.forEach((slug: string) => {
-              const cleanSlug = String(slug).toLowerCase().trim();
-              if (!map.has(cleanSlug)) {
-                const title = cleanSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                const meta = resolveMeta(cleanSlug, title);
-                map.set(cleanSlug, {
-                  problemTitle: title,
-                  problemSlug: cleanSlug,
-                  track: meta.track,
-                  trackLabel: meta.trackLabel,
-                  moduleIndex: meta.moduleIndex,
-                  moduleTitle: meta.moduleTitle,
-                  tabSwitches: 3,
-                  pasteAttempts: 0,
-                  fullscreenExits: 0,
-                  isAutoLocked: true,
-                  lastTimestamp: new Date().toISOString(),
-                  events: [
-                    {
-                      type: 'EXCEEDED_TAB_SWITCHES',
-                      reason: 'Exceeded 3 tab switches (Quarantined question)',
-                      timestamp: new Date().toISOString(),
-                    },
-                  ],
-                });
-              }
-            });
-          }
-        }
-      }
-    } catch {}
-
-    practiceIncidents.forEach((inc: any) => {
-      const slug = (inc.problemSlug || inc.problemTitle || 'general-practice').toLowerCase().trim();
-      const title = inc.problemTitle || inc.problemSlug || 'Practice Question';
+    labInternalIncidents.forEach((inc: any) => {
+      const slug = (inc.problemSlug || inc.problemTitle || 'lab-internal-evaluation').toLowerCase().trim();
+      const title = inc.problemTitle || inc.problemSlug || 'Lab Internal Evaluation';
       const meta = resolveMeta(slug, title);
 
       const existing: QuestionAuditItem = map.get(slug) || {
@@ -529,7 +533,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
     );
-  }, [practiceIncidents]);
+  }, [labInternalIncidents]);
 
   const practiceIncidentsCount = useMemo(() => {
     return questionIncidentsList.filter((i) => i.track === 'PRACTICE').length;
@@ -642,80 +646,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               className="shrink-0"
             />
           </div>
-        </div>
-
-        {/* 4 Clean Actionable Metric Tiles with Interactive Cursor Spotlight & Rolling Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
-          {/* Tile 1: Problems Solved */}
-          <SpotlightCard
-            spotlightColor="rgba(16, 185, 129, 0.12)"
-            borderColor="rgba(16, 185, 129, 0.45)"
-            className="p-4 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20"
-          >
-            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
-              Problems Mastered
-            </span>
-            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
-              <NumberCounter value={totalMastered} />
-              <span className="text-xs text-slate-400 font-sans font-normal">/ {curriculumTotal}</span>
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              {solvedTopicIds.length} Practice • {labSolvedCount} Lab
-            </span>
-          </SpotlightCard>
-
-          {/* Tile 2: CIE Lab Internal Marks */}
-          <SpotlightCard
-            spotlightColor="rgba(99, 102, 241, 0.12)"
-            borderColor="rgba(129, 140, 248, 0.45)"
-            className="p-4 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20"
-          >
-            <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 block mb-0.5">
-              CIE Lab Internal
-            </span>
-            <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1">
-              <NumberCounter value={cieMarks} decimals={1} />
-              <span className="text-xs text-slate-400 font-sans font-normal">/ 20.0 M</span>
-            </div>
-            <span className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 block font-medium">
-              Continuous Evaluation
-            </span>
-          </SpotlightCard>
-
-          {/* Tile 3: Compiler Accuracy */}
-          <SpotlightCard
-            spotlightColor="rgba(6, 182, 212, 0.12)"
-            borderColor="rgba(6, 182, 212, 0.45)"
-            className="p-4 bg-cyan-500/5 dark:bg-cyan-500/10 border border-cyan-500/20"
-          >
-            <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400 block mb-0.5">
-              Compiler Accuracy
-            </span>
-            <div className="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono flex items-center gap-1">
-              <NumberCounter value={verdictStats.accuracy} suffix="%" />
-              <Target className="w-4 h-4 ml-0.5" />
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              {verdictStats.ac} Accepted Solutions
-            </span>
-          </SpotlightCard>
-
-          {/* Tile 4: Curriculum Coverage */}
-          <SpotlightCard
-            spotlightColor="rgba(168, 85, 247, 0.12)"
-            borderColor="rgba(168, 85, 247, 0.45)"
-            className="p-4 bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/20"
-          >
-            <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 block mb-0.5">
-              Curriculum Mastery
-            </span>
-            <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 font-mono">
-              <NumberCounter value={curriculumPercent} suffix="%" />
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              4 Core Syllabus Modules
-            </span>
-          </SpotlightCard>
         </div>
       </div>
 
@@ -941,8 +871,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Integrity Rating: {finalIntegrityScore} / 100
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono border ${
+                    isStudentLocked
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                      : isCleanSession
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                  }`}>
+                    {isStudentLocked ? '🔒 Locked (2 Violations Breached)' : `Integrity Rating: ${finalIntegrityScore} / 100`}
                   </span>
                 </div>
               </div>

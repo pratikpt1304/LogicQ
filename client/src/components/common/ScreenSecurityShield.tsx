@@ -46,13 +46,14 @@ export const ScreenSecurityShield: React.FC<ScreenSecurityShieldProps> = ({
   return (
     <div
       onClick={onRestore}
-      className="fixed inset-0 z-[99999999] bg-[#070913]/98 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center select-none cursor-pointer transition-opacity duration-150 animate-in fade-in"
+      className="fixed inset-0 z-[99999999] flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none cursor-pointer transition-opacity duration-150 animate-in fade-in"
+      style={{ backgroundColor: 'rgba(7, 9, 19, 0.98)', backdropFilter: 'blur(24px)' }}
       role="alert"
       aria-live="assertive"
     >
-      <div className="max-w-md w-full mx-auto flex flex-col items-center">
+      <div className="max-w-md w-full mx-auto p-6 sm:p-8 rounded-3xl bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl flex flex-col items-center text-center">
         {/* Glowing Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-widest uppercase bg-rose-500/10 border border-rose-500/30 text-rose-400 mb-6 shadow-lg shadow-rose-950/30">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-widest uppercase bg-rose-500/15 border border-rose-500/40 text-rose-300 mb-6 shadow-lg shadow-rose-950/50">
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
           <span>PROCTORING DEFENSE ENGAGED</span>
         </div>
@@ -68,12 +69,12 @@ export const ScreenSecurityShield: React.FC<ScreenSecurityShieldProps> = ({
         </div>
 
         {/* Heading */}
-        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
+        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-3">
           {title}
         </h2>
 
         {/* Message */}
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6 font-mono">
+        <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-6 font-mono font-medium">
           {message}
         </p>
 
@@ -83,15 +84,15 @@ export const ScreenSecurityShield: React.FC<ScreenSecurityShieldProps> = ({
             e.stopPropagation();
             if (onRestore) onRestore();
           }}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-lg shadow-indigo-600/30 transition transform hover:scale-[1.02] active:scale-95"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-xl shadow-indigo-600/30 transition transform hover:scale-[1.02] active:scale-95"
         >
-          <Lock className="w-3.5 h-3.5" />
+          <Lock className="w-4 h-4" />
           <span>Click anywhere to resume workspace</span>
         </button>
 
         {/* Footer info */}
-        <div className="mt-8 flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-          <AlertTriangle className="w-3 h-3 text-amber-400" />
+        <div className="mt-6 flex items-center gap-2 text-xs text-amber-300 font-mono font-medium bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span>Screenshots, snipping tools & print shortcuts are strictly logged</span>
         </div>
       </div>

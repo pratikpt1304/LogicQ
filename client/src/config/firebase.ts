@@ -5,11 +5,16 @@ import {
   getFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  setLogLevel,
 } from "firebase/firestore";
+
+try {
+  setLogLevel('silent');
+} catch {}
 
 // LogicQ production Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjxkk2FVbtvqmhFk1XWUDRRkCgBtdfuBw",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "logicq-clanguage.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "logicq-clanguage",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "logicq-clanguage.firebasestorage.app",

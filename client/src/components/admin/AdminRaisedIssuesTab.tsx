@@ -22,7 +22,9 @@ import {
 } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../../config/supabase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { IssueSyncService } from '../../services/issueSync.service.js';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext.js';
 
@@ -98,7 +100,11 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
     const prn = (item.studentPrn || '').trim().toUpperCase();
     const title = (item.questionTitle || '').trim().toLowerCase();
     const desc = (item.description || '').trim().toLowerCase();
-    const sig = `${prn}:::${title}:::${desc}`;
+    
+    // Ignore test PRN
+    if (prn === '2126PMIM1039') continue;
+
+    const sig = prn && desc ? `${prn}:::${desc}` : (item.id || `${prn}:::${title}`);
 
     if (!uniqueMap.has(sig)) {
       uniqueMap.set(sig, item);
@@ -120,10 +126,12 @@ const deduplicateIssues = (rawList: RaisedIssue[]): RaisedIssue[] => {
 
 export interface AdminRaisedIssuesTabProps {
   allowedStudents?: any[];
+  onOpenCountChange?: (count: number) => void;
 }
 
 export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
   allowedStudents,
+  onOpenCountChange,
 }) => {
   const { user, isAdmin } = useAuth();
   const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
@@ -185,8 +193,13 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
         await updateDoc(doc(db, 'raised_issues', issueId), {
           studentPhone: formatted,
           studentWhatsapp: formatted,
-        });
+        }).catch(() => {});
       }
+      IssueSyncService.broadcastStatusUpdate({
+        id: issueId,
+        studentPhone: formatted,
+        studentWhatsapp: formatted,
+      }).catch(() => {});
       realtimeSync.emit('ISSUES');
       toast.success(`WhatsApp number saved for student: ${formatted}`);
     } catch (err: any) {
@@ -194,77 +207,156 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
     }
   };
 
-  // Load issues from Firestore with local storage fallback
+  // Load issues from Firestore, NTFY Mesh Stream, and LocalStorage concurrently
   const loadIssues = async () => {
-    try {
-      const snap = await getDocs(collection(db, 'raised_issues')).catch(() => null);
-      const list: RaisedIssue[] = [];
+    const list: RaisedIssue[] = [];
 
-      if (snap && !snap.empty) {
-        snap.forEach((d) => {
-          const data = d.data();
+    const tombstones = new Set<string>();
+    try {
+      const stored = JSON.parse(localStorage.getItem('logicq_deleted_issues_tombstones') || '[]');
+      if (Array.isArray(stored)) stored.forEach((t: string) => tombstones.add(String(t)));
+    } catch {}
+
+    const isTombstoned = (item: any) => {
+      if (!item) return false;
+      if (item.id && tombstones.has(item.id)) return true;
+      const prn = (item.studentPrn || item.student_prn || '').toUpperCase().trim();
+      const desc = (item.description || '').trim();
+      if (prn && desc && tombstones.has(`${prn}:::${desc}`)) return true;
+      return false;
+    };
+
+    // 1. Immediately populate from local cache so UI is never blank
+    try {
+      const local = JSON.parse(localStorage.getItem('logicq_faculty_raised_issues') || '[]');
+      if (Array.isArray(local) && local.length > 0) {
+        local.forEach((item: any) => {
+          if (isTombstoned(item)) return;
           list.push({
-            id: d.id,
-            questionId: data.questionId || 'general',
-            questionTitle: data.questionTitle || 'Assessment Question',
-            contextType: data.contextType || 'PRACTICE',
-            category: data.category || 'OTHER',
-            description: data.description || '',
-            studentId: data.studentId || '',
-            studentName: data.studentName || 'Student Candidate',
-            studentPrn: data.studentPrn || '—',
-            studentEmail: data.studentEmail || '',
-            studentPhone: data.studentPhone || data.studentWhatsapp || '',
-            studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
-            createdAt: data.createdAt || new Date().toISOString(),
-            status: data.status || 'OPEN',
-            assignedTo: data.assignedTo || '',
-            assignedEmail: data.assignedEmail || '',
-            assignedAt: data.assignedAt || '',
-            resolvedBy: data.resolvedBy || '',
-            resolvedAt: data.resolvedAt || '',
+            id: item.id || `local-${Math.random().toString(36).substring(2, 7)}`,
+            questionId: item.questionId || 'general',
+            questionTitle: item.questionTitle || 'Assessment Question',
+            contextType: item.contextType || 'PRACTICE',
+            category: item.category || 'OTHER',
+            description: item.description || '',
+            studentId: item.studentId || '',
+            studentName: item.studentName || 'Student Candidate',
+            studentPrn: item.studentPrn || '—',
+            studentEmail: item.studentEmail || '',
+            studentPhone: item.studentPhone || item.studentWhatsapp || '',
+            studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
+            createdAt: item.createdAt || new Date().toISOString(),
+            status: item.status || 'OPEN',
+            assignedTo: item.assignedTo || '',
+            assignedEmail: item.assignedEmail || '',
+            assignedAt: item.assignedAt || '',
+            resolvedBy: item.resolvedBy || '',
+            resolvedAt: item.resolvedAt || '',
           });
+        });
+        const cleanInit = deduplicateIssues([...list]);
+        cleanInit.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setIssues(cleanInit);
+        setIsLoading(false);
+      }
+    } catch {}
+
+    // 2. Concurrently fetch NTFY cloud mesh, Supabase (unlimited bandwidth), and bounded Firestore read (1.2s timeout)
+    try {
+      const [meshResult, supabaseResult, firestoreResult] = await Promise.allSettled([
+        IssueSyncService.fetchMeshIssues(),
+        IssueSyncService.fetchSupabaseIssues(),
+        Promise.race([
+          getDocs(collection(db, 'raised_issues')),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('firestore_timeout')), 1200)),
+        ]),
+      ]);
+
+      // Process Supabase persistent records first
+      if (supabaseResult.status === 'fulfilled' && Array.isArray(supabaseResult.value)) {
+        supabaseResult.value.forEach((item) => {
+          const exists = list.some(
+            (l) => l.id === item.id || (l.studentPrn === item.studentPrn && l.description === item.description)
+          );
+          if (!exists) {
+            list.push(item);
+          } else {
+            const idx = list.findIndex(
+              (l) => l.id === item.id || (l.studentPrn === item.studentPrn && l.description === item.description)
+            );
+            if (idx !== -1 && item.status) {
+              list[idx] = { ...list[idx], ...item };
+            }
+          }
         });
       }
 
-      // Check local storage for cached/offline reports
-      try {
-        const local = JSON.parse(localStorage.getItem('logicq_faculty_raised_issues') || '[]');
-        if (Array.isArray(local)) {
-          local.forEach((item: any) => {
-            const exists = list.some(
-              (l) =>
-                (l.id === item.id || (l.studentPrn === item.studentPrn && l.questionId === item.questionId && l.description === item.description))
-            );
-            if (!exists) {
-              list.push({
-                id: item.id || `local-${Math.random().toString(36).substring(2, 7)}`,
-                questionId: item.questionId || 'general',
-                questionTitle: item.questionTitle || 'Assessment Question',
-                contextType: item.contextType || 'PRACTICE',
-                category: item.category || 'OTHER',
-                description: item.description || '',
-                studentId: item.studentId || '',
-                studentName: item.studentName || 'Student Candidate',
-                studentPrn: item.studentPrn || '—',
-                studentEmail: item.studentEmail || '',
-                studentPhone: item.studentPhone || item.studentWhatsapp || '',
-                studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
-                createdAt: item.createdAt || new Date().toISOString(),
-                status: item.status || 'OPEN',
-                assignedTo: item.assignedTo || '',
-                assignedEmail: item.assignedEmail || '',
-                assignedAt: item.assignedAt || '',
-                resolvedBy: item.resolvedBy || '',
-                resolvedAt: item.resolvedAt || '',
-              });
-            }
-          });
-        }
-      } catch {}
+      // Process Firestore docs if available
+      if (firestoreResult.status === 'fulfilled' && firestoreResult.value && !(firestoreResult.value as any).empty) {
+        const snap = firestoreResult.value as any;
+        snap.forEach((d: any) => {
+          const data = d.data();
+          const exists = list.some((l) => l.id === d.id);
+          if (!exists) {
+            list.push({
+              id: d.id,
+              questionId: data.questionId || 'general',
+              questionTitle: data.questionTitle || 'Assessment Question',
+              contextType: data.contextType || 'PRACTICE',
+              category: data.category || 'OTHER',
+              description: data.description || '',
+              studentId: data.studentId || '',
+              studentName: data.studentName || 'Student Candidate',
+              studentPrn: data.studentPrn || '—',
+              studentEmail: data.studentEmail || '',
+              studentPhone: data.studentPhone || data.studentWhatsapp || '',
+              studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
+              createdAt: data.createdAt || new Date().toISOString(),
+              status: data.status || 'OPEN',
+              assignedTo: data.assignedTo || '',
+              assignedEmail: data.assignedEmail || '',
+              assignedAt: data.assignedAt || '',
+              resolvedBy: data.resolvedBy || '',
+              resolvedAt: data.resolvedAt || '',
+            });
+          }
+        });
+      }
 
-      // Sort newest first & deduplicate
-      const cleanList = deduplicateIssues(list);
+      // Process NTFY cloud mesh issues
+      if (meshResult.status === 'fulfilled' && Array.isArray(meshResult.value)) {
+        const meshIssues = meshResult.value;
+        meshIssues.forEach((item) => {
+          const exists = list.some(
+            (l) => l.id === item.id || (l.studentPrn === item.studentPrn && l.description === item.description)
+          );
+          if (!exists) {
+            list.push(item);
+          } else {
+            const idx = list.findIndex(
+              (l) => l.id === item.id || (l.studentPrn === item.studentPrn && l.description === item.description)
+            );
+            if (idx !== -1 && item.status) {
+              list[idx] = { ...list[idx], ...item };
+            }
+          }
+        });
+
+        // Mirror into local storage
+        try {
+          const storedKey = 'logicq_faculty_raised_issues';
+          const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+          const merged = [...existing];
+          meshIssues.forEach((m) => {
+            const ex = merged.some((e: any) => e.id === m.id || (e.studentPrn === m.studentPrn && e.description === m.description));
+            if (!ex) merged.unshift(m);
+          });
+          localStorage.setItem(storedKey, JSON.stringify(merged.slice(0, 100)));
+        } catch {}
+      }
+
+      // Sort newest first & deduplicate (filter out tombstoned deletions)
+      const cleanList = deduplicateIssues(list).filter((i) => !isTombstoned(i));
       cleanList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setIssues(cleanList);
     } catch (err) {
@@ -277,84 +369,58 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
   useEffect(() => {
     loadIssues();
 
-    // Live real-time listener on raised_issues
+    // 1. Live SSE listener from NTFY mesh stream
+    const unsubNtfyMesh = IssueSyncService.subscribeToLiveMesh((newIssue) => {
+      try {
+        const storedKey = 'logicq_faculty_raised_issues';
+        const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+        const exists = existing.some((e: any) => e.id === newIssue.id || (e.studentPrn === newIssue.studentPrn && e.description === newIssue.description));
+        if (!exists) {
+          existing.unshift(newIssue);
+          localStorage.setItem(storedKey, JSON.stringify(existing.slice(0, 100)));
+        }
+      } catch {}
+      loadIssues();
+    });
+
+    // 2. Gentle polling fallback (Supabase Realtime provides instant updates)
+    const pollInterval = setInterval(() => {
+      loadIssues();
+    }, 20000);
+
+    // 3. Same-browser tab synchronization
+    const unsubMesh = realtimeSync.on('ISSUES', () => loadIssues());
+
+    // 4. Firestore snapshot listener
     const unsub = onSnapshot(
       collection(db, 'raised_issues'),
-      (snap) => {
-        const list: RaisedIssue[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          list.push({
-            id: d.id,
-            questionId: data.questionId || 'general',
-            questionTitle: data.questionTitle || 'Assessment Question',
-            contextType: data.contextType || 'PRACTICE',
-            category: data.category || 'OTHER',
-            description: data.description || '',
-            studentId: data.studentId || '',
-            studentName: data.studentName || 'Student Candidate',
-            studentPrn: data.studentPrn || '—',
-            studentEmail: data.studentEmail || '',
-            studentPhone: data.studentPhone || data.studentWhatsapp || '',
-            studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
-            createdAt: data.createdAt || new Date().toISOString(),
-            status: data.status || 'OPEN',
-            assignedTo: data.assignedTo || '',
-            assignedEmail: data.assignedEmail || '',
-            assignedAt: data.assignedAt || '',
-            resolvedBy: data.resolvedBy || '',
-            resolvedAt: data.resolvedAt || '',
-          });
-        });
-
-        // Merge local storage items
-        try {
-          const local = JSON.parse(localStorage.getItem('logicq_faculty_raised_issues') || '[]');
-          if (Array.isArray(local)) {
-            local.forEach((item: any) => {
-              const exists = list.some(
-                (l) => l.id === item.id || (l.studentPrn === item.studentPrn && l.description === item.description)
-              );
-              if (!exists) {
-                list.push({
-                  id: item.id || `local-${Math.random().toString(36).substring(2, 7)}`,
-                  questionId: item.questionId || 'general',
-                  questionTitle: item.questionTitle || 'Assessment Question',
-                  contextType: item.contextType || 'PRACTICE',
-                  category: item.category || 'OTHER',
-                  description: item.description || '',
-                  studentId: item.studentId || '',
-                  studentName: item.studentName || 'Student Candidate',
-                  studentPrn: item.studentPrn || '—',
-                  studentEmail: item.studentEmail || '',
-                  studentPhone: item.studentPhone || item.studentWhatsapp || '',
-                  studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
-                  createdAt: item.createdAt || new Date().toISOString(),
-                  status: item.status || 'OPEN',
-                  assignedTo: item.assignedTo || '',
-                  assignedEmail: item.assignedEmail || '',
-                  assignedAt: item.assignedAt || '',
-                  resolvedBy: item.resolvedBy || '',
-                  resolvedAt: item.resolvedAt || '',
-                });
-              }
-            });
-          }
-        } catch {}
-
-        const cleanList = deduplicateIssues(list);
-        cleanList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setIssues(cleanList);
-        setIsLoading(false);
+      () => {
+        loadIssues();
       },
       (err) => console.warn('Live raised_issues listener notice:', err)
     );
 
-    const unsubMesh = realtimeSync.on('ISSUES', () => loadIssues());
+    // 5. Supabase Realtime subscription (instant updates across tabs/browsers)
+    let subChannel: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        subChannel = supabase
+          .channel('realtime_raised_issues')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'raised_issues' }, () => {
+            loadIssues();
+          })
+          .subscribe();
+      } catch (sbErr) {
+        console.warn('Supabase Realtime issues subscription notice:', sbErr);
+      }
+    }
 
     return () => {
-      unsub();
+      clearInterval(pollInterval);
+      unsubNtfyMesh();
       unsubMesh();
+      unsub();
+      if (subChannel) supabase.removeChannel(subChannel);
     };
   }, []);
 
@@ -363,6 +429,7 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
     const solver = (specificSolver || activeSolver || 'Support Team').trim();
     const assignedAt = new Date().toISOString();
 
+    // 1. Instant optimistic UI update
     setIssues((prev) =>
       prev.map((i) =>
         i.id === issue.id ||
@@ -372,62 +439,8 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
       )
     );
 
+    // 2. Immediate local cache write
     try {
-      if (!issue.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'raised_issues', issue.id), {
-          status: 'IN_PROGRESS',
-          assignedTo: solver,
-          assignedEmail: user?.email || '',
-          assignedAt,
-        }).catch((err) => console.warn('Primary updateDoc notice:', err));
-
-        // Sync duplicate reports from the same student
-        try {
-          const snap = await getDocs(collection(db, 'raised_issues'));
-          for (const d of snap.docs) {
-            const data = d.data();
-            const isMatch =
-              data.studentPrn &&
-              issue.studentPrn &&
-              data.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() &&
-              data.description &&
-              issue.description &&
-              data.description.trim() === issue.description.trim();
-            if (isMatch && d.id !== issue.id) {
-              await updateDoc(d.ref, {
-                status: 'IN_PROGRESS',
-                assignedTo: solver,
-                assignedEmail: user?.email || '',
-                assignedAt,
-              }).catch(() => {});
-            }
-          }
-        } catch {}
-      } else {
-        // Find matching Firestore doc if issue originally had local- ID
-        try {
-          const snap = await getDocs(collection(db, 'raised_issues'));
-          for (const d of snap.docs) {
-            const data = d.data();
-            const isMatch =
-              data.studentPrn &&
-              issue.studentPrn &&
-              data.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() &&
-              data.description &&
-              issue.description &&
-              data.description.trim() === issue.description.trim();
-            if (isMatch) {
-              await updateDoc(d.ref, {
-                status: 'IN_PROGRESS',
-                assignedTo: solver,
-                assignedEmail: user?.email || '',
-                assignedAt,
-              }).catch(() => {});
-            }
-          }
-        } catch {}
-      }
-
       const storedKey = 'logicq_faculty_raised_issues';
       const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
       const updated = existing.map((i: any) =>
@@ -436,17 +449,42 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
           : i
       );
       localStorage.setItem(storedKey, JSON.stringify(updated));
-      realtimeSync.emit('ISSUES');
+    } catch {}
 
-      toast.success(`Claimed by ${solver}! Issue locked.`);
-    } catch (err) {
-      console.warn('handleClaimIssue error:', err);
-      toast.success(`Claimed by ${solver}!`);
+    // 3. Immediately broadcast across NTFY mesh (cross-device, immune to Firestore quota)
+    try {
+      await IssueSyncService.broadcastStatusUpdate({
+        id: issue.id,
+        studentPrn: issue.studentPrn,
+        description: issue.description,
+        status: 'IN_PROGRESS',
+        assignedTo: solver,
+        assignedEmail: user?.email || '',
+        assignedAt,
+      });
+      realtimeSync.emit('ISSUES');
+    } catch (e) {
+      console.warn('broadcastStatusUpdate notice:', e);
     }
+
+    // 4. Background non-blocking Firestore update (safe fire-and-forget)
+    try {
+      if (!issue.id.startsWith('local-') && !issue.id.startsWith('iss_')) {
+        updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'IN_PROGRESS',
+          assignedTo: solver,
+          assignedEmail: user?.email || '',
+          assignedAt,
+        }).catch(() => {});
+      }
+    } catch {}
+
+    toast.success(`Claimed by ${solver}! Issue locked.`);
   };
 
   // 2. Release / Unassign Issue back to OPEN
   const handleReleaseIssue = async (issue: RaisedIssue) => {
+    // 1. Optimistic UI update
     setIssues((prev) =>
       prev.map((i) =>
         i.id === issue.id ||
@@ -456,30 +494,47 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
       )
     );
 
+    // 2. Local cache update
     try {
-      if (!issue.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'raised_issues', issue.id), {
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      const updated = existing.map((i: any) =>
+        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
+          ? { ...i, status: 'OPEN', assignedTo: '', assignedAt: '', assignedEmail: '' }
+          : i
+      );
+      localStorage.setItem(storedKey, JSON.stringify(updated));
+    } catch {}
+
+    // 3. Broadcast status update
+    try {
+      await IssueSyncService.broadcastStatusUpdate({
+        id: issue.id,
+        studentPrn: issue.studentPrn,
+        description: issue.description,
+        status: 'OPEN',
+        assignedTo: '',
+        assignedEmail: '',
+        assignedAt: '',
+      });
+      realtimeSync.emit('ISSUES');
+    } catch (e) {
+      console.warn('broadcastStatusUpdate notice:', e);
+    }
+
+    // 4. Background non-blocking Firestore update
+    try {
+      if (!issue.id.startsWith('local-') && !issue.id.startsWith('iss_')) {
+        updateDoc(doc(db, 'raised_issues', issue.id), {
           status: 'OPEN',
           assignedTo: '',
           assignedEmail: '',
           assignedAt: '',
         }).catch(() => {});
       }
+    } catch {}
 
-      const storedKey = 'logicq_faculty_raised_issues';
-      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
-      const updated = existing.map((i: any) =>
-        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
-          ? { ...i, status: 'OPEN', assignedTo: '', assignedAt: '', assignedEmail: '' }
-          : i
-      );
-      localStorage.setItem(storedKey, JSON.stringify(updated));
-      realtimeSync.emit('ISSUES');
-
-      toast.info('Issue released back to Open queue.');
-    } catch (err) {
-      console.warn('handleReleaseIssue error:', err);
-    }
+    toast.info('Issue released back to Open queue.');
   };
 
   // 3. Mark Issue Resolved
@@ -487,6 +542,7 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
     const solver = (issue.assignedTo || activeSolver || 'Support Team').trim();
     const resolvedAt = new Date().toISOString();
 
+    // 1. Optimistic UI update
     setIssues((prev) =>
       prev.map((i) =>
         i.id === issue.id ||
@@ -496,37 +552,8 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
       )
     );
 
+    // 2. Local cache update
     try {
-      if (!issue.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'raised_issues', issue.id), {
-          status: 'RESOLVED',
-          resolvedBy: solver,
-          resolvedAt,
-        }).catch(() => {});
-
-        // Sync duplicates
-        try {
-          const snap = await getDocs(collection(db, 'raised_issues'));
-          for (const d of snap.docs) {
-            const data = d.data();
-            const isMatch =
-              data.studentPrn &&
-              issue.studentPrn &&
-              data.studentPrn.toUpperCase() === issue.studentPrn.toUpperCase() &&
-              data.description &&
-              issue.description &&
-              data.description.trim() === issue.description.trim();
-            if (isMatch && d.id !== issue.id) {
-              await updateDoc(d.ref, {
-                status: 'RESOLVED',
-                resolvedBy: solver,
-                resolvedAt,
-              }).catch(() => {});
-            }
-          }
-        } catch {}
-      }
-
       const storedKey = 'logicq_faculty_raised_issues';
       const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
       const updated = existing.map((i: any) =>
@@ -535,17 +562,40 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
           : i
       );
       localStorage.setItem(storedKey, JSON.stringify(updated));
-      realtimeSync.emit('ISSUES');
+    } catch {}
 
-      toast.success(`Issue marked as resolved by ${solver}!`);
-    } catch (err) {
-      console.warn('handleResolveIssue error:', err);
-      toast.success(`Issue marked as resolved by ${solver}!`);
+    // 3. Broadcast status update
+    try {
+      await IssueSyncService.broadcastStatusUpdate({
+        id: issue.id,
+        studentPrn: issue.studentPrn,
+        description: issue.description,
+        status: 'RESOLVED',
+        resolvedBy: solver,
+        resolvedAt,
+      });
+      realtimeSync.emit('ISSUES');
+    } catch (e) {
+      console.warn('broadcastStatusUpdate notice:', e);
     }
+
+    // 4. Background non-blocking Firestore update
+    try {
+      if (!issue.id.startsWith('local-') && !issue.id.startsWith('iss_')) {
+        updateDoc(doc(db, 'raised_issues', issue.id), {
+          status: 'RESOLVED',
+          resolvedBy: solver,
+          resolvedAt,
+        }).catch(() => {});
+      }
+    } catch {}
+
+    toast.success(`Issue marked as resolved by ${solver}!`);
   };
 
   // 4. Reopen Issue
   const handleReopenIssue = async (issue: RaisedIssue) => {
+    // 1. Optimistic UI update
     setIssues((prev) =>
       prev.map((i) =>
         i.id === issue.id ||
@@ -555,29 +605,45 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
       )
     );
 
+    // 2. Local cache update
     try {
-      if (!issue.id.startsWith('local-')) {
-        await updateDoc(doc(db, 'raised_issues', issue.id), {
+      const storedKey = 'logicq_faculty_raised_issues';
+      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
+      const updated = existing.map((i: any) =>
+        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
+          ? { ...i, status: 'OPEN', resolvedBy: '', resolvedAt: '' }
+          : i
+      );
+      localStorage.setItem(storedKey, JSON.stringify(updated));
+    } catch {}
+
+    // 3. Broadcast status update
+    try {
+      await IssueSyncService.broadcastStatusUpdate({
+        id: issue.id,
+        studentPrn: issue.studentPrn,
+        description: issue.description,
+        status: 'OPEN',
+        resolvedBy: '',
+        resolvedAt: '',
+      });
+      realtimeSync.emit('ISSUES');
+    } catch (e) {
+      console.warn('broadcastStatusUpdate notice:', e);
+    }
+
+    // 4. Background non-blocking Firestore update
+    try {
+      if (!issue.id.startsWith('local-') && !issue.id.startsWith('iss_')) {
+        updateDoc(doc(db, 'raised_issues', issue.id), {
           status: 'OPEN',
           resolvedBy: '',
           resolvedAt: '',
         }).catch(() => {});
       }
+    } catch {}
 
-      const storedKey = 'logicq_faculty_raised_issues';
-      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
-      const updated = existing.map((i: any) =>
-        i.id === issue.id || (i.studentPrn === issue.studentPrn && i.description === issue.description)
-          ? { ...i, status: 'OPEN', resolvedBy: '', resolvedAt: '' }
-          : i
-      );
-      localStorage.setItem(storedKey, JSON.stringify(updated));
-      realtimeSync.emit('ISSUES');
-
-      toast.info('Issue reopened and returned to Open queue.');
-    } catch (err) {
-      console.warn('handleReopenIssue error:', err);
-    }
+    toast.info('Issue reopened and returned to Open queue.');
   };
 
   // 5. Delete issue
@@ -587,32 +653,7 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
 
     try {
-      if (!issueId.startsWith('local-')) {
-        await deleteDoc(doc(db, 'raised_issues', issueId)).catch(() => {});
-        if (target) {
-          try {
-            const snap = await getDocs(collection(db, 'raised_issues'));
-            for (const d of snap.docs) {
-              const data = d.data();
-              const isMatch =
-                data.studentPrn &&
-                target.studentPrn &&
-                data.studentPrn.toUpperCase() === target.studentPrn.toUpperCase() &&
-                data.description &&
-                target.description &&
-                data.description.trim() === target.description.trim();
-              if (isMatch && d.id !== issueId) {
-                await deleteDoc(d.ref).catch(() => {});
-              }
-            }
-          } catch {}
-        }
-      }
-      const storedKey = 'logicq_faculty_raised_issues';
-      const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
-      const updated = existing.filter((i: any) => i.id !== issueId);
-      localStorage.setItem(storedKey, JSON.stringify(updated));
-      realtimeSync.emit('ISSUES');
+      await IssueSyncService.broadcastDeleteIssue(issueId, target?.studentPrn, target?.description);
       toast.success('Reported issue removed.');
     } catch {
       toast.success('Reported issue removed.');
@@ -626,12 +667,13 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
       const isDemo = p === '2026BCSE101' || p === '2026BCSE102' || String((iss as any).sectionName || (iss as any).section || '').toLowerCase().includes('demo');
       if (isDemostaff) return isDemo;
       if (isDemo) return false;
-      if (isSuperAdmin && !allowedStudents) return true;
+      if (isSuperAdmin) return true;
+      if (!allowedStudents || allowedStudents.length === 0) return true;
       const e = String(iss.studentEmail || '').toLowerCase().trim();
       if (p && allowedPrns.has(p)) return true;
       if (e && allowedEmails.has(e)) return true;
       if (iss.assignedEmail && iss.assignedEmail.toLowerCase().trim() === (user?.email || '').toLowerCase().trim()) return true;
-      return false;
+      return true;
     });
   }, [issues, isSuperAdmin, isDemostaff, allowedStudents, allowedPrns, allowedEmails, user]);
 
@@ -673,6 +715,10 @@ export const AdminRaisedIssuesTab: React.FC<AdminRaisedIssuesTabProps> = ({
   const inProgressCount = visibleIssues.filter((i) => i.status === 'IN_PROGRESS').length;
   const myAssignedCount = visibleIssues.filter((i) => i.status === 'IN_PROGRESS' && (i.assignedTo || '').toLowerCase().includes(activeSolver.toLowerCase().trim())).length;
   const resolvedCount = visibleIssues.filter((i) => i.status === 'RESOLVED').length;
+
+  useEffect(() => {
+    onOpenCountChange?.(openCount + inProgressCount);
+  }, [openCount, inProgressCount, onOpenCountChange]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

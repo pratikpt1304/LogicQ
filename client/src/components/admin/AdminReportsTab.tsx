@@ -443,15 +443,24 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({
 
     fetchAuthoritativeReportStudents();
 
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, (err) => console.warn('Reports cohort notice:', err));
-    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), triggerDebouncedSync, () => {});
-    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), triggerDebouncedSync, () => {});
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), triggerDebouncedSync, (err) => console.warn('Reports enrolled notice:', err));
-    const unsubSections = onSnapshot(collection(db, 'sections'), triggerDebouncedSync, (err) => console.warn('Reports sections notice:', err));
-    let unsubUsers: (() => void) | null = null;
+    let unsubCohort: (() => void) | null = null;
+    let unsubEnrolled: (() => void) | null = null;
+    let unsubSections: (() => void) | null = null;
+
+    const handleReportsErr = (err: any) => {
+      if (FirestoreDataService.markQuotaExhausted(err)) {
+        unsubCohort?.();
+        unsubEnrolled?.();
+        unsubSections?.();
+      }
+    };
+
     try {
-      unsubUsers = onSnapshot(collection(db, 'users'), triggerDebouncedSync, () => {});
+      unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, handleReportsErr);
+      unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), triggerDebouncedSync, handleReportsErr);
+      unsubSections = onSnapshot(collection(db, 'sections'), triggerDebouncedSync, handleReportsErr);
     } catch {}
+
     const unsubMeshUsers = realtimeSync.on('USERS', triggerDebouncedSync);
     const unsubMeshSections = realtimeSync.on('SECTIONS', triggerDebouncedSync);
     const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', triggerDebouncedSync);
@@ -460,16 +469,13 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({
     return () => {
       isMounted = false;
       if (syncTimeout) clearTimeout(syncTimeout);
-      unsubCohort();
-      unsubSubmissions();
-      unsubAssessmentSubmissions();
-      unsubEnrolled();
-      unsubSections();
-      if (unsubUsers) unsubUsers();
-      unsubMeshUsers();
-      unsubMeshSections();
-      unsubMeshSubmissions();
-      unsubMeshDashboard();
+      unsubCohort?.();
+      unsubEnrolled?.();
+      unsubSections?.();
+      unsubMeshUsers?.();
+      unsubMeshSections?.();
+      unsubMeshSubmissions?.();
+      unsubMeshDashboard?.();
     };
   }, []);
 

@@ -7,6 +7,7 @@ import { api } from '../../api/client.js';
 import { db } from '../../config/firebase.js';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { IssueSyncService, SyncedIssue } from '../../services/issueSync.service.js';
 import { StudentIssuesModal } from './StudentIssuesModal.js';
 
 interface RaiseIssueModalProps {
@@ -52,7 +53,9 @@ export const RaiseIssueModal: React.FC<RaiseIssueModalProps> = ({
     const formattedPhone = cleanDigits.length === 10 ? `+91${cleanDigits}` : cleanDigits.startsWith('91') ? `+${cleanDigits}` : `+91${cleanDigits}`;
     localStorage.setItem('logicq_student_phone', cleanDigits);
 
-    const issuePayload = {
+    const issueId = `iss_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const issuePayload: SyncedIssue = {
+      id: issueId,
       questionId,
       questionTitle,
       contextType,
@@ -69,37 +72,11 @@ export const RaiseIssueModal: React.FC<RaiseIssueModalProps> = ({
     };
 
     try {
-      // 1. Authoritative save to Cloud Firestore 'raised_issues' (bounded by 3.5s race)
-      await Promise.race([
-        addDoc(collection(db, 'raised_issues'), {
-          ...issuePayload,
-          serverTimestamp: serverTimestamp(),
-        }),
-        new Promise((resolve) => setTimeout(resolve, 3500)),
-      ]).catch((e) => {
-        console.warn('Firestore direct write warning (will rely on local/mesh sync):', e);
-      });
+      // 1. Authoritative cross-device publish via IssueSyncService (PubSub + Firestore)
+      await IssueSyncService.broadcastNewIssue(issuePayload);
 
-      // 2. Non-blocking fire-and-forget backend tracking (never blocks student UI)
+      // 2. Non-blocking fire-and-forget backend tracking
       api.post('/problems/raise-issue', issuePayload).catch(() => {});
-
-      // 3. Log in local cache for offline/instant mesh sync
-      try {
-        const storedKey = 'logicq_faculty_raised_issues';
-        const existing = JSON.parse(localStorage.getItem(storedKey) || '[]');
-        const exists = existing.some(
-          (i: any) =>
-            i.studentPrn === issuePayload.studentPrn &&
-            i.questionTitle === issuePayload.questionTitle &&
-            i.description === issuePayload.description
-        );
-        if (!exists) {
-          existing.unshift({ ...issuePayload, syncedToCloud: true });
-          localStorage.setItem(storedKey, JSON.stringify(existing.slice(0, 100)));
-        }
-      } catch {}
-
-      realtimeSync.emit('ISSUES');
 
       toast.success('Issue flagged for Faculty review! Thank you for reporting.');
       setDescription('');

@@ -595,7 +595,12 @@ Given a line of text, count the total number of vowels and consonants (case-inse
 - A single line of text (up to 200 characters, may contain spaces).
 
 ### Output Format
-- Print: \`Vowels: <v>, Consonants: <c>\``,
+- Print: \`Vowels: <v>, Consonants: <c>\`
+
+### Example
+- **Input:** \`Programming in C is fun!\`
+- **Output:** \`Vowels: 6, Consonants: 13\`
+- **Explanation:** Vowels are o, a, i, i, i, u (6). Consonants are P, r, g, r, m, m, n, g, n, C, s, f, n (13).`,
       starterCode: `#include <stdio.h>
 #include <ctype.h>
 
@@ -629,8 +634,8 @@ int main() {
 }`,
       openTestCase: {
         input: 'Programming in C is fun!',
-        expectedOutput: 'Vowels: 6, Consonants: 12',
-        explanation: 'Vowels: o, a, i, i, i, u (6). Consonants: P, r, g, r, m, m, n, g, n, C, s, f, n (12 total letters minus vowels).',
+        expectedOutput: 'Vowels: 6, Consonants: 13',
+        explanation: 'Vowels: o, a, i, i, i, u (6). Consonants: P, r, g, r, m, m, n, g, n, C, s, f, n (13 total consonants).',
       },
       hiddenTestCase: {
         input: 'AEIOU aeiou',

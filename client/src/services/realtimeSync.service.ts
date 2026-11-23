@@ -236,7 +236,7 @@ class RealtimeSyncManager {
             this.handleIncomingSync('DASHBOARD');
           },
           (err) => {
-            if (err?.code === 'permission-denied') {
+            if (err?.code === 'permission-denied' || err?.code === 'resource-exhausted') {
               this.unsubscribeFirestoreSections?.();
               this.unsubscribeFirestoreSections = null;
             }
@@ -258,9 +258,30 @@ class RealtimeSyncManager {
             this.handleIncomingSync('DASHBOARD');
           },
           (err) => {
-            if (err?.code === 'permission-denied') {
+            if (err?.code === 'permission-denied' || err?.code === 'resource-exhausted') {
               this.unsubscribeFirestoreEnrolled?.();
               this.unsubscribeFirestoreEnrolled = null;
+            }
+          }
+        );
+      } catch {
+        // safe fallback
+      }
+    }
+
+    // 3. Assessment Tests sync (cross-browser live status sync)
+    if (!this.unsubscribeFirestoreTests) {
+      try {
+        this.unsubscribeFirestoreTests = onSnapshot(
+          collection(db, 'assessment_tests'),
+          () => {
+            this.handleIncomingSync('TESTS');
+            this.handleIncomingSync('DASHBOARD');
+          },
+          (err) => {
+            if (err?.code === 'permission-denied' || err?.code === 'resource-exhausted') {
+              this.unsubscribeFirestoreTests?.();
+              this.unsubscribeFirestoreTests = null;
             }
           }
         );

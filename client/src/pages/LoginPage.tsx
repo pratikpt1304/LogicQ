@@ -138,12 +138,14 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'User'}!`);
-      const isFaculty = user?.role === 'FACULTY';
       const isStaffOrAdmin =
         cleanPrn.toUpperCase() === 'LOGICQARENA' ||
+        cleanPrn.toLowerCase() === 'logicqarena@gmail.com' ||
         user?.role === 'ADMIN' ||
-        user?.role === 'INSTITUTIONAL_ADMIN';
-      const dest = isFaculty ? '/faculty' : isStaffOrAdmin ? '/admin' : (from === '/login' ? '/dashboard' : from);
+        user?.role === 'INSTITUTIONAL_ADMIN' ||
+        user?.email?.toLowerCase() === 'logicqarena@gmail.com';
+      const isFaculty = !isStaffOrAdmin && user?.role === 'FACULTY';
+      const dest = isStaffOrAdmin ? '/admin' : isFaculty ? '/faculty' : (from === '/login' ? '/dashboard' : from);
       navigate(dest, { replace: true });
     } catch (err: any) {
       setError(
@@ -594,6 +596,11 @@ export const LoginPage: React.FC = () => {
                           >
                             Change Email
                           </button>
+                        </div>
+
+                        {/* Default OTP Badge */}
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-600 dark:text-emerald-400 font-mono text-center flex items-center justify-center gap-2">
+                          <span>Default verification OTP is <strong>123456</strong></span>
                         </div>
 
                         {/* 6 Individual Digit Inputs */}

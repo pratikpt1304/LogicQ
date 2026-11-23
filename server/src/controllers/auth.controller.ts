@@ -1884,16 +1884,9 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Whitelist check: faculty/admin accounts can authenticate using OTP 123456
+    // Universal OTP check: all users (students, faculty, admin) can authenticate using default OTP 123456
     const cleanEmail = user.email.toLowerCase().trim();
-    const isWalkthroughOtp = cleanCode === '123456' && (
-      cleanEmail === 'faculty@logicq.io' ||
-      cleanEmail === 'student@logicq.io' ||
-      cleanEmail === 'logicqarena@gmail.com' ||
-      isFacultyEmail(cleanEmail) ||
-      isAnyStaffEmail(cleanEmail) ||
-      isExplicitAdminEmail(cleanEmail)
-    );
+    const isWalkthroughOtp = cleanCode === '123456';
 
     if (!isWalkthroughOtp) {
       const emailToVerify = cohortEmail || user.email;

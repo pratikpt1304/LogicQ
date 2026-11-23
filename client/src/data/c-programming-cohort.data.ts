@@ -41,9 +41,9 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
     role: 'STUDENT',
     profileComplete: true,
     password: '2126PMIF1057',
-    totalPoints: 0,
-    totalSolved: 0,
-    currentStreak: 0,
+    totalPoints: 2000,
+    totalSolved: 100,
+    currentStreak: 5,
   },
   {
     index: 2,

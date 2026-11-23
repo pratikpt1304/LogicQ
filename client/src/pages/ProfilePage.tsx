@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth, db } from '../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
@@ -255,11 +256,11 @@ export const ProfilePage: React.FC = () => {
             effectiveUid ? FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null) : Promise.resolve(null),
             effectiveUid ? FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null) : Promise.resolve(null),
             effectiveUid ? FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []) : Promise.resolve([]),
+            prnClean ? getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null) : Promise.resolve(null),
+            prnClean && isSupabaseConfigured
+              ? Promise.resolve(supabase.from('practice_progress').select('solved_topic_ids, total_solved').eq('student_prn', prnClean).maybeSingle()).then((res: any) => res?.data).catch(() => null)
+              : Promise.resolve(null),
           ];
-
-          if (prnClean) {
-            queryPromises.push(getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null));
-          }
 
           const results = await Promise.all(queryPromises);
           fsUser = results[0];
@@ -269,6 +270,7 @@ export const ProfilePage: React.FC = () => {
           if (results[4] && results[4].exists()) {
             cohortData = results[4].data();
           }
+          const sbPractice = results[5];
 
           // Calculate solved problems from local storage fallback as well
           let localSolvedCount = 0;
@@ -319,6 +321,9 @@ export const ProfilePage: React.FC = () => {
             }
           } catch {}
 
+          const sbSolvedList = Array.isArray(sbPractice?.solved_topic_ids) ? sbPractice.solved_topic_ids : [];
+          const sbSolvedCount = Number(sbPractice?.total_solved) || sbSolvedList.length;
+
           const cohortCompletedList = Array.isArray(cohortData?.completedProblems) ? cohortData.completedProblems : [];
           const cohortSolvedCount = cohortData?.totalSolved || cohortCompletedList.length;
 
@@ -326,7 +331,8 @@ export const ProfilePage: React.FC = () => {
             fsPractice?.completedProblems?.length || 0,
             fsBackup?.totalSolved || 0,
             fsBackup?.completedProblems?.length || 0,
-            cohortSolvedCount
+            cohortSolvedCount,
+            sbSolvedCount
           );
           const acceptedSubmissionsCount = new Set(
             fsSubmissions.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)
@@ -338,6 +344,7 @@ export const ProfilePage: React.FC = () => {
             fsSolvedCount,
             acceptedSubmissionsCount,
             cohortSolvedCount,
+            sbSolvedCount,
             localSolvedCount,
             localAcceptedCount
           );
@@ -377,6 +384,8 @@ export const ProfilePage: React.FC = () => {
               ...(effectiveUid ? getSolvedPracticeTopicIds(effectiveUid) : []),
               ...(currentUser?.id ? getSolvedPracticeTopicIds(currentUser.id) : []),
               ...(currentUser?.prn ? getSolvedPracticeTopicIds(currentUser.prn) : []),
+              ...sbSolvedList,
+              ...cohortCompletedList,
             ]));
           } catch {}
 
@@ -498,7 +507,12 @@ export const ProfilePage: React.FC = () => {
             (localStorage.getItem('logicq_storage_preference') as any) ||
             'FIRESTORE_FALLBACK';
 
+          const prnForDept = fsUser?.prn || currentUser?.prn || serverUser?.prn;
+          const customSavedName = (prnForDept ? localStorage.getItem(`logicq_custom_display_name_${prnForDept.toUpperCase()}`) : null) ||
+            localStorage.getItem('logicq_custom_display_name');
+
           const resolvedDisplayName =
+            customSavedName ||
             [
               serverUser?.displayName,
               fsUser?.displayName,
@@ -509,7 +523,6 @@ export const ProfilePage: React.FC = () => {
               currentUser?.fullName,
             ].find(isRealPersonName) || null;
 
-          const prnForDept = fsUser?.prn || currentUser?.prn || serverUser?.prn;
           const prnDept = deriveDepartmentFromPrn(prnForDept);
           const rawDept =
             (fsUser?.department && fsUser.department !== 'CSE' ? fsUser.department : null) ||
@@ -554,6 +567,7 @@ export const ProfilePage: React.FC = () => {
             longestStreak: authoritativeLongestStreak,
             totalSolved: authoritativeSolved,
             rank: authoritativeRank,
+            completedProblems: Array.from(new Set([...solvedPracticeTopicIdsList, ...sbSolvedList, ...cohortCompletedList])),
             storagePreference: authoritativeStorage,
             hidePracticeTimer: serverUser?.hidePracticeTimer ?? fsUser?.hidePracticeTimer ?? Boolean(currentUser?.hidePracticeTimer),
             recentSubmissions: displayRecentSubs,
@@ -610,10 +624,18 @@ export const ProfilePage: React.FC = () => {
       toast.success('Profile settings updated successfully!');
       setIsEditOpen(false);
       setEditError(null);
+      const customName = editForm.displayName?.trim();
+      const prn = (currentUser?.prn || profile?.prn || '').toUpperCase();
+      if (customName) {
+        if (prn) {
+          localStorage.setItem(`logicq_custom_display_name_${prn}`, customName);
+        }
+        localStorage.setItem('logicq_custom_display_name', customName);
+      }
       const updatedUser = res?.data?.user;
       if (updatedUser) {
         queryClient.setQueryData(['profile', targetIdentifier], (prev: any) => {
-          if (!prev) return { success: true, data: { user: updatedUser } };
+          if (!prev) return { success: true, data: { user: { ...updatedUser, displayName: customName || updatedUser.displayName, fullName: customName || updatedUser.fullName } } };
           return {
             ...prev,
             data: {
@@ -621,6 +643,8 @@ export const ProfilePage: React.FC = () => {
               user: {
                 ...prev.data?.user,
                 ...updatedUser,
+                displayName: customName || updatedUser.displayName || prev.data?.user?.displayName,
+                fullName: customName || updatedUser.fullName || prev.data?.user?.fullName,
               },
             },
           };
@@ -708,8 +732,12 @@ export const ProfilePage: React.FC = () => {
           ? rawCurrentDept
           : (prnDerived || ALLOWED_DEPARTMENTS[1]));
 
+      const customSaved = (prnForDept ? localStorage.getItem(`logicq_custom_display_name_${prnForDept.toUpperCase()}`) : null) ||
+        localStorage.getItem('logicq_custom_display_name');
+
       setEditForm({
         displayName:
+          customSaved ||
           profile?.displayName ||
           currentUser?.displayName ||
           profile?.fullName ||
@@ -857,6 +885,12 @@ export const ProfilePage: React.FC = () => {
       }).catch((e) => console.warn('Firestore syncStudentProfileUpdate non-fatal error:', e));
     }
     try {
+      if (trimmedDisplay) {
+        if (prnForDept) {
+          localStorage.setItem(`logicq_custom_display_name_${prnForDept.toUpperCase()}`, trimmedDisplay);
+        }
+        localStorage.setItem('logicq_custom_display_name', trimmedDisplay);
+      }
       localStorage.setItem('logicq_storage_preference', editForm.storagePreference);
       const activeRaw = localStorage.getItem('logicq_active_user');
       const activeObj = activeRaw ? JSON.parse(activeRaw) : {};
@@ -1054,7 +1088,12 @@ export const ProfilePage: React.FC = () => {
   const ownMaskedPrn = isOwnProfile ? profile?.maskedPrn || maskPrn(profile?.prn || currentUser?.prn) : null;
   const ownPrnDisplay = ownPrn || ownMaskedPrn;
 
+  const customSaved = (ownPrn ? localStorage.getItem(`logicq_custom_display_name_${ownPrn.toUpperCase()}`) : null) ||
+    (profile?.prn ? localStorage.getItem(`logicq_custom_display_name_${profile.prn.toUpperCase()}`) : null) ||
+    localStorage.getItem('logicq_custom_display_name');
+
   const resolvedDisplayName =
+    customSaved ||
     [
       profile?.displayName,
       currentUser?.displayName,
@@ -1578,134 +1617,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           </div>
 
-          {/* ========================================================= */}
-          {/* Apple Bento 3-Pillar Progress Summary (0 Clicks Glance)    */}
-          {/* ========================================================= */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Practice Track */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                    <Code2 className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Practice Arena
-                  </span>
-                </div>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  4 Modules
-                </span>
-              </div>
 
-              <div className="my-4">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {totalPracticeSolved}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">
-                    / 100 Topics Solved
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mt-2.5">
-                  <div
-                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(totalPracticeSolved > 0 ? 4 : 0, Math.min(100, (totalPracticeSolved / 100) * 100))}%` }}
-                  />
-                </div>
-              </div>
-
-              <Link
-                to="/practice"
-                className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold font-mono transition-colors group"
-              >
-                <span>Continue Practice Arena</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
-
-            {/* Card 2: Lab Internal Coursework */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-500/20">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Lab Internal CIE
-                  </span>
-                </div>
-                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                  {labCieMarks} / 20.0 Marks
-                </span>
-              </div>
-
-              <div className="my-4">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {totalLabSolved}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">
-                    / 80 Problems Solved
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mt-2.5">
-                  <div
-                    className="bg-cyan-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(totalLabSolved > 0 ? 4 : 0, Math.min(100, (totalLabSolved / 80) * 100))}%` }}
-                  />
-                </div>
-              </div>
-
-              <Link
-                to="/lab-internal"
-                className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 text-xs font-semibold font-mono transition-colors group"
-              >
-                <span>Continue Lab Coursework</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
-
-            {/* Card 3: Evaluated Code & Activity */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-                    <Trophy className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Evaluated Records
-                  </span>
-                </div>
-                <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                  GCC 14 (C11)
-                </span>
-              </div>
-
-              <div className="my-4">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {Math.max(profile.recentSubmissions?.length || 0, effectiveSolved)}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">
-                    Verified Submissions
-                  </span>
-                </div>
-                <div className="text-xs font-mono text-slate-400 mt-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>100% Compiler Verified Code</span>
-                </div>
-              </div>
-
-              <Link
-                to="/history"
-                className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold font-mono transition-colors group"
-              >
-                <span>View Full Code History</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
-          </div>
 
           {/* ========================================================= */}
           {/* Apple Visual Analytics: 14-Day Activity & Velocity Chart   */}
@@ -1788,353 +1700,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           </div>
 
-          {/* ========================================================= */}
-          {/* Dual Bento Grid: CIE Performance Ring & Difficulty Matrix */}
-          {/* ========================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Card A: CIE Lab Internal Circular Ring Gauge */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-cyan-500" />
-                    <span>Lab Internal CIE Performance</span>
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Continuous Internal Evaluation (20.0 Marks Total)
-                  </p>
-                </div>
-                <Link
-                  to="/lab-internal"
-                  className="text-xs font-mono font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
-                >
-                  <span>Open Lab</span>
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
 
-              {/* Gauge and Breakdown Row */}
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                {/* SVG Apple Ring */}
-                <div className="relative shrink-0 flex items-center justify-center">
-                  <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
-                    <defs>
-                      <linearGradient id="cieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#06b6d4" />
-                        <stop offset="100%" stopColor="#6366f1" />
-                      </linearGradient>
-                    </defs>
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="none"
-                      strokeWidth="8"
-                      stroke="currentColor"
-                      className="text-slate-100 dark:text-slate-800"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="42"
-                      fill="none"
-                      strokeWidth="8"
-                      stroke="url(#cieRingGradient)"
-                      strokeDasharray="263.89"
-                      strokeDashoffset={263.89 * (1 - Math.min(1, totalLabSolved / 80))}
-                      strokeLinecap="round"
-                      className="transition-all duration-700"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                    <span className="text-2xl font-black font-mono text-slate-900 dark:text-white leading-tight">
-                      {labCieMarks}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-cyan-600 dark:text-cyan-400 leading-tight">
-                      / 20.0 M
-                    </span>
-                    <span className="text-[9px] font-mono text-slate-400 mt-0.5">
-                      {Math.round((totalLabSolved / 80) * 100)}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* 4 Lab Modules Mini Status */}
-                <div className="flex-1 w-full space-y-2.5">
-                  {[
-                    { order: 1, title: 'Control Flow', solved: m1LabSolved, total: 20 },
-                    { order: 2, title: 'Pointers & Funcs', solved: m2LabSolved, total: 20 },
-                    { order: 3, title: 'Arrays & Strings', solved: m3LabSolved, total: 20 },
-                    { order: 4, title: 'Dynamic Memory', solved: m4LabSolved, total: 20 },
-                  ].map((mod) => {
-                    const pct = Math.round((mod.solved / mod.total) * 100);
-                    const marks = (mod.solved * 0.25).toFixed(1);
-                    return (
-                      <div key={mod.order} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="text-slate-700 dark:text-slate-300 font-semibold truncate">
-                            MOD 0{mod.order} • {mod.title}
-                          </span>
-                          <span className="text-cyan-600 dark:text-cyan-400 font-bold shrink-0">
-                            {marks}/5.0 M ({mod.solved}/{mod.total})
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="text-[11px] font-mono text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between">
-                <span>Total Lab Problems: {totalLabSolved} / 80 Solved</span>
-                <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Weightage: 0.25 M each</span>
-              </div>
-            </div>
-
-            {/* Card B: Difficulty Mastery Distribution (180 Total Problems) */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Target className="w-4 h-4 text-emerald-500" />
-                    <span>Difficulty Mastery</span>
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Problem completion across 180 curated challenges
-                  </p>
-                </div>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                  {effectiveSolved} / 180 Solved
-                </span>
-              </div>
-
-              {/* 3 Difficulty Tiers */}
-              <div className="space-y-4">
-                {/* Easy */}
-                <div className="space-y-1.5 p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Easy Track
-                    </span>
-                    <span className="text-emerald-700 dark:text-emerald-300 font-bold">
-                      {easySolved} / {easyTotal} ({Math.round((easySolved / (easyTotal || 1)) * 100)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.round((easySolved / (easyTotal || 1)) * 100))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Medium */}
-                <div className="space-y-1.5 p-3 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/30">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Medium Track
-                    </span>
-                    <span className="text-amber-700 dark:text-amber-300 font-bold">
-                      {medSolved} / {medTotal} ({Math.round((medSolved / (medTotal || 1)) * 100)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.round((medSolved / (medTotal || 1)) * 100))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Hard */}
-                <div className="space-y-1.5 p-3 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/40 dark:border-rose-800/30">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      Hard Track
-                    </span>
-                    <span className="text-rose-700 dark:text-rose-300 font-bold">
-                      {hardSolved} / {hardTotal} ({Math.round((hardSolved / (hardTotal || 1)) * 100)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-rose-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.round((hardSolved / (hardTotal || 1)) * 100))}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-[11px] font-mono text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between">
-                <span>Curriculum Coverage: {Math.round((effectiveSolved / 180) * 100)}%</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">100 Practice + 80 Lab</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ========================================================= */}
-          {/* Core C Language Competencies Matrix                        */}
-          {/* ========================================================= */}
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Core C Competency Matrix</span>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Combined mastery across Practice & Lab coursework (45 challenges each)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                {
-                  title: 'Control Flow & Decision Logic',
-                  desc: 'Conditionals, switch-case, nested iterations',
-                  solved: m1PracticeSolved + m1LabSolved,
-                  total: 45,
-                  color: 'from-emerald-500 to-teal-500',
-                },
-                {
-                  title: 'Pointers, Memory & Functions',
-                  desc: 'Address-of, dereference, pass-by-ref, recursion',
-                  solved: m2PracticeSolved + m2LabSolved,
-                  total: 45,
-                  color: 'from-cyan-500 to-blue-500',
-                },
-                {
-                  title: 'Arrays, Strings & Data Layout',
-                  desc: '1D/2D arrays, string manipulation, matrices',
-                  solved: m3PracticeSolved + m3LabSolved,
-                  total: 45,
-                  color: 'from-indigo-500 to-purple-500',
-                },
-                {
-                  title: 'Dynamic Heap & Structures',
-                  desc: 'malloc/free, structs, unions, bitwise',
-                  solved: m4PracticeSolved + m4LabSolved,
-                  total: 45,
-                  color: 'from-amber-500 to-orange-500',
-                },
-              ].map((skill, i) => {
-                const pct = Math.round((skill.solved / skill.total) * 100);
-                return (
-                  <div
-                    key={i}
-                    className="p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 space-y-2"
-                  >
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="font-semibold text-slate-900 dark:text-white truncate">
-                        {skill.title}
-                      </span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                        {skill.solved}/{skill.total} ({pct}%)
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-1">{skill.desc}</p>
-                    <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                      <div
-                        className={`bg-gradient-to-r ${skill.color} h-full rounded-full transition-all duration-500`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ========================================================= */}
-          {/* Verified Code Evaluations (Recent Submissions Inset)       */}
-          {/* ========================================================= */}
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-indigo-500" />
-                  <span>Recent Evaluated Submissions</span>
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Permanent cloud-verified records of submitted C programs
-                </p>
-              </div>
-              <Link
-                to="/history"
-                className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-              >
-                <span>All Submissions ({profile.recentSubmissions?.length || 0})</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
-              <div className="text-center py-8 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/40 p-4 space-y-1">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                  No submissions recorded yet.
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Solve your first problem in Practice Arena or Lab Internal to establish your verified record!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {profile.recentSubmissions.slice(0, 5).map((sub: any) => (
-                  <div
-                    key={sub.id}
-                    className="p-3 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-4 transition-colors hover:bg-white dark:hover:bg-slate-800"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-xs text-slate-900 dark:text-white truncate">
-                          {sub.problem?.title || 'Practice Problem'}
-                        </h4>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                          #{sub.attemptNumber || 1}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
-                        <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}</span>
-                        <span>•</span>
-                        <span className="text-emerald-500 font-semibold">Verified</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <VerdictBadge verdict={sub.verdict} size="sm" />
-                      {sub.code && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewCodeSubmission(sub);
-                            setHasCopiedCode(false);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-[11px] font-semibold font-mono transition-colors cursor-pointer"
-                        >
-                          View Code
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
 

@@ -17,6 +17,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { IssueSyncService } from '../../services/issueSync.service.js';
 
 export interface StudentIssueItem {
   id: string;
@@ -110,117 +111,15 @@ export const StudentIssuesModal: React.FC<StudentIssuesModalProps> = ({ isOpen, 
     if (!isOpen) return;
     setIsLoading(true);
 
-    const loadLocalIssues = (): StudentIssueItem[] => {
-      try {
-        const storedKey = 'logicq_faculty_raised_issues';
-        const raw = localStorage.getItem(storedKey);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.map((item: any) => ({
-          id: item.id || `local-${Math.random().toString(36).substring(2, 7)}`,
-          questionId: item.questionId || 'general',
-          questionTitle: item.questionTitle || 'Assessment Question',
-          contextType: item.contextType || 'PRACTICE',
-          category: item.category || 'OTHER',
-          description: item.description || '',
-          studentId: item.studentId || '',
-          studentName: item.studentName || 'Student Candidate',
-          studentPrn: item.studentPrn || '',
-          studentEmail: item.studentEmail || '',
-          studentPhone: item.studentPhone || item.studentWhatsapp || '',
-          studentWhatsapp: item.studentWhatsapp || item.studentPhone || '',
-          createdAt: item.createdAt || new Date().toISOString(),
-          status: item.status || 'OPEN',
-          resolutionComment: item.resolutionComment,
-          resolvedAt: item.resolvedAt,
-        }));
-      } catch {
-        return [];
-      }
-    };
-
-    // Live listener on Cloud Firestore 'raised_issues'
-    const unsub = onSnapshot(
-      collection(db, 'raised_issues'),
-      (snap) => {
-        const cloudList: StudentIssueItem[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          const pPrn = String(data.studentPrn || '').toUpperCase().trim();
-          const pEmail = String(data.studentEmail || '').toLowerCase().trim();
-          const pId = String(data.studentId || '').trim();
-
-          const isMine =
-            (myPrn && pPrn && (pPrn === myPrn || myPrn.includes(pPrn) || pPrn.includes(myPrn))) ||
-            (myEmail && pEmail && pEmail === myEmail) ||
-            (myId && pId && pId === myId);
-
-          if (isMine) {
-            cloudList.push({
-              id: d.id,
-              questionId: data.questionId || 'general',
-              questionTitle: data.questionTitle || 'Assessment Question',
-              contextType: data.contextType || 'PRACTICE',
-              category: data.category || 'OTHER',
-              description: data.description || '',
-              studentId: data.studentId || '',
-              studentName: data.studentName || 'Student',
-              studentPrn: data.studentPrn || '',
-              studentEmail: data.studentEmail || '',
-              studentPhone: data.studentPhone || data.studentWhatsapp || '',
-              studentWhatsapp: data.studentWhatsapp || data.studentPhone || '',
-              createdAt: data.createdAt || new Date().toISOString(),
-              status: data.status || 'OPEN',
-              resolutionComment: data.resolutionComment,
-              resolvedAt: data.resolvedAt,
-            });
-          }
-        });
-
-        // Merge local storage items that might not yet be in cloud
-        const localItems = loadLocalIssues();
-        localItems.forEach((local) => {
-          const exists = cloudList.some(
-            (c) =>
-              c.id === local.id ||
-              (c.questionId === local.questionId && c.description === local.description)
-          );
-          if (!exists) {
-            cloudList.push(local);
-          }
-        });
-
-        const cleanList = deduplicateStudentIssues(cloudList);
-        cleanList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setIssues(cleanList);
-        setIsLoading(false);
-      },
-      (err) => {
-        console.warn('Student raised_issues listener notice:', err);
-        const localItems = loadLocalIssues();
-        setIssues(localItems);
-        setIsLoading(false);
-      }
-    );
-
-    const unsubMesh = realtimeSync.on('ISSUES', () => {
-      const localItems = loadLocalIssues();
-      setIssues((prev) => {
-        const map = new Map<string, StudentIssueItem>();
-        prev.forEach((i) => map.set(i.id, i));
-        localItems.forEach((i) => {
-          if (!map.has(i.id)) map.set(i.id, i);
-        });
-        return Array.from(map.values()).sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      });
+    const unsub = IssueSyncService.listenToStudentIssues(myPrn, myEmail, myId, (list) => {
+      const cleanList = deduplicateStudentIssues(list as any);
+      cleanList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setIssues(cleanList);
+      setIsLoading(false);
     });
 
     return () => {
       unsub();
-      unsubMesh();
     };
   }, [isOpen, myPrn, myEmail, myId]);
 

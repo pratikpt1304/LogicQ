@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { FirestoreDataService } from './firestoreData.service.js';
 
 export interface DraftData {
@@ -152,7 +153,7 @@ export class DraftSyncService {
   }
 
   /**
-   * Fetch draft from Firestore
+   * Fetch draft from cloud (Supabase student_drafts -> KeyVal cloud mesh -> Firestore)
    */
   public static async fetchRemoteDraft(
     userId: string,
@@ -160,10 +161,60 @@ export class DraftSyncService {
     isPractice = false
   ): Promise<DraftData | null> {
     try {
-      const draftId = DraftSyncService.sanitizeDraftId(slug, isPractice);
-
-      // 1. Cross-Device Cohort PRN draft lookup
       const prn = FirestoreDataService.resolvePrn(userId);
+      const lookupKey = (prn || userId || auth.currentUser?.uid || '').toUpperCase().trim();
+
+      // 1. Supabase student_drafts lookup (fastest & quota-free)
+      if (isSupabaseConfigured && lookupKey) {
+        try {
+          const draftId = `${lookupKey}_${slug}`.toLowerCase();
+          const { data: sbDraft, error } = await supabase
+            .from('student_drafts')
+            .select('*')
+            .eq('id', draftId)
+            .maybeSingle();
+
+          if (!error && sbDraft?.code) {
+            return {
+              problemId: sbDraft.problem_slug || slug,
+              problemSlug: sbDraft.problem_slug || slug,
+              code: sbDraft.code || '',
+              customInput: sbDraft.custom_input || '',
+              updatedAt: new Date(sbDraft.updated_at || Date.now()).getTime(),
+              deviceLabel: sbDraft.device_label || 'Remote Device',
+              expiresAt: null,
+            };
+          }
+        } catch {}
+      }
+
+      // 2. High-speed KeyVal cloud mesh lookup (cross-device instant sync)
+      if (lookupKey) {
+        try {
+          const safeKey = `lq_d_${lookupKey}_${slug}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          const kvRes = await fetch(`https://api.keyval.org/get/${safeKey}`, { signal: AbortSignal.timeout(2500) });
+          if (kvRes.ok) {
+            const kvJson = await kvRes.json();
+            if (kvJson && kvJson.status === 'SUCCESS' && kvJson.val) {
+              const parsed = JSON.parse(kvJson.val);
+              if (parsed?.code) {
+                return {
+                  problemId: parsed.problemSlug || slug,
+                  problemSlug: parsed.problemSlug || slug,
+                  code: parsed.code || '',
+                  customInput: parsed.customInput || '',
+                  updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+                  deviceLabel: parsed.deviceLabel || 'Remote Device',
+                  expiresAt: null,
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 3. Fallback: Firestore cohort_progress drafts
+      const draftId = DraftSyncService.sanitizeDraftId(slug, isPractice);
       if (prn) {
         try {
           const cohortDraftRef = doc(db, 'cohort_progress', prn, 'drafts', draftId);
@@ -219,7 +270,7 @@ export class DraftSyncService {
   }
 
   /**
-   * Save draft to Firestore (debounced from callers)
+   * Save draft to cloud (KeyVal cloud mesh + Supabase student_drafts + Firestore)
    */
   public static async saveRemoteDraft(
     userId: string,
@@ -231,10 +282,45 @@ export class DraftSyncService {
         return false;
       }
 
+      const prn = FirestoreDataService.resolvePrn(userId);
+      const lookupKey = (prn || userId || auth.currentUser?.uid || '').toUpperCase().trim();
+
+      // 1. KeyVal cloud mesh instant broadcast (cross-device sync with zero latency)
+      if (lookupKey && draft.code) {
+        try {
+          const safeKey = `lq_d_${lookupKey}_${draft.problemSlug}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          const payload = {
+            problemSlug: draft.problemSlug,
+            code: draft.code,
+            customInput: draft.customInput || '',
+            deviceLabel: draft.deviceLabel || getDeviceLabel(),
+            updatedAt: draft.updatedAt || Date.now(),
+          };
+          fetch(`https://api.keyval.org/set/${safeKey}/${encodeURIComponent(JSON.stringify(payload))}`, {
+            signal: AbortSignal.timeout(3000),
+          }).catch(() => {});
+        } catch {}
+      }
+
+      // 2. Supabase student_drafts persistence (if table exists)
+      if (isSupabaseConfigured && lookupKey && draft.code) {
+        try {
+          const draftId = `${lookupKey}_${draft.problemSlug}`.toLowerCase();
+          Promise.resolve(
+            supabase.from('student_drafts').upsert({
+              id: draftId,
+              student_prn: lookupKey,
+              problem_slug: draft.problemSlug,
+              code: draft.code,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' })
+          ).catch(() => {});
+        } catch {}
+      }
+
       const draftId = DraftSyncService.sanitizeDraftId(draft.problemSlug, isPractice);
 
-      // 1. Cross-Device Cohort PRN draft persistence
-      const prn = FirestoreDataService.resolvePrn(userId);
+      // 3. Cross-Device Cohort PRN draft persistence (Firestore)
       if (prn) {
         try {
           const cohortDraftRef = doc(db, 'cohort_progress', prn, 'drafts', draftId);

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Production_Live-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=rocket&logoColor=white" alt="Live Status" /></a>
   <a href="https://logicq-bitwiseclub.onrender.com/api/health"><img src="https://img.shields.io/badge/Render_API-Online_200_OK-8B9BFF?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
-  <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v51_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
+  <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v296_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
   <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-53%2F53_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
   <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/AI_Viva-Gemini_2.5_Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="Gemini Viva" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white" alt="Security Policy" /></a>
@@ -70,10 +70,14 @@ It integrates **Apple-grade minimalist human interface design** with **instituti
 
 ---
 
-### 3. 🛡️ Multi-Signal Behavioral Proctoring
-- **Anti-Collusion Subsetting**: Mathematical stride offset guarantees adjacent lab seats (Roll `1001`, `1002`, `1003`) never receive overlapping question sets.
-- **Monaco Editor Sandbox**: Copy-paste bursts from outside sources are strictly intercepted and logged.
-- **Focus Loss & Fullscreen Monitoring**: Tab switches and fullscreen exit transitions are tracked in real-time with full incident timestamps.
+### 3. 🛡️ Multi-Signal Behavioral Proctoring & Assessment 4 Suite
+- **120-Question Deterministic Partitioning**: Assessment 4 (*Arrays & Searching-Sorting*) features 120 hand-crafted problem variants (60 Easy Array manipulations + 60 Moderate Searching & Sorting challenges).
+- **Anti-Collusion Subsetting**: Mathematical PRN stride offset guarantees adjacent lab seats (Roll `1001`, `1002`, `1003`) never receive overlapping question sets.
+- **0ms Instant Question Loading**: Client-bundled synchronous `initialData` architecture renders assigned questions in zero milliseconds, completely eliminating network cold-start latency.
+- **Automated 2-Breach Lockout & Auto-Exit**: Strict proctored perimeter enforcement auto-submits, grades, and safely returns students to their portal upon reaching 2 perimeter breaches (fullscreen exits or tab switches).
+- **Monaco Editor Sandbox**: Copy-paste bursts from outside sources are strictly intercepted, sanitized, and logged.
+- **Dual-Pane Real-Time Admin Audit Modal**: Side-by-side student deep-dive with syntax-highlighted submitted C code viewer, test case assertions breakdown, typing velocity (CPM), and single-click cloud code reload.
+- **Automated Cloud Attendance Verification**: Seamless integration between faculty lab rosters and student portals—enrolled students are automatically verified when exams go live.
 - **Dual-Part University Reports**:
   - **Part A**: Code correctness, GCC compiler accuracy, and on-time/late progression.
   - **Part B**: Behavioral proctoring trail, keystroke dynamics (CPM), and AI viva score.

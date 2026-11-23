@@ -40,12 +40,14 @@ import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboar
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
 import { FacultyPortalPage } from './pages/faculty/FacultyPortalPage.js';
 import { AdminPortalPage } from './pages/admin/AdminPortalPage.js';
+import { LiveAssessmentConsolePage } from './pages/admin/LiveAssessmentConsolePage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
 import { BindEmailModal } from './components/common/BindEmailModal.js';
 import { ChangePasswordModal } from './components/common/ChangePasswordModal.js';
 import { StudentLiveAlertListener } from './components/common/StudentLiveAlertListener.js';
 import { RadialActionMenu } from './components/common/RadialActionMenu.js';
 import { CookieConsentBanner } from './components/common/CookieConsentBanner.js';
+import { MaintenancePage } from './pages/MaintenancePage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -251,6 +253,86 @@ export const App: React.FC = () => {
     // Purge any deleted/banned student profiles from local storage
     FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
 
+    // Ensure Lab Internal is unlocked by default and stale test/lab caches are purged
+    try {
+      localStorage.removeItem('logicq_lab_internal_faculty_locked');
+      localStorage.removeItem('logicq_fallback_practice_progress_v1');
+      localStorage.removeItem('logicq_practice_report_control-structures');
+      localStorage.removeItem('logicq_practice_report_pointers-and-functions');
+      localStorage.removeItem('logicq_practice_report_arrays-and-strings');
+      localStorage.removeItem('logicq_practice_report_recursion-and-bit-manipulation');
+      localStorage.removeItem('logicq_practice_report_structures-unions-and-dma');
+      const labWipedFlag = localStorage.getItem('logicq_lab_purged_v2026_nov22_v3');
+      if (!labWipedFlag) {
+        localStorage.removeItem('logicq_assessment_submissions');
+        localStorage.removeItem('logicq_assessment_test_submissions');
+        localStorage.removeItem('logicq_lab_submissions');
+        localStorage.removeItem('logicq_cie_marks');
+        localStorage.removeItem('logicq_lab_internal_faculty_locked');
+        localStorage.removeItem('logicq_fallback_practice_progress_v1');
+        Object.keys(localStorage).forEach((k) => {
+          if (
+            k.startsWith('logicq_exam_') ||
+            k.startsWith('logicq_test_') ||
+            k.startsWith('logicq_lab_') ||
+            k.startsWith('logicq_practice_report_') ||
+            k.includes('assessment')
+          ) {
+            localStorage.removeItem(k);
+          }
+        });
+        localStorage.setItem('logicq_lab_purged_v2026_nov22_v3', 'true');
+      }
+
+      // Reset 2126PMIM1049 caches if student was reset by faculty
+      const reset1049Flag = localStorage.getItem('logicq_reset_done_2126PMIM1049_v2');
+      if (!reset1049Flag) {
+        Object.keys(localStorage).forEach((k) => {
+          if (k.toUpperCase().includes('2126PMIM1049')) {
+            localStorage.removeItem(k);
+          }
+        });
+        localStorage.setItem('logicq_reset_done_2126PMIM1049_v2', 'true');
+      }
+
+      // Clean slate for Assessment 4 (Fresh Test preparation)
+      const a4FreshFlag = localStorage.getItem('logicq_a4_fresh_clean_v2026_nov23_v1');
+      if (!a4FreshFlag) {
+        Object.keys(localStorage).forEach((k) => {
+          if (
+            k.includes('test-continuous-arrays-search-sort') ||
+            k.includes('test-assessment-4') ||
+            k.includes('assessment-4') ||
+            k.startsWith('logicq_exam_locked_') ||
+            k.startsWith('logicq_exam_proctor_locked') ||
+            k.startsWith('logicq_exam_student_submitted_') ||
+            k.startsWith('logicq_exam_student_sub_') ||
+            k.startsWith('logicq_code_sub_')
+          ) {
+            localStorage.removeItem(k);
+          }
+        });
+        localStorage.setItem('logicq_a4_fresh_clean_v2026_nov23_v1', 'true');
+      }
+
+
+    } catch {}
+
+    // Clear stale cached test records from local storage
+    try {
+      const wipedFlag = localStorage.getItem('logicq_tests_purged_v2');
+      if (!wipedFlag) {
+        localStorage.removeItem('logicq_admin_tests');
+        localStorage.removeItem('logicq_assessment_tests_backup_v1');
+        localStorage.removeItem('logicq_assessment_submissions');
+        localStorage.removeItem('logicq_master_test_status');
+        localStorage.removeItem('logicq_exam_status_v2026');
+        localStorage.removeItem('logicq_exam_confirmed_v2026');
+        localStorage.removeItem('logicq_present_prns_v2026');
+        localStorage.setItem('logicq_tests_purged_v2', 'true');
+      }
+    } catch {}
+
     return () => clearInterval(intervalId);
   }, []);
 
@@ -278,6 +360,27 @@ export const App: React.FC = () => {
       window.location.hostname.includes('staging') ||
       (window.location.hostname.endsWith('.web.app') && window.location.hostname !== 'logicq-clanguage.web.app') ||
       (import.meta as any).env?.VITE_IS_STAGING === 'true');
+
+  // Scheduled Platform Maintenance Gate (Set false to open platform live to all students)
+  const IS_MAINTENANCE_ACTIVE = false;
+  const isFacultyOrAdmin = Boolean(
+    isAdmin ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'FACULTY' ||
+    user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
+    user?.email?.toLowerCase() === 'hariprasathset@sanjivani.edu.in' ||
+    user?.prn === 'LOGICQARENA'
+  );
+  const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname === '/login';
+
+  if (IS_MAINTENANCE_ACTIVE && !isAdminRoute && !isFacultyOrAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+        <MaintenancePage />
+        <PwaManager />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors overflow-x-hidden">
@@ -468,6 +571,24 @@ export const App: React.FC = () => {
           {/* Public Instant Student Join (Section 13) */}
           <Route path="/join" element={<InstantJoinPage />} />
           <Route path="/join/:joinToken" element={<InstantJoinPage />} />
+
+          {/* Standalone Apple-Grade Live Assessment Command Center */}
+          <Route
+            path="/admin/live-assessment/:testId"
+            element={
+              <FacultyRoute>
+                <LiveAssessmentConsolePage />
+              </FacultyRoute>
+            }
+          />
+          <Route
+            path="/faculty/live-assessment/:testId"
+            element={
+              <FacultyRoute>
+                <LiveAssessmentConsolePage />
+              </FacultyRoute>
+            }
+          />
 
           {/* Master Admin & Faculty Portal (Specification V2.0) */}
           <Route

@@ -30,20 +30,7 @@ export function getLabModuleSolvedCount(moduleOrder: number, solvedTopicIds: str
 export function isLabModuleComplete(moduleOrder: number, solvedTopicIds: string[]): boolean {
   const count = getLabModuleSolvedCount(moduleOrder, solvedTopicIds);
   const total = LAB_MODULE_SLUGS[moduleOrder]?.length || 20;
-  if (count >= 20 || count >= total) return true;
-
-  if (typeof localStorage !== 'undefined') {
-    const reportKeyMap: Record<number, string> = {
-      1: 'logicq_practice_report_control-structures',
-      2: 'logicq_practice_report_pointers-and-functions',
-      3: 'logicq_practice_report_arrays-and-strings',
-      4: 'logicq_practice_report_recursion-and-bit-manipulation',
-      5: 'logicq_practice_report_structures-unions-and-dma',
-    };
-    const key = reportKeyMap[moduleOrder];
-    if (key && localStorage.getItem(key)) return true;
-  }
-  return false;
+  return count >= 20 || count >= total;
 }
 
 /**
@@ -204,11 +191,15 @@ export function isOfficialAssessmentTest(sub: any): boolean {
   // 2. Explicit assessment submission types (EXAM / ASSESSMENT / OFFICIAL_TEST)
   const subType = String(sub.submissionType || sub.type || '').toUpperCase();
   const contextType = String(sub.contextType || '').toUpperCase();
+  const probId = String(sub.testId || sub.problemId || sub.problemSlug || '').trim();
   if (
     subType === 'ASSESSMENT' ||
     subType === 'TEST' ||
     subType === 'EXAM' ||
     subType === 'LAB_INTERNAL_TEST' ||
+    subType === 'CONTINUOUS_LAB' ||
+    subType === 'LAB_INTERNAL' ||
+    probId.startsWith('practice-c') ||
     contextType === 'EXAM'
   ) {
     return true;

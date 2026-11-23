@@ -104,7 +104,7 @@ export function useAntiScreenshot(options: AntiScreenshotOptions = {}) {
       const key = e.key ? e.key.toLowerCase() : '';
       const code = e.code ? e.code.toLowerCase() : '';
 
-      // 1. Windows PrintScreen or PrtScn key
+      // 1. Windows PrintScreen or PrtScn key (Hardware capture)
       if (
         key === 'printscreen' ||
         code === 'printscreen' ||
@@ -117,11 +117,31 @@ export function useAntiScreenshot(options: AntiScreenshotOptions = {}) {
         return false;
       }
 
-      // 2. Windows Snipping Tool (Win + Shift + S) or Ctrl + Shift + S
+      // Safe Typing Guard: If active element is Monaco Editor, a textarea, or input field,
+      // NEVER intercept or block typing keys (e.g. 's', 'a', 'd', 'p', digits, uppercase characters).
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const isInputActive = Boolean(
+        activeEl && (
+          activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.classList?.contains('inputarea') ||
+          activeEl.closest?.('.monaco-editor') ||
+          activeEl.closest?.('.monaco-mouse-cursor-text') ||
+          activeEl.getAttribute?.('contenteditable') === 'true'
+        )
+      );
+
+      if (isInputActive) {
+        return;
+      }
+
+      // 2. Windows Snipping Tool (Win + Shift + S)
+      // Strictly ONLY on Meta/Windows key + Shift + S.
+      // Must NOT block on Alt+Shift (language switcher) or Ctrl+Shift!
       if (
         (key === 's' || code === 'keys') &&
         e.shiftKey &&
-        (e.metaKey || e.ctrlKey || e.altKey)
+        e.metaKey
       ) {
         e.preventDefault();
         e.stopPropagation();

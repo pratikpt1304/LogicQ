@@ -245,6 +245,21 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         const effectivePrn = (user.prn || '').toUpperCase().trim();
         const effectiveName = user.displayName || user.fullName || '';
 
+        // Realtime mesh broadcast for instant admin sync across all network conditions
+        if (effectivePrn && cleanEmail) {
+          fetch(`https://api.keyval.org/set/lq_bound_${effectivePrn}/${encodeURIComponent(cleanEmail)}`, { signal: AbortSignal.timeout(2500) }).catch(() => null);
+          fetch('https://api.keyval.org/get/lq_bound_index_v2026', { signal: AbortSignal.timeout(1500) })
+            .then((r) => r.json())
+            .then((data) => {
+              const current = data?.status === 'SUCCESS' && data?.val ? String(data.val) : '';
+              const pairs = current.split(',').filter(Boolean).filter((p) => !p.startsWith(`${effectivePrn}:`));
+              pairs.push(`${effectivePrn}:${cleanEmail}`);
+              const newStr = pairs.join(',');
+              fetch(`https://api.keyval.org/set/lq_bound_index_v2026/${encodeURIComponent(newStr)}`, { signal: AbortSignal.timeout(2500) }).catch(() => null);
+            })
+            .catch(() => null);
+        }
+
         // Immediate direct canonical write to Firestore enrolled_students & cohort_progress
         if (effectivePrn) {
           try {

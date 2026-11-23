@@ -178,7 +178,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   const partARows = [
     ['Continuous Internal Evaluation (CIE) Marks', `${opts.cieMarks.toFixed(1)} / 20.0 Marks (Official Scale)`],
     ['Lab Internal Coursework Experiments', `${opts.labSolvedCount} of 80 Problems Solved (20 Problems per Module)`],
-    ['Practice Arena Skill Progression', `${opts.practiceSolvedCount} of 100 Topics Mastered (Formative Practice)`],
+    ['Practice Arena Skill Progression', `${Math.min(100, Math.max(0, opts.practiceSolvedCount))} of 100 Topics Mastered (Formative Practice)`],
     ['Average Problem Solving Time', opts.avgSolveTime || '~3.5 mins / problem (Prescribed: 2–8 mins)'],
     ['First-Try & Compiler Accuracy', `${opts.compilerAccuracy}% Pass Rate (${opts.acceptedCount} AC, ${opts.compileErrorCount} CE, ${opts.wrongAnswerCount} WA)`],
     ['Evaluation Sandbox Environment', 'Isolated GCC 14.2 Compiler · Standard C11 Standards Compliance'],

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth, db } from '../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
@@ -115,18 +116,22 @@ export const PracticeModulesPage: React.FC = () => {
   const isAdmin = user?.role === 'ADMIN';
   const isPrivileged = Boolean(isAdmin || isFaculty);
 
+  // Faculty Maintenance Lock: Lab Internal continuous assessment default UNLOCKED
+  const [isLabFacultyLocked, setIsLabFacultyLocked] = useState<boolean>(() => {
+    try {
+      localStorage.removeItem('logicq_lab_internal_faculty_locked');
+    } catch {}
+    return false;
+  });
+
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
+  const prnCleanUser = (user?.prn || '').toUpperCase().trim();
+  const emailCleanUser = (user?.email || '').toLowerCase().trim();
+
   const [solvedTopics, setSolvedTopics] = useState<string[]>(() => {
-    const list = getSolvedPracticeTopicIds(effectiveUid);
+    const list = getSolvedPracticeTopicIds(effectiveUid).filter((id) => !id.startsWith('practice-c'));
     if (user?.prn) {
-      getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
-      try {
-        const raw = localStorage.getItem(`logicq_completed_problems_${user.prn.toUpperCase()}`) || localStorage.getItem(`logicq_solved_${user.prn.toUpperCase()}`);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) parsed.forEach((x) => !list.includes(x) && list.push(x));
-        }
-      } catch {}
+      getSolvedPracticeTopicIds(user.prn).forEach((x) => !x.startsWith('practice-c') && !list.includes(x) && list.push(x));
     }
     if (Array.isArray((user as any)?.completedProblems)) {
       (user as any).completedProblems.forEach((x: string) => !list.includes(x) && list.push(x));
@@ -210,41 +215,56 @@ export const PracticeModulesPage: React.FC = () => {
       const prnClean = (user?.prn || '').toUpperCase().trim();
       let cohortProblems: string[] = [];
       if (prnClean) {
+        // 0. High-speed Supabase sync (immune to Firestore quota limits)
+        if (isSupabaseConfigured) {
+          try {
+            const { data: sbProg } = await supabase
+              .from('practice_progress')
+              .select('solved_topic_ids')
+              .eq('student_prn', prnClean)
+              .maybeSingle();
+            if (sbProg?.solved_topic_ids && Array.isArray(sbProg.solved_topic_ids)) {
+              cohortProblems = [...sbProg.solved_topic_ids];
+            }
+          } catch {}
+        }
+
         try {
           const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
           if (cohortSnap && cohortSnap.exists()) {
             const cData = cohortSnap.data();
             if (Array.isArray(cData?.completedProblems)) {
-              cohortProblems = cData.completedProblems;
+              cohortProblems = Array.from(new Set([...cohortProblems, ...cData.completedProblems]));
             }
           }
         } catch {}
+
+        // Resilient KeyVal fallback if Firestore has latency or quota backoff
+        if (cohortProblems.length === 0) {
+          try {
+            const kvRes = await fetch(`https://api.keyval.org/get/lq_practice_${prnClean}`, { signal: AbortSignal.timeout(1800) });
+            if (kvRes.ok) {
+              const kvText = await kvRes.text();
+              if (kvText && kvText.startsWith('[')) {
+                const kvArr = JSON.parse(kvText);
+                if (Array.isArray(kvArr) && kvArr.length > 0) {
+                  cohortProblems = kvArr;
+                }
+              }
+            }
+          } catch {}
+        }
       }
 
       const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
       const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
-      const fallbackSolvedSlugs: string[] = [];
-      try {
-        const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
-        if (rawProg) {
-          const progMap = JSON.parse(rawProg);
-          Object.keys(progMap).forEach((k) => {
-            if (progMap[k]?.isSolved) {
-              const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
-              fallbackSolvedSlugs.push(cleanSlug);
-            }
-          });
-        }
-      } catch {}
-
       const cloudSolved = Array.from(
         new Set([
           ...cohortProblems,
           ...(stats?.completedProblems || []),
           ...(prog?.completedProblems || []),
-          ...fallbackSolvedSlugs,
-          ...getSolvedPracticeTopicIds(effectiveUid),
-          ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
+          ...getSolvedPracticeTopicIds(effectiveUid).filter((id) => !id.startsWith('practice-c')),
+          ...(user?.prn ? getSolvedPracticeTopicIds(user.prn).filter((id) => !id.startsWith('practice-c')) : []),
         ])
       );
       if (cloudSolved.length > 0) {
@@ -322,7 +342,8 @@ export const PracticeModulesPage: React.FC = () => {
   const moduleCards = useMemo(() => {
     return currentModuleDefinitions.map((def) => {
       const slugs = def.problems.map((p) => p.slug);
-      const solvedInModule = slugs.filter((slug) => solvedTopics.includes(slug)).length;
+      const solvedBySlugs = slugs.filter((slug) => solvedTopics.includes(slug)).length;
+      const solvedInModule = solvedBySlugs;
       const totalQuestions = def.problems.length || 20;
       const progressPercent = Math.round((solvedInModule / totalQuestions) * 100);
 
@@ -601,6 +622,44 @@ export const PracticeModulesPage: React.FC = () => {
           </div>
         </motion.div>
 
+        {/* FACULTY MAINTENANCE LOCK BANNER */}
+        {isLabFacultyLocked && (
+          <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 sm:p-6 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5 animate-in fade-in">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0 mt-0.5">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Lab Internal Under Faculty Maintenance
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                    LOCKED
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+                  Official Lab Internal coursework is currently locked for faculty evaluation & scheduled maintenance. Problem solving and submissions are paused until unlocked by your course faculty.
+                </p>
+              </div>
+            </div>
+            {isPrivileged && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isLabFacultyLocked;
+                  setIsLabFacultyLocked(next);
+                  localStorage.setItem('logicq_lab_internal_faculty_locked', String(next));
+                  toast.success(next ? 'Lab Internal locked for students.' : 'Lab Internal unlocked for students.');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition cursor-pointer shrink-0"
+              >
+                {isLabFacultyLocked ? 'Unlock Lab Internal' : 'Lock Lab Internal'}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 2. APPLE SEGMENTED MODULE SWITCHER */}
         <div className="p-1.5 rounded-2xl bg-slate-200/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 lg:grid-cols-4 gap-1.5">
           {moduleCards.map((mod) => {
@@ -696,12 +755,19 @@ export const PracticeModulesPage: React.FC = () => {
                 </div>
 
                 <GalaxyButton
-                  to={`/lab-internal/${activeModule.slug}/${nextProblem.slug}`}
-                  onClick={handleLaunchQuestionFullscreen}
+                  to={(!isPrivileged && isLabFacultyLocked) ? '#' : `/lab-internal/${activeModule.slug}/${nextProblem.slug}`}
+                  onClick={(e) => {
+                    if (!isPrivileged && isLabFacultyLocked) {
+                      e?.preventDefault();
+                      toast.error('🔒 Lab Internal is currently locked by faculty for maintenance & coursework evaluation.');
+                      return;
+                    }
+                    handleLaunchQuestionFullscreen();
+                  }}
                   size="md"
-                  hue={160}
-                  text={`Continue Solving Question ${nextProblem.index} →`}
-                  icon={<Play className="w-3.5 h-3.5 fill-white" />}
+                  hue={(!isPrivileged && isLabFacultyLocked) ? 20 : 160}
+                  text={(!isPrivileged && isLabFacultyLocked) ? '🔒 Locked by Faculty (Maintenance)' : `Continue Solving Question ${nextProblem.index} →`}
+                  icon={(!isPrivileged && isLabFacultyLocked) ? <Lock className="w-3.5 h-3.5 text-white" /> : <Play className="w-3.5 h-3.5 fill-white" />}
                   iconPosition="left"
                   className="shrink-0"
                 />
@@ -847,6 +913,32 @@ export const PracticeModulesPage: React.FC = () => {
                             Locked
                           </span>
                         </div>
+                      </div>
+                    );
+                  }
+
+                  if (!isPrivileged && isLabFacultyLocked) {
+                    return (
+                      <div
+                        key={prob.slug}
+                        onClick={() => toast.error('🔒 Lab Internal is currently locked by faculty under scheduled maintenance.')}
+                        className="rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-100/40 dark:bg-slate-900/40 p-4 sm:p-5 flex items-center justify-between gap-4 opacity-75 cursor-not-allowed"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-mono font-bold bg-slate-200/60 dark:bg-slate-800/60 text-slate-400">
+                            {prob.index}
+                          </span>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">
+                              {prob.title}
+                            </h4>
+                            <p className="text-xs text-slate-400 truncate mt-0.5">{prob.category}</p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0">
+                          <Lock className="w-3 h-3 text-amber-500" />
+                          <span>Locked</span>
+                        </span>
                       </div>
                     );
                   }

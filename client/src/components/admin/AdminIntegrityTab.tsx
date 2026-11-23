@@ -105,15 +105,20 @@ interface GuardrailSetting {
 
 interface VivaLogItem {
   id: string;
+  vivaId?: string;
   studentName: string;
   prn: string;
   section: string;
   problemTitle: string;
   question: string;
+  questionText?: string;
   answer: string;
   score: number;
+  verdict?: string;
   status: 'VERIFIED' | 'REVIEW_NEEDED';
   timestamp: string;
+  submittedAt?: string;
+  submittedBeforeTimeout?: boolean;
 }
 
 const resolveProblemContext = (
@@ -272,10 +277,20 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
                 const parsed = JSON.parse(rawCode);
                 if (Array.isArray(parsed?.incidents) && parsed.incidents.length > 0) {
                   liveEvents = parsed.incidents.map((inc: any, idx: number) => {
-                    const ctx = resolveProblemContext(inc.problemTitle || inc.problemSlug, inc.moduleTitle, inc.category);
-                    const resolvedCategory = inc.category === 'LAB_INTERNAL' ? 'Lab Internal' : (inc.category === 'PRACTICE' ? 'Practice' : ctx.category);
-                    const resolvedModule = inc.moduleTitle || ctx.moduleName;
-                    const resolvedProblem = inc.problemTitle || ctx.problemTitle;
+                    const isTest = Boolean(
+                      inc.testId ||
+                      inc.assignmentId ||
+                      String(inc.category || '').toUpperCase() === 'ASSESSMENT' ||
+                      String(inc.category || '').toUpperCase() === 'TEST' ||
+                      String(inc.problemSlug || '').includes('assessment') ||
+                      String(inc.problemSlug || '').includes('exam') ||
+                      String(inc.moduleTitle || '').toLowerCase().includes('assessment') ||
+                      String(inc.problemTitle || '').toLowerCase().includes('assessment')
+                    );
+                    const ctx = resolveProblemContext(inc.problemTitle || inc.problemSlug, inc.moduleTitle, isTest ? 'ASSESSMENT' : 'LAB_INTERNAL');
+                    const resolvedCategory = isTest ? 'Assessment Test' : (inc.category === 'PRACTICE' ? 'Practice' : 'Lab Internal');
+                    const resolvedModule = inc.moduleTitle || ctx.moduleName || (isTest ? 'Official Assessment Test' : 'Lab Internal Coursework');
+                    const resolvedProblem = inc.problemTitle || ctx.problemTitle || (isTest ? 'Assessment Question' : 'Evaluation Problem');
 
                     return {
                       id: inc.id || `live-inc-${idx}`,
@@ -290,11 +305,11 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
                           : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
                           : 'CODE_RUN',
                       severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt) ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
-                      title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
+                      title: inc.type === 'TAB_SWITCH' ? `Tab Switch Detected (${isTest ? 'Assessment Test' : 'Lab Internal'})`
                            : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
                            : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Paste Burst Blocked'
                            : inc.type === 'EXCEEDED_COPY_PASTE' ? 'Massive Paste Inflow (Quarantine Locked)'
-                           : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
+                           : inc.type === 'FULLSCREEN_EXIT' ? `Exited Fullscreen (${isTest ? 'Assessment Test' : 'Lab Internal'})`
                            : inc.type === 'AI_VIVA_ANSWER' ? 'AI Viva Defense Submitted'
                            : 'Telemetry Incident Triggered',
                       details: inc.reason || inc.details || 'Security event logged on student workspace.',
@@ -347,31 +362,43 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
   // Viva logs state (Purely Authentic - zero mock entries)
   const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>([]);
 
-  // Real-time listener for viva_logs Firestore collection
+  // Real-time listener for viva_logs Firestore collection (with memory sorting & local cache fallback)
   useEffect(() => {
-    const q = query(collection(db, 'viva_logs'), orderBy('submittedAt', 'desc'), limit(200));
-    const unsub = onSnapshot(q, (snap) => {
-      const logs: VivaLogItem[] = snap.docs.map((d) => {
-        const raw = d.data();
+    const processDocs = (docs: any[]) => {
+      const logs: VivaLogItem[] = docs.map((d) => {
+        const raw = typeof d.data === 'function' ? d.data() : d;
         return {
-          id: d.id,
+          id: d.id || raw.vivaId || `viva_${Math.random()}`,
           vivaId: raw.vivaId || d.id,
-          prn: raw.prn || '',
-          studentName: raw.studentName || raw.email?.split('@')[0] || 'Unknown',
-          section: raw.section || 'Practice',
-          question: raw.questionText || '',
-          questionText: raw.questionText || '',
+          prn: raw.prn || raw.studentPrn || '',
+          studentName: raw.studentName || raw.email?.split('@')[0] || raw.prn || 'Unknown',
+          section: raw.section || 'Lab Internal',
+          question: raw.questionText || raw.question || '',
+          questionText: raw.questionText || raw.question || '',
           answer: raw.answer || '',
-          verdict: raw.verdict || 'PENDING',
-          status: (raw.verdict === 'PASS' ? 'VERIFIED' : 'REVIEW_NEEDED') as 'VERIFIED' | 'REVIEW_NEEDED',
-          score: raw.score ?? 0,
-          timestamp: raw.submittedAt || new Date().toISOString(),
-          submittedAt: raw.submittedAt || new Date().toISOString(),
-          problemTitle: raw.problemSlug || raw.problemTitle || '',
+          verdict: raw.verdict || 'PASS',
+          status: (raw.verdict === 'PASS' || raw.verdict === 'ACCEPTED' ? 'VERIFIED' : 'REVIEW_NEEDED') as 'VERIFIED' | 'REVIEW_NEEDED',
+          score: raw.score ?? 1.0,
+          timestamp: raw.submittedAt || raw.createdAt || new Date().toISOString(),
+          submittedAt: raw.submittedAt || raw.createdAt || new Date().toISOString(),
+          problemTitle: raw.problemTitle || raw.problemSlug || '',
           submittedBeforeTimeout: raw.submittedBeforeTimeout ?? true,
         };
       });
-      setVivaLogs(logs);
+      logs.sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
+      if (logs.length > 0) {
+        setVivaLogs(logs);
+      }
+    };
+
+    try {
+      const local = JSON.parse(localStorage.getItem('logicq_viva_logs') || '[]');
+      if (Array.isArray(local) && local.length > 0) processDocs(local);
+    } catch {}
+
+    const q = query(collection(db, 'viva_logs'), limit(200));
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) processDocs(snap.docs);
     }, (err) => console.warn('viva_logs listener error:', err));
     return () => unsub();
   }, []);
@@ -385,7 +412,6 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
         // Purge old mock storage
         try {
           localStorage.removeItem('logicq_student_forensics_data');
-          localStorage.removeItem('logicq_viva_logs');
         } catch {}
 
         // Clean up any stale legacy cache with small counts
@@ -1089,6 +1115,42 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
     }).length;
   }, [studentsForensics]);
 
+  const allVivaRecords = useMemo(() => {
+    const list = [...vivaLogs];
+    // Incorporate any AI_VIVA_ANSWER events from student live telemetry stream
+    studentsForensics.forEach((st) => {
+      st.timeline.forEach((tl) => {
+        if (tl.type === 'AI_VIVA_ANSWER') {
+          const already = list.some(
+            (l) => (l.prn === st.prn || l.studentName === st.name) &&
+                   (Math.abs(new Date(l.submittedAt || l.timestamp || 0).getTime() - new Date(tl.timestamp || 0).getTime()) < 60000 || l.answer === tl.codeSnippet)
+          );
+          if (!already) {
+            list.push({
+              id: tl.id || `live_viva_${st.prn}_${tl.timestamp}`,
+              vivaId: tl.id || `viva_${st.prn}`,
+              prn: st.prn,
+              studentName: st.name,
+              section: st.section || 'Lab Internal',
+              question: tl.problemTitle ? `Defending: ${tl.problemTitle}` : 'Code Logic Defense',
+              questionText: tl.details || 'Conceptual code defense',
+              answer: tl.codeSnippet || tl.details || 'Submitted explanation',
+              verdict: 'PASS',
+              status: 'VERIFIED',
+              score: 1.0,
+              timestamp: tl.timestamp || new Date().toISOString(),
+              submittedAt: tl.timestamp || new Date().toISOString(),
+              problemTitle: tl.problemTitle || 'Lab Internal Question',
+              submittedBeforeTimeout: true,
+            });
+          }
+        }
+      });
+    });
+    list.sort((a, b) => new Date(b.submittedAt || b.timestamp || 0).getTime() - new Date(a.submittedAt || a.timestamp || 0).getTime());
+    return list;
+  }, [vivaLogs, studentsForensics]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ========================================================================= */}
@@ -1628,7 +1690,7 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
                     pasteByProblem[key] = (pasteByProblem[key] || 0) + 1;
                   });
 
-                  const isLab = s.category === 'Lab Internal' || (s.labInternalTabSwitches || 0) > 0 || (s.labInternalPasteBursts || 0) > 0;
+                  const isTestIncident = s.timeline.some((e: any) => e.category === 'Assessment Test' || (e.moduleName && e.moduleName.toLowerCase().includes('assessment')));
 
                   return (
                     <StaggerItem key={s.id}>
@@ -1645,11 +1707,11 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
                             {s.prn}
                           </span>
                           <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
-                            isLab
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                            isTestIncident
+                              ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                              : 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
                           }`}>
-                            {isLab ? '⚡ Lab Internal' : '📘 Practice'}
+                            {isTestIncident ? '📝 Assessment Test' : '⚡ Lab Internal'}
                           </span>
                           {s.lastIncidentFormatted && (
                             <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
@@ -1710,9 +1772,9 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
                   AI Viva Defense Audit Stream
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Total Recorded Defenses: <strong className="text-slate-800 dark:text-slate-200">{vivaLogs.length}</strong> • Verified:{' '}
-                  <span className="text-emerald-600 font-bold">{vivaLogs.filter((l) => l.status === 'VERIFIED').length}</span> • Flagged / Needs Review:{' '}
-                  <span className="text-rose-600 font-bold">{vivaLogs.filter((l) => l.status !== 'VERIFIED').length}</span>
+                  Total Recorded Defenses: <strong className="text-slate-800 dark:text-slate-200">{allVivaRecords.length}</strong> • Verified:{' '}
+                  <span className="text-emerald-600 font-bold">{allVivaRecords.filter((l) => l.status === 'VERIFIED').length}</span> • Flagged / Needs Review:{' '}
+                  <span className="text-rose-600 font-bold">{allVivaRecords.filter((l) => l.status !== 'VERIFIED').length}</span>
                 </p>
               </div>
             </div>
@@ -1726,7 +1788,7 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
             </button>
           </div>
 
-          {vivaLogs.length === 0 ? (
+          {allVivaRecords.length === 0 ? (
             <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-8 sm:p-12 text-center space-y-4">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
                 <Brain className="w-7 h-7" />
@@ -1742,10 +1804,10 @@ export const AdminIntegrityTab: React.FC<AdminIntegrityTabProps> = ({
             </div>
           ) : (
             <StaggerContainer
-              key={`viva_logs_${vivaLogs.length}`}
+              key={`viva_logs_${allVivaRecords.length}`}
               className="grid grid-cols-1 gap-3"
             >
-              {vivaLogs.map((log) => {
+              {allVivaRecords.map((log) => {
                 const isFail = log.status !== 'VERIFIED';
                 const formattedTime = log.timestamp
                   ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })

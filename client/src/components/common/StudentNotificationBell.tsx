@@ -5,6 +5,7 @@ import { db } from '../../config/firebase.js';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { StudentIssuesModal } from './StudentIssuesModal.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { IssueSyncService } from '../../services/issueSync.service.js';
 
 interface NotificationItem {
   id: string;
@@ -87,72 +88,51 @@ export const StudentNotificationBell: React.FC = () => {
     };
   }, [isOpen]);
 
-  // Load and listen to raised_issues for notifications
+  // Load and listen to raised_issues for notifications (Supabase Realtime + Mesh)
   useEffect(() => {
     if (!cleanPrn && !userEmail && !userId) return;
 
-    const unsub = onSnapshot(
-      collection(db, 'raised_issues'),
-      (snap) => {
-        const readIds = getReadIds();
-        const items: NotificationItem[] = [];
+    const unsub = IssueSyncService.listenToStudentIssues(cleanPrn, userEmail, userId, (issues) => {
+      const readIds = getReadIds();
+      const items: NotificationItem[] = [];
 
-        snap.forEach((d) => {
-          const data = d.data();
-          const pPrn = String(data.studentPrn || '').toUpperCase().trim();
-          const pEmail = String(data.studentEmail || '').toLowerCase().trim();
-          const pId = String(data.studentId || '').trim();
+      issues.forEach((data) => {
+        const isResolved = data.status === 'RESOLVED';
+        const notifId = `issue-${data.id}-${data.status}`;
 
-          const isMine =
-            (cleanPrn && pPrn && (pPrn === cleanPrn || cleanPrn.includes(pPrn) || pPrn.includes(cleanPrn))) ||
-            (userEmail && pEmail && pEmail === userEmail) ||
-            (userId && pId && pId === userId);
-
-          if (!isMine) return;
-
-          const isResolved = data.status === 'RESOLVED';
-          const notifId = `issue-${d.id}-${data.status}`;
-
-          items.push({
-            id: notifId,
-            type: isResolved ? 'ISSUE_RESOLVED' : 'ISSUE_OPEN',
-            title: isResolved
-              ? `Faculty Resolved: ${data.questionTitle || 'Reported Problem'}`
-              : `Issue Under Review: ${data.questionTitle || 'Reported Problem'}`,
-            description: isResolved
-              ? (data.resolutionComment || 'Your feedback has been verified and resolved by your faculty.')
-              : 'Your issue has been queued for faculty review.',
-            timestamp: data.resolvedAt || data.createdAt || new Date().toISOString(),
-            read: readIds.includes(notifId),
-            questionId: data.questionId,
-          });
-        });
-
-        // Always add a baseline system welcome / clean status
         items.push({
-          id: 'system-proctor-clean',
-          type: 'SYSTEM',
-          title: 'Institutional Anti-Cheat Guard',
-          description: 'Your proctoring integrity profile is active and verified clean.',
-          timestamp: new Date().toISOString(),
-          read: true,
+          id: notifId,
+          type: isResolved ? 'ISSUE_RESOLVED' : 'ISSUE_OPEN',
+          title: isResolved
+            ? `Faculty Resolved: ${data.questionTitle || 'Reported Problem'}`
+            : `Issue Under Review: ${data.questionTitle || 'Reported Problem'}`,
+          description: isResolved
+            ? (`Verified & resolved by faculty (${data.resolvedBy || 'Faculty Team'}).`)
+            : 'Your issue has been queued for faculty review.',
+          timestamp: data.resolvedAt || data.createdAt || new Date().toISOString(),
+          read: readIds.includes(notifId),
+          questionId: data.questionId,
         });
+      });
 
-        const dismissedIds = new Set(getDismissedIds());
-        const visibleItems = items.filter((item) => !dismissedIds.has(item.id));
-        visibleItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setNotifications(visibleItems);
-      },
-      () => {}
-    );
+      // Always add a baseline system welcome / clean status
+      items.push({
+        id: 'system-proctor-clean',
+        type: 'SYSTEM',
+        title: 'Institutional Anti-Cheat Guard',
+        description: 'Your proctoring integrity profile is active and verified clean.',
+        timestamp: new Date().toISOString(),
+        read: true,
+      });
 
-    const unsubMesh = realtimeSync.on('ISSUES', () => {
-      // Mesh update trigger
+      const dismissedIds = new Set(getDismissedIds());
+      const visibleItems = items.filter((item) => !dismissedIds.has(item.id));
+      visibleItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setNotifications(visibleItems);
     });
 
     return () => {
       unsub();
-      unsubMesh();
     };
   }, [cleanPrn, userEmail, userId]);
 

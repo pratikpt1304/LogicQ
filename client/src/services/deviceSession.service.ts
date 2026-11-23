@@ -4,11 +4,13 @@
  * Enforces Institutional Security Policies:
  * 1. Single Active Instance: Maximum 1 concurrent/parallel login allowed.
  *    If an account logs in from another device/tab, any existing session is immediately terminated.
- * 2. Device Registration: Maximum 2 authorized devices per student PRN.
+ * 2. Device Registration: Maximum 3 authorized devices per student PRN.
  */
 
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
+
+export const GLOBAL_SESSION_RESET_EPOCH = 1795325000000; // Monotonic epoch for universal device & session reset
 
 export interface DeviceSessionRecord {
   prn: string;
@@ -137,10 +139,25 @@ export class DeviceSessionService {
       }
     } catch {}
 
-    // 3. Enforce device limit per student account (roll over oldest if > 3 instead of locking out student)
+    // Universal Reset Check: If devices were registered prior to universal reset epoch, reset to empty []
+    const studentResetKey = `logicq_device_reset_epoch_${cleanPrn}`;
+    const lastLocalReset = Number(localStorage.getItem(studentResetKey) || 0);
+    const firestoreResetEpoch = Number(cohortSnap?.data()?.lastSessionResetEpoch || 0);
+
+    if (lastLocalReset < GLOBAL_SESSION_RESET_EPOCH || firestoreResetEpoch < GLOBAL_SESSION_RESET_EPOCH) {
+      registeredDevices = [];
+      localStorage.setItem(studentResetKey, String(GLOBAL_SESSION_RESET_EPOCH));
+      localStorage.removeItem(deviceStorageKey);
+    }
+
+    // 3. Strict Device Limit: Max 3 authorized physical devices allowed per student
+    const MAX_ALLOWED_DEVICES = 3;
     if (!registeredDevices.includes(deviceId)) {
-      if (registeredDevices.length >= 4) {
-        registeredDevices.shift();
+      if (registeredDevices.length >= MAX_ALLOWED_DEVICES) {
+        return {
+          success: false,
+          message: `🚫 Maximum device limit reached (3/3 devices bound). Your account is already authorized on 3 devices. Please contact course faculty to reset your device authorizations.`,
+        };
       }
       registeredDevices.push(deviceId);
     }
@@ -223,19 +240,31 @@ export class DeviceSessionService {
     if (!cleanPrn) return false;
     try {
       localStorage.removeItem(`logicq_registered_devices_${cleanPrn}`);
-      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
-      const existingMod = cohortDoc?.data()?.moduleProgress || {};
-      await setDoc(
-        doc(db, 'cohort_progress', cleanPrn),
-        {
-          moduleProgress: {
-            ...existingMod,
-            registeredDevices: [],
-          },
-          updatedAt: Date.now(),
-        },
-        { merge: true }
-      ).catch(() => {});
+      fetch(`https://api.keyval.org/set/lq_devices_${cleanPrn}/NONE`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+
+      const firestorePromise = (async () => {
+        try {
+          await setDoc(
+            doc(db, 'cohort_progress', cleanPrn),
+            {
+              registeredDevices: [],
+              moduleProgress: { registeredDevices: [] },
+              updatedAt: Date.now(),
+            },
+            { merge: true }
+          );
+          await setDoc(
+            doc(db, 'enrolled_students', cleanPrn),
+            { registeredDevices: [] },
+            { merge: true }
+          );
+        } catch {}
+      })();
+
+      await Promise.race([
+        firestorePromise,
+        new Promise((res) => setTimeout(res, 2000)),
+      ]);
       return true;
     } catch {
       return false;
@@ -249,6 +278,9 @@ export class DeviceSessionService {
     const cleanPrn = (prn || '').trim().toUpperCase();
     if (!cleanPrn) return [];
     try {
+      const studentResetKey = `logicq_device_reset_epoch_${cleanPrn}`;
+      const lastLocalReset = Number(localStorage.getItem(studentResetKey) || 0);
+
       const targetPrns = Array.from(new Set([
         cleanPrn,
         cleanPrn.replace('PMIM', 'PMIF'),
@@ -261,9 +293,17 @@ export class DeviceSessionService {
         const cohortDoc = await getDoc(doc(db, 'cohort_progress', p)).catch(() => null);
         if (cohortDoc && cohortDoc.exists()) {
           const data = cohortDoc.data();
+          const lastReset = Number(data?.lastSessionResetEpoch || 0);
+          if (lastReset < GLOBAL_SESSION_RESET_EPOCH) {
+            return [];
+          }
           const devs = data?.registeredDevices || data?.moduleProgress?.registeredDevices;
           if (Array.isArray(devs) && devs.length > 0) return devs.filter(Boolean);
         }
+      }
+
+      if (lastLocalReset < GLOBAL_SESSION_RESET_EPOCH) {
+        return [];
       }
 
       const raw = localStorage.getItem(`logicq_registered_devices_${cleanPrn}`);
@@ -298,6 +338,10 @@ export class DeviceSessionService {
     // A. Cross-Tab / Cross-Window Listener via BroadcastChannel
     const handleBroadcast = (event: MessageEvent) => {
       const data = event.data;
+      if (data && data.type === 'LOGICQ_GLOBAL_LOGOUT_ALL') {
+        onTerminate('All student sessions were reset by administrator. Please log in again to authenticate your authorized device.');
+        return;
+      }
       if (
         data &&
         data.type === 'LOGICQ_SESSION_INVALIDATED' &&

@@ -170,8 +170,11 @@ export const AdminQuestionBankTab: React.FC = () => {
             } catch {}
           }
         }
-      } catch (err) {
-        console.warn('Failed to fetch cloud question bank:', err);
+      } catch (err: any) {
+        // Graceful fallback to local question bank when Firestore is unavailable
+        if (err?.code !== 'resource-exhausted' && err?.code !== 'permission-denied') {
+          console.warn('AdminQuestionBankTab cloud notice:', err?.message || err);
+        }
       }
     })();
     return () => { isMounted = false; };

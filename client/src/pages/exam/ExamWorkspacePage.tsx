@@ -15,6 +15,10 @@ import { DraftSyncService, getDeviceLabel } from '../../services/draftSync.servi
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { getStudentPersonalizedQuestions } from '../../utils/testQuestionDistributor.js';
+import { DEFAULT_HARIPRASAD_PRACTICAL_TEST } from '../../data/lab-assessment-questions.data.js';
+import { ASSESSMENT_4_TEST, A4_COMBINED_QUESTIONS, getStudentAssessment4Pair } from '../../data/assessment4-questions.data.js';
+import { AttendanceSyncService } from '../../services/attendanceSync.service.js';
+import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
 import { auth } from '../../config/firebase.js';
 import { Flag } from 'lucide-react';
 import {
@@ -65,6 +69,7 @@ export const ExamWorkspacePage: React.FC = () => {
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [startedAt, setStartedAt] = useState<Date | null>(null);
   const [activeViva, setActiveViva] = useState<{ vivaId: string; questionText: string; remainingSec?: number } | null>(null);
+  const pendingNextActionRef = useRef<{ nextProblemId: string | null; isFinal: boolean } | null>(null);
 
   // Test Results
   const [testResults, setTestResults] = useState<any[]>([]);
@@ -77,27 +82,154 @@ export const ExamWorkspacePage: React.FC = () => {
   // Behavioral Integrity Tracking (Sections 20 - 28)
   const [isFullscreen, setIsFullscreen] = useState<boolean>(() => Boolean(typeof document !== 'undefined' && document.fullscreenElement));
   const hasEnteredFullscreenRef = useRef<boolean>(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
-  const [tabSwitchCount, setTabSwitchCount] = useState<number>(0);
+  const cleanPrnForIntegrity = (user?.prn || '').toUpperCase().trim();
+  const [tabSwitchCount, setTabSwitchCount] = useState<number>(() => {
+    if (typeof window === 'undefined' || !cleanPrnForIntegrity) return 0;
+    return Number(localStorage.getItem(`logicq_exam_tabs_${assignmentId}_${cleanPrnForIntegrity}`)) || 0;
+  });
   const [focusLossCount, setFocusLossCount] = useState<number>(0);
-  const [fullScreenExitCount, setFullScreenExitCount] = useState<number>(0);
-  const [copyPasteAttempts, setCopyPasteAttempts] = useState<number>(0);
+  const [fullScreenExitCount, setFullScreenExitCount] = useState<number>(() => {
+    if (typeof window === 'undefined' || !cleanPrnForIntegrity) return 0;
+    return Number(localStorage.getItem(`logicq_exam_exits_${assignmentId}_${cleanPrnForIntegrity}`)) || 0;
+  });
+  const [copyPasteAttempts, setCopyPasteAttempts] = useState<number>(() => {
+    if (typeof window === 'undefined' || !cleanPrnForIntegrity) return 0;
+    return Number(localStorage.getItem(`logicq_exam_copypaste_${assignmentId}_${cleanPrnForIntegrity}`)) || 0;
+  });
   const [cutAttempts, setCutAttempts] = useState<number>(0);
   const [contextMenuAttempts, setContextMenuAttempts] = useState<number>(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState<number>(0);
   const [largestBurstChars, setLargestBurstChars] = useState<number>(0);
   const [activeSec, setActiveSec] = useState<number>(0);
 
-  const [proctorIncidentsLog, setProctorIncidentsLog] = useState<Array<{ timestamp: string; type: string; details: string; severity: 'INFO' | 'WARNING' | 'CRITICAL' }>>([]);
+  // Fetch test details to get full question sequence for auto-advancing
+  const { data: assignmentData } = useQuery({
+    queryKey: ['exam-assignment-questions', assignmentId],
+    queryFn: async () => {
+      const isA4 =
+        assignmentId === 'test-assessment-4' ||
+        assignmentId === 'assessment-4' ||
+        assignmentId === ASSESSMENT_4_TEST.id;
+      const isHariprasad =
+        assignmentId === DEFAULT_HARIPRASAD_PRACTICAL_TEST.id ||
+        assignmentId === 'test-continuous-arrays-search-sort';
+
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
+        if (current && Array.isArray(current.questions) && current.questions.length > 0) {
+          return {
+            ...current,
+            questionCount: isA4 || isHariprasad ? 2 : (Number(current.questionCount) || 2),
+          };
+        }
+      } catch {}
+
+      if (isA4) {
+        return {
+          ...ASSESSMENT_4_TEST,
+          questions: A4_COMBINED_QUESTIONS,
+          questionCount: 2,
+        };
+      }
+      if (isHariprasad) {
+        return {
+          ...DEFAULT_HARIPRASAD_PRACTICAL_TEST,
+          questionCount: 2,
+        };
+      }
+      try {
+        return await api.get(`/exam/assignment/${assignmentId}`);
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(assignmentId),
+    staleTime: 60000,
+    refetchInterval: false,
+  });
+
+  const resolveExamStudentPrn = useCallback((): string => {
+    if (user?.prn && user.prn.trim()) return user.prn.toUpperCase().trim();
+    const email = (user?.email || auth.currentUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('logicq_user_email') : '') || '').toLowerCase().trim();
+    if (email === 'thoratpratik2323@gmail.com') return '2126PMIM1039';
+    if (email) {
+      const cs = findCohortStudent(email);
+      if (cs?.prn) return cs.prn.toUpperCase().trim();
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = JSON.parse(localStorage.getItem('logicq_user') || '{}');
+        if (cached?.prn) return cached.prn.toUpperCase().trim();
+        if (cached?.email === 'thoratpratik2323@gmail.com') return '2126PMIM1039';
+        if (cached?.email) {
+          const cs = findCohortStudent(cached.email);
+          if (cs?.prn) return cs.prn.toUpperCase().trim();
+        }
+      } catch {}
+      const p = localStorage.getItem('logicq_prn') || localStorage.getItem('logicq_user_prn') || localStorage.getItem('user_prn');
+      if (p) return p.toUpperCase().trim();
+    }
+    return '';
+  }, [user]);
+
+  const currentPrnClean = resolveExamStudentPrn();
+  const incidentsLogRef = useRef<Array<{ timestamp: string; type: string; details: string; severity: 'INFO' | 'WARNING' | 'CRITICAL' }>>((() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(`logicq_exam_incidents_${assignmentId}_${currentPrnClean}`) ||
+                     localStorage.getItem(`logicq_exam_incidents_test-continuous-arrays-search-sort_${currentPrnClean}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  })());
+
+  const [proctorIncidentsLog, setProctorIncidentsLog] = useState<Array<{ timestamp: string; type: string; details: string; severity: 'INFO' | 'WARNING' | 'CRITICAL' }>>(
+    () => incidentsLogRef.current
+  );
 
   const addProctorIncident = useCallback((type: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'WARNING') => {
     const item = {
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
       type,
       details,
       severity,
     };
-    setProctorIncidentsLog((prev) => [item, ...prev].slice(0, 50));
-  }, []);
+    const last = incidentsLogRef.current[0];
+    if (last && last.type === type && last.details === details) {
+      return;
+    }
+    incidentsLogRef.current = [item, ...incidentsLogRef.current].slice(0, 50);
+    setProctorIncidentsLog([...incidentsLogRef.current]);
+    try {
+      if (currentPrnClean) {
+        localStorage.setItem(`logicq_exam_incidents_${assignmentId}_${currentPrnClean}`, JSON.stringify(incidentsLogRef.current));
+        localStorage.setItem(`logicq_exam_incidents_test-continuous-arrays-search-sort_${currentPrnClean}`, JSON.stringify(incidentsLogRef.current));
+      }
+    } catch {}
+  }, [assignmentId, currentPrnClean]);
+
+  // Log initial session start if not already recorded
+  useEffect(() => {
+    if (incidentsLogRef.current.length === 0) {
+      const startItem = {
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+        type: 'EXAM_STARTED',
+        details: 'Proctored assessment session initiated in secure full-screen perimeter.',
+        severity: 'INFO' as const,
+      };
+      incidentsLogRef.current = [startItem];
+      setProctorIncidentsLog([startItem]);
+      try {
+        if (currentPrnClean) {
+          localStorage.setItem(`logicq_exam_incidents_${assignmentId}_${currentPrnClean}`, JSON.stringify([startItem]));
+        }
+      } catch {}
+    }
+  }, [assignmentId, currentPrnClean]);
 
   const lastActivityRef = useRef<number>(Date.now());
   const focusLossStartRef = useRef<number | null>(null);
@@ -106,6 +238,318 @@ export const ExamWorkspacePage: React.FC = () => {
   const isExitingRef = useRef<boolean>(false);
   const currentExamAttemptRef = useRef<number>(1);
   const [currentExamAttempt, setCurrentExamAttempt] = useState<number>(1);
+
+  // Strict 2-Violation Proctor Lock State (Hariprasad Sir Specification)
+  const [isLockedByProctor, setIsLockedByProctor] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const prn = currentPrnClean;
+    const storedLock = (prn && (
+      localStorage.getItem(`logicq_exam_locked_${assignmentId}_${prn}`) === 'true' ||
+      localStorage.getItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${prn}`) === 'true' ||
+      localStorage.getItem(`logicq_exam_proctor_locked_${prn}`) === 'true'
+    )) ||
+      localStorage.getItem('logicq_exam_proctor_locked') === 'true' ||
+      localStorage.getItem(`logicq_exam_locked_${assignmentId}`) === 'true' ||
+      localStorage.getItem('logicq_exam_locked_test-continuous-arrays-search-sort') === 'true';
+    const storedVio = Math.max(
+      Number(localStorage.getItem(`logicq_exam_violations_${assignmentId}_${prn}`)) || 0,
+      Number(localStorage.getItem(`logicq_exam_violations_test-continuous-arrays-search-sort_${prn}`)) || 0,
+      Number(localStorage.getItem(`logicq_exam_violations_${assignmentId}`)) || 0,
+      Number(localStorage.getItem('logicq_exam_violations_test-continuous-arrays-search-sort')) || 0
+    );
+    return storedLock || storedVio >= 2;
+  });
+  const [proctorLockReason, setProctorLockReason] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'Exceeded permissible proctoring limit (2 violations).';
+    const prn = currentPrnClean;
+    return (prn && localStorage.getItem(`logicq_exam_proctor_lock_reason_${prn}`)) ||
+           localStorage.getItem('logicq_exam_proctor_lock_reason') ||
+           'Exceeded permissible proctoring limit (2 violations).';
+  });
+  const totalViolationsRef = useRef<number>((() => {
+    if (typeof window === 'undefined') return 0;
+    const prn = currentPrnClean;
+    const v = Math.max(
+      Number(localStorage.getItem(`logicq_exam_violations_${assignmentId}_${prn}`)) || 0,
+      Number(localStorage.getItem(`logicq_exam_violations_test-continuous-arrays-search-sort_${prn}`)) || 0,
+      Number(localStorage.getItem(`logicq_exam_violations_${assignmentId}`)) || 0,
+      Number(localStorage.getItem('logicq_exam_violations_test-continuous-arrays-search-sort')) || 0
+    );
+    if (!isNaN(v) && v > 0) return v;
+    const t = Number(localStorage.getItem(`logicq_exam_tabs_${assignmentId}_${prn}`)) || 0;
+    const e = Number(localStorage.getItem(`logicq_exam_exits_${assignmentId}_${prn}`)) || 0;
+    return t + e;
+  })());
+
+  // Strict Unified Proctoring Breach & Auto-Submit Handler (Hariprasad Sir Specification)
+  // Max 1 warning permissible; on 2nd violation test is immediately locked and auto-submitted with actual written code evaluated
+  const triggerProctorBreach = useCallback(async (
+    breachType: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'COPY_PASTE',
+    breachMessage: string
+  ) => {
+    if (isStaffUser || isLocked || isLockedByProctor || isExitingRef.current) return;
+
+    const prn = currentPrnClean || '2126PMIM1039';
+    totalViolationsRef.current += 1;
+    const currentTotal = totalViolationsRef.current;
+    const allPrnVariants = Array.from(new Set([prn, currentPrnClean, (user?.prn || '').toUpperCase().trim(), '2126PMIM1039', '1039'].filter(Boolean)));
+    try {
+      for (const p of allPrnVariants) {
+        localStorage.setItem(`logicq_exam_violations_${assignmentId}_${p}`, String(currentTotal));
+        localStorage.setItem(`logicq_exam_violations_test-continuous-arrays-search-sort_${p}`, String(currentTotal));
+      }
+      localStorage.setItem(`logicq_exam_violations_${assignmentId}`, String(currentTotal));
+      localStorage.setItem('logicq_exam_violations_test-continuous-arrays-search-sort', String(currentTotal));
+      if (breachType === 'TAB_SWITCH') {
+        localStorage.setItem(`logicq_exam_tabs_${assignmentId}_${prn}`, String(tabSwitchCount + 1));
+      } else if (breachType === 'FULLSCREEN_EXIT') {
+        localStorage.setItem(`logicq_exam_exits_${assignmentId}_${prn}`, String(fullScreenExitCount + 1));
+      } else if (breachType === 'COPY_PASTE') {
+        localStorage.setItem(`logicq_exam_copypaste_${assignmentId}_${prn}`, String(copyPasteAttempts + 1));
+      }
+    } catch {}
+    addProctorIncident(breachType, breachMessage, currentTotal >= 2 ? 'CRITICAL' : 'WARNING');
+
+    // VIOLATION #1: ONLY PERMISSIBLE WARNING
+    if (currentTotal === 1) {
+      toast.error('⚠️ Proctoring Warning (1/2): Violation Detected!', {
+        description: `${breachMessage} You have only 1 permissible warning. A 2nd violation (tab switch, fullscreen exit, or copy-paste) will IMMEDIATELY lock and auto-submit your assessment!`,
+        duration: 9000,
+      });
+      return;
+    }
+
+    // VIOLATION #2: STRICT AUTO-LOCK & AUTO-SUBMIT (Faculty review required to reopen)
+    if (currentTotal >= 2) {
+      setIsLocked(true);
+      setIsLockedByProctor(true);
+      setProctorLockReason(`Permissible violation limit reached (2/2). Triggered by: ${breachMessage}`);
+
+      const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || prn || 'current';
+      const breachDetails = `${breachType}: ${breachMessage} (Tabs: ${tabSwitchCount + (breachType === 'TAB_SWITCH' ? 1 : 0)}, Exits: ${fullScreenExitCount + (breachType === 'FULLSCREEN_EXIT' ? 1 : 0)}, Copy: ${copyPasteAttempts + (breachType === 'COPY_PASTE' ? 1 : 0)})`;
+
+      try {
+        for (const p of allPrnVariants) {
+          localStorage.removeItem(`logicq_exam_unlocked_${assignmentId}_${p}`);
+          localStorage.removeItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${p}`);
+          localStorage.removeItem(`logicq_exam_unlocked_test-assessment-4_${p}`);
+          localStorage.removeItem(`logicq_exam_unlocked_assessment-4_${p}`);
+          localStorage.removeItem(`logicq_exam_unlocked_${p}`);
+          localStorage.setItem(`logicq_exam_locked_${assignmentId}_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_test-assessment-4_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_assessment-4_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_proctor_locked_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_proctor_lock_reason_${p}`, breachDetails);
+          localStorage.setItem(`logicq_exam_student_submitted_${assignmentId}_${p}`, 'true');
+          localStorage.setItem(`logicq_exam_student_submitted_test-continuous-arrays-search-sort_${p}`, 'true');
+        }
+        localStorage.removeItem('logicq_exam_unlocked_test-continuous-arrays-search-sort');
+        localStorage.setItem(`logicq_exam_locked_${assignmentId}`, 'true');
+        localStorage.setItem('logicq_exam_locked_test-continuous-arrays-search-sort', 'true');
+        localStorage.setItem('logicq_exam_locked_test-assessment-4', 'true');
+        localStorage.setItem('logicq_exam_proctor_locked', 'true');
+        localStorage.setItem('logicq_exam_proctor_lock_reason', breachDetails);
+        localStorage.setItem(`logicq_exam_test_completed_${assignmentId}`, 'true');
+        localStorage.setItem('logicq_exam_test_completed_test-continuous-arrays-search-sort', 'true');
+      } catch {}
+
+      // Authoritative Cloud Mesh Broadcast of Student Proctor Lockout
+      for (const p of allPrnVariants) {
+        AttendanceSyncService.recordStudentProctorLockout(p, breachDetails, assignmentId).catch(() => {});
+        FirestoreDataService.recordStudentProctorLockout(p, breachDetails, assignmentId).catch(() => {});
+      }
+
+      // Evaluate the student's current code against test cases (pass hone pe marks, fail hone pe 0 marks)
+      const cleanCode = (code || '').trim();
+      const cleanStarter = (problemData?.starterCode || '').trim();
+      const normCode = cleanCode.replace(/\s+/g, ' ');
+      const normStarter = cleanStarter.replace(/\s+/g, ' ');
+      const hasValidCode = Boolean(
+        cleanCode &&
+        (!normStarter || normCode !== normStarter) &&
+        cleanCode.length >= 25 &&
+        (cleanCode.includes('main(') || cleanCode.includes('main ('))
+      );
+
+      const maxMarks = Number(problemData?.maxMarks ?? problemData?.marks ?? 5.0);
+      let earnedScore = 0;
+      let verdict = 'LOCKED_BY_PROCTOR';
+      let evaluatedOutcomes: any[] = [];
+
+      if (hasValidCode) {
+        try {
+          let res: any = null;
+          try {
+            res = await api.post('/exam/submit-question', {
+              attemptId,
+              code: cleanCode,
+              problemId,
+              assignmentId,
+              attemptNumber: 1,
+              isLate: false,
+            });
+          } catch {
+            res = await handleFallbackRequest('/exam/submit-question', {
+              method: 'POST',
+              body: JSON.stringify({ attemptId, code: cleanCode, problemId, assignmentId }),
+            } as any);
+          }
+          if (res?.verdict === 'ACCEPTED') {
+            earnedScore = Number(res?.academicScore ?? maxMarks);
+            verdict = 'ACCEPTED_WITH_BREACH';
+          } else {
+            verdict = res?.verdict || 'WRONG_ANSWER';
+            earnedScore = 0;
+          }
+          evaluatedOutcomes = res?.testOutcomes || res?.data?.testOutcomes || [];
+        } catch {
+          earnedScore = 0;
+          verdict = 'COMPILATION_ERROR';
+        }
+      } else {
+        earnedScore = 0;
+        verdict = cleanCode ? 'COMPILATION_ERROR' : 'NOT_SUBMITTED';
+      }
+
+      setAcademicScore(earnedScore);
+      if (evaluatedOutcomes.length > 0) {
+        setTestResults(evaluatedOutcomes);
+        setActiveBottomTab('output');
+        setIsDrawerOpen(true);
+      }
+
+      // Auto-submit current code as locked submission in Firestore & broadcast to Admin Console
+      const subPayload = {
+        testId: assignmentData?.id || assignmentId || 'UNIT',
+        assignmentId: assignmentId || 'UNIT',
+        testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+        userId: targetUser,
+        studentName: user?.fullName || user?.displayName || 'Student',
+        studentPrn: prn,
+        studentEmail: user?.email || '',
+        problemId: problemId || 'exam-q1',
+        problemTitle: problemData?.title || 'Assessment Question',
+        problemSlug: problemId || 'exam-q1',
+        difficulty: problemData?.difficulty || 'EASY',
+        timeTakenSeconds: elapsedSec || 60,
+        code: cleanCode || '// Editor empty at proctoring lockout',
+        verdict,
+        academicScore: earnedScore,
+        score: earnedScore,
+        marksAwarded: earnedScore,
+        maxMarks,
+        status: 'CRITICAL_BREACH',
+        isCheatAttempt: true,
+        tabSwitchCount: tabSwitchCount + (breachType === 'TAB_SWITCH' ? 1 : 0),
+        copyPasteAttempts: copyPasteAttempts + (breachType === 'COPY_PASTE' ? 1 : 0),
+        fullscreenExits: fullScreenExitCount + (breachType === 'FULLSCREEN_EXIT' ? 1 : 0),
+        totalKeystrokes,
+        largestBurstChars,
+        cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || cleanCode.length) / Math.max(5, elapsedSec || activeSec || 60)) * 60))),
+        typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || cleanCode.length) / Math.max(5, elapsedSec || activeSec || 60)) * 60))),
+        incidents: [
+          ...incidentsLogRef.current,
+          {
+            type: breachType,
+            details: `CRITICAL 2ND BREACH: ${breachMessage}. Test auto-submitted & locked. Code evaluated: ${earnedScore}/${maxMarks} M.`,
+            severity: 'CRITICAL',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+          }
+        ],
+      };
+
+      FirestoreDataService.recordAssessmentSubmission(subPayload).catch(() => {});
+      FirestoreDataService.recordDailySubmission(targetUser, subPayload).catch(() => {});
+      AttendanceSyncService.broadcastStudentSubmission(subPayload).catch(() => {});
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('TESTS');
+      RealtimeSyncService.emit('DASHBOARD');
+
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      toast.error('🚫 Assessment Locked!', {
+        description: `You reached 2 proctoring violations. Your code has been auto-submitted and evaluated (${earnedScore}/${maxMarks} Marks). Locked awaiting faculty review.`,
+        duration: 8000,
+      });
+
+      // Immediate safe auto-exit from exam workspace to student tests list
+      setTimeout(() => {
+        isExitingRef.current = true;
+        navigate('/student/tests');
+      }, 1500);
+    }
+  }, [isStaffUser, isLocked, isLockedByProctor, assignmentId, user, problemId, problemData, assignmentData, code, attemptId, tabSwitchCount, copyPasteAttempts, fullScreenExitCount, totalKeystrokes, largestBurstChars, proctorIncidentsLog, addProctorIncident]);
+  useEffect(() => {
+    if (!assignmentId || !user?.prn) return;
+    const cleanPrn = user.prn.toUpperCase().trim();
+    const checkUnlockStatus = async () => {
+      const isUnlocked = await FirestoreDataService.isStudentTestUnlockedByFaculty(assignmentId, cleanPrn);
+      if (isUnlocked && isLockedByProctor) {
+        setIsLocked(false);
+        setIsLockedByProctor(false);
+        totalViolationsRef.current = 0;
+        setTabSwitchCount(0);
+        setFullScreenExitCount(0);
+        setCopyPasteAttempts(0);
+        try {
+          localStorage.removeItem(`logicq_exam_locked_${assignmentId}_${cleanPrn}`);
+        } catch {}
+        toast.success('🎉 Test Unlocked by Faculty! You may resume coding.', { duration: 6000 });
+      }
+    };
+    checkUnlockStatus();
+    const interval = setInterval(checkUnlockStatus, 3500);
+    return () => clearInterval(interval);
+  }, [assignmentId, user?.prn, isLockedByProctor]);
+
+  // In-Lab Attendance Verification State
+  const canonicalTestId = (assignmentId || DEFAULT_HARIPRASAD_PRACTICAL_TEST.id).replace(/^assign-/, '');
+  const currentStudentPrn = currentPrnClean;
+
+  const [isAttendanceVerified, setIsAttendanceVerified] = useState<boolean>(true); // Default unlocked so legitimate students are never locked out
+
+  useEffect(() => {
+    if (isStaffUser) return;
+    const cleanPrn = currentStudentPrn || resolveExamStudentPrn();
+    if (!cleanPrn) return;
+
+    const checkAttendance = () => {
+      // Authoritative cloud check via KeyVal registry
+      AttendanceSyncService.syncStudentAttendancePresence(cleanPrn)
+        .then((isPres) => {
+          if (assignmentData?.requireAttendance) {
+            setIsAttendanceVerified(isPres !== false);
+          } else {
+            setIsAttendanceVerified(true);
+          }
+        })
+        .catch(() => setIsAttendanceVerified(true));
+    };
+
+    checkAttendance();
+
+    const unsubAttendance = AttendanceSyncService.listenToStudentAttendance(
+      canonicalTestId,
+      cleanPrn,
+      (isPres) => {
+        if (assignmentData?.requireAttendance) {
+          setIsAttendanceVerified(isPres !== false);
+        } else {
+          setIsAttendanceVerified(true);
+        }
+      }
+    );
+
+    const pollInterval = setInterval(checkAttendance, 15000);
+
+    return () => {
+      unsubAttendance();
+      clearInterval(pollInterval);
+    };
+  }, [canonicalTestId, currentStudentPrn, user?.prn, user?.email, isStaffUser, assignmentData?.requireAttendance]);
 
   // Anti-Screenshot & Screen Capture Shield (Exam Proctoring Layer — disabled for staff)
   const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 1024 || 'ontouchstart' in window);
@@ -140,50 +584,211 @@ export const ExamWorkspacePage: React.FC = () => {
     };
   }, []);
 
-  // Fetch test details to get full question sequence for auto-advancing
-  const { data: assignmentData } = useQuery({
-    queryKey: ['exam-assignment-questions', assignmentId],
-    queryFn: async () => {
-      try {
-        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
-        if (current) return current;
-      } catch {}
-      try {
-        return await api.get(`/exam/assignment/${assignmentId}`);
-      } catch {
-        return null;
-      }
-    },
-    enabled: Boolean(assignmentId),
-    staleTime: 5000,
-    refetchInterval: 5000,
-  });
-
   // Live listener to check if test was completed/concluded by admin in real-time
   const [isTestConcludedByAdmin, setIsTestConcludedByAdmin] = useState<boolean>(false);
+  const [isTestUpcoming, setIsTestUpcoming] = useState<boolean>(false);
+
+  const cleanPrnForLock = (currentStudentPrn || resolveExamStudentPrn() || user?.prn || '').toUpperCase().trim();
+  const [isExamSubmissionUnlocked, setIsExamSubmissionUnlocked] = useState(false);
+  const testAliasesForCompletion = Array.from(new Set([
+    assignmentId,
+    canonicalTestId,
+    'test-assessment-4',
+    'assessment-4',
+    'test-continuous-arrays-search-sort'
+  ].filter(Boolean) as string[]));
+
+  const isTestAlreadyCompleted = !isStaffUser && !isExamSubmissionUnlocked && typeof window !== 'undefined' && Boolean(
+    testAliasesForCompletion.some(alias => (
+      localStorage.getItem(`logicq_exam_test_completed_${alias}`) === 'true' ||
+      (cleanPrnForLock && (
+        localStorage.getItem(`logicq_exam_student_submitted_${alias}_${cleanPrnForLock}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_student_submitted_prn_${cleanPrnForLock}`) === 'true'
+      ))
+    ))
+  );
+
+  useEffect(() => {
+    if (cleanPrnForLock) {
+      // Check if student submission status was explicitly reset by faculty (without wiping proctor locks of an ongoing exam)
+      AttendanceSyncService.checkAndSyncStudentSubmissionStatus(cleanPrnForLock, canonicalTestId)
+        .then((isStillSub) => {
+          if (!isStillSub) {
+            setIsExamSubmissionUnlocked(true);
+            setIsLockedByProctor(false);
+            setIsLocked(false);
+            try {
+              if (typeof window !== 'undefined') {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const k = localStorage.key(i);
+                  if (k && (
+                    k.includes(cleanPrnForLock) && (
+                      k.startsWith('logicq_exam_locked_') ||
+                      k.startsWith('logicq_exam_q_completed_') ||
+                      k.startsWith('logicq_code_sub_') ||
+                      k.startsWith('logicq_exam_draft_')
+                    )
+                  )) {
+                    localStorage.removeItem(k);
+                  }
+                }
+              }
+            } catch {}
+          }
+        })
+        .catch(() => null);
+
+      // Real-time SSE listener for instant faculty unlock
+      let ntfySource: EventSource | null = null;
+      try {
+        ntfySource = new EventSource('https://ntfy.sh/logicq-live-eval-stream-v2/sse');
+        ntfySource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if ((payload?.type === 'STUDENT_TEST_RESET' || payload?.type === 'BULK_STUDENT_RESET_FRESH_TEST') && (
+              (payload?.prn || '').toUpperCase() === cleanPrnForLock ||
+              (Array.isArray(payload?.prns) && payload.prns.includes(cleanPrnForLock))
+            )) {
+              setIsExamSubmissionUnlocked(true);
+              setIsLockedByProctor(false);
+              setIsLocked(false);
+              totalViolationsRef.current = 0;
+              try {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const k = localStorage.key(i);
+                  if (k && (k.includes(cleanPrnForLock) || k.includes('logicq_exam_'))) {
+                    if (k.includes(cleanPrnForLock) || (assignmentId && k.includes(assignmentId))) {
+                      localStorage.removeItem(k);
+                    }
+                  }
+                }
+              } catch {}
+              toast.success('🔄 Test reset by faculty! Restarting fresh...', { duration: 3000 });
+              setTimeout(() => {
+                window.location.reload();
+              }, 1200);
+              return;
+            }
+
+            if (payload?.type === 'STUDENT_UNLOCKED_BY_FACULTY' && (payload?.prn || '').toUpperCase() === cleanPrnForLock) {
+              setIsExamSubmissionUnlocked(true);
+              setIsLockedByProctor(false);
+              setIsLocked(false);
+              totalViolationsRef.current = 0;
+              try {
+                localStorage.removeItem(`logicq_exam_locked_${assignmentId}_${cleanPrnForLock}`);
+                localStorage.removeItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${cleanPrnForLock}`);
+                localStorage.removeItem(`logicq_exam_student_submitted_${assignmentId}_${cleanPrnForLock}`);
+                localStorage.removeItem(`logicq_exam_student_submitted_test-continuous-arrays-search-sort_${cleanPrnForLock}`);
+                localStorage.removeItem(`logicq_exam_proctor_lock_reason_${cleanPrnForLock}`);
+                localStorage.setItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${cleanPrnForLock}`, 'true');
+              } catch {}
+              toast.success('🔓 Exam Unlocked by Faculty! You may continue your assessment.');
+            }
+          } catch {}
+        };
+      } catch {}
+
+      return () => {
+        if (ntfySource) ntfySource.close();
+      };
+    }
+  }, [cleanPrnForLock, canonicalTestId, assignmentId]);
 
   useEffect(() => {
     if (!assignmentId) return;
     const unsub = FirestoreDataService.listenToAssessmentTests((cloudTests) => {
       const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
-      if (current && (current.status === 'COMPLETED' || current.status === 'CONCLUDED')) {
-        setIsTestConcludedByAdmin(true);
+      if (current) {
+        if (current.status === 'COMPLETED' || current.status === 'CONCLUDED') {
+          setIsTestConcludedByAdmin(true);
+        } else if (current.status === 'UPCOMING' || current.status === 'SCHEDULED') {
+          setIsTestUpcoming(true);
+        } else {
+          setIsTestUpcoming(false);
+          setIsTestConcludedByAdmin(false);
+        }
       }
     });
-    return () => unsub();
-  }, [assignmentId]);
+
+    // Authoritative real-time Pub/Sub listener across all tabs and network
+    const checkInitial = async () => {
+      const known = AttendanceSyncService.getKnownTestStatus(canonicalTestId);
+      if (known === 'COMPLETED' || known === 'CONCLUDED') {
+        setIsTestConcludedByAdmin(true);
+      } else if (known === 'UPCOMING' || known === 'SCHEDULED') {
+        setIsTestUpcoming(true);
+      } else if (known === 'ACTIVE' || known === 'LIVE') {
+        setIsTestUpcoming(false);
+        setIsTestConcludedByAdmin(false);
+      }
+      const net = await AttendanceSyncService.fetchLatestNetworkStatus().catch(() => null);
+      if (net === 'COMPLETED' || net === 'CONCLUDED') {
+        setIsTestConcludedByAdmin(true);
+      } else if (net === 'UPCOMING' || net === 'SCHEDULED') {
+        setIsTestUpcoming(true);
+      } else if (net === 'ACTIVE' || net === 'LIVE') {
+        setIsTestUpcoming(false);
+        setIsTestConcludedByAdmin(false);
+      }
+    };
+    checkInitial();
+
+    const unsubRealtime = AttendanceSyncService.listenToTestStatus((tid, status) => {
+      const isTarget =
+        tid === canonicalTestId ||
+        tid === DEFAULT_HARIPRASAD_PRACTICAL_TEST.id ||
+        tid === 'test-continuous-arrays-search-sort' ||
+        String(tid).startsWith('test-hariprasad-lab-');
+      if (isTarget) {
+        if (status === 'COMPLETED' || status === 'CONCLUDED') {
+          setIsTestConcludedByAdmin(true);
+          setIsTestUpcoming(false);
+          toast.error('🛑 Assessment Concluded by Faculty! Re-attempts are disabled.', { duration: 6000 });
+        } else if (status === 'UPCOMING' || status === 'SCHEDULED') {
+          setIsTestUpcoming(true);
+          setIsTestConcludedByAdmin(false);
+        } else if (status === 'ACTIVE' || status === 'LIVE') {
+          setIsTestUpcoming(false);
+          setIsTestConcludedByAdmin(false);
+        }
+      }
+    });
+
+    const pollInterval = setInterval(() => {
+      AttendanceSyncService.fetchLatestNetworkStatus()
+        .then((netStatus) => {
+          if (netStatus === 'COMPLETED' || netStatus === 'CONCLUDED') {
+            setIsTestConcludedByAdmin(true);
+            setIsTestUpcoming(false);
+          } else if (netStatus === 'UPCOMING' || netStatus === 'SCHEDULED') {
+            setIsTestUpcoming(true);
+            setIsTestConcludedByAdmin(false);
+          } else if (netStatus === 'ACTIVE' || netStatus === 'LIVE') {
+            setIsTestUpcoming(false);
+            setIsTestConcludedByAdmin(false);
+          }
+        })
+        .catch(() => null);
+    }, 3000);
+
+    return () => {
+      unsub();
+      unsubRealtime();
+      clearInterval(pollInterval);
+    };
+  }, [assignmentId, canonicalTestId]);
 
   const isExamConcluded = isTestConcludedByAdmin || assignmentData?.status === 'COMPLETED' || assignmentData?.status === 'CONCLUDED';
 
   useEffect(() => {
-    if (isExamConcluded) {
+    if (isExamConcluded || isTestUpcoming) {
       setIsLocked(true);
       if (typeof document !== 'undefined' && document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
     }
-  }, [isExamConcluded]);
+  }, [isExamConcluded, isTestUpcoming]);
 
   // Total Assessment Duration & Shared Unified Countdown Timer
   const totalTestMinutes = Number(assignmentData?.durationMinutes) || 60;
@@ -193,46 +798,216 @@ export const ExamWorkspacePage: React.FC = () => {
   const isTimeExpiredRef = useRef<boolean>(false);
 
   const questionSequence: string[] = React.useMemo(() => {
+    const isA4 =
+      assignmentId === 'test-assessment-4' ||
+      assignmentId === 'assessment-4' ||
+      assignmentId === ASSESSMENT_4_TEST.id ||
+      (assignmentData?.title && assignmentData.title.toLowerCase().includes('assessment 4')) ||
+      (assignmentData?.title && assignmentData.title.toLowerCase().includes('arrays & searching'));
+
+    const isHariprasad =
+      assignmentId === DEFAULT_HARIPRASAD_PRACTICAL_TEST.id ||
+      assignmentId === 'test-continuous-arrays-search-sort';
+
+    const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
+
+    // 1. Direct deterministic pair for Assessment 4
+    if (isA4 || (problemId && String(problemId).startsWith('a4-'))) {
+      const pair = getStudentPersonalizedQuestions(
+        A4_COMBINED_QUESTIONS,
+        2,
+        String(studentIdentifier)
+      );
+      if (pair && pair.length === 2) {
+        const ids = pair.map((q: any) => q.id || q.problemId || q.slug).filter(Boolean);
+        if (problemId && !ids.includes(problemId)) {
+          return [problemId, ids[1] || ids[0]];
+        }
+        return ids;
+      }
+      const [q1, q2] = getStudentAssessment4Pair(String(studentIdentifier));
+      const fallbackIds = [q1.id, q2.id];
+      if (problemId && !fallbackIds.includes(problemId)) {
+        return [problemId, fallbackIds[1] || fallbackIds[0]];
+      }
+      return fallbackIds;
+    }
+
+    // 2. Direct deterministic pair for Hariprasad Lab
+    if (isHariprasad || (problemId && String(problemId).startsWith('lab-'))) {
+      const pair = getStudentPersonalizedQuestions(
+        DEFAULT_HARIPRASAD_PRACTICAL_TEST.questions,
+        2,
+        String(studentIdentifier)
+      );
+      if (pair && pair.length === 2) {
+        const ids = pair.map((q: any) => q.id || q.problemId || q.slug).filter(Boolean);
+        if (problemId && !ids.includes(problemId)) {
+          return [problemId, ids[1] || ids[0]];
+        }
+        return ids;
+      }
+    }
+
+    // 3. Pool from assignmentData
     if (assignmentData?.questions && Array.isArray(assignmentData.questions) && assignmentData.questions.length > 0) {
-      const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
-      const count = assignmentData.questionCount || assignmentData.questions.length;
-      const personalized = getStudentPersonalizedQuestions(assignmentData.questions, count, studentIdentifier);
-      const safePersonalized = Array.isArray(personalized) && personalized.length > 0 ? personalized : assignmentData.questions;
-      return safePersonalized.map((q: any) => {
+      const count = Number(assignmentData.questionCount) || 2;
+      const personalized = getStudentPersonalizedQuestions(assignmentData.questions, count, String(studentIdentifier));
+      const safePersonalized = Array.isArray(personalized) && personalized.length > 0 ? personalized : assignmentData.questions.slice(0, count);
+      const mapped = safePersonalized.map((q: any) => {
         if (typeof q === 'string') return q;
         return q.problemId || q.id || q.problem?.id || q.problem?.slug || '';
       }).filter(Boolean);
+      if (problemId && !mapped.includes(problemId)) {
+        return [problemId, ...mapped.filter((id: string) => id !== problemId)].slice(0, 2);
+      }
+      return mapped;
     }
-    // Fallback sequence from bank
-    return ['q-s1-01', 'q-s2-01', 'q-s3-01', 'q-s4-01'];
-  }, [assignmentData, user]);
+
+    // 4. Default 2 questions (never 4)
+    return ['q-s1-01', 'q-s2-01'];
+  }, [assignmentData, user, assignmentId, problemId]);
 
   const currentQuestionIndex = questionSequence.findIndex((qid) => qid === problemId);
   const nextProblemId = (currentQuestionIndex !== -1 && currentQuestionIndex + 1 < questionSequence.length)
     ? questionSequence[currentQuestionIndex + 1]
     : null;
 
-  // Clean state reset when moving between questions
+  // Question-specific time limit (20 mins for Question 1, 40 mins for Question 2)
+  const currentQuestionDurationMinutes =
+    Number(problemData?.timeLimitMinutes) || (currentQuestionIndex === 0 ? 20 : 40);
+  const currentQuestionDurationSec = currentQuestionDurationMinutes * 60;
+  const [remainingQuestionSec, setRemainingQuestionSec] = useState<number>(currentQuestionDurationSec);
+  const qStartTimeRef = useRef<number>(Date.now());
+  const isQExpiredRef = useRef<boolean>(false);
+
+  // Initialize and track active question start time & lock status
+  useEffect(() => {
+    if (!assignmentId || !problemId) return;
+    const cleanPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+    const qKey = cleanPrn
+      ? `logicq_exam_q_start_ms_${assignmentId}_${problemId}_${cleanPrn}`
+      : `logicq_exam_q_start_ms_${assignmentId}_${problemId}`;
+    let saved = typeof window !== 'undefined' ? localStorage.getItem(qKey) : null;
+    let startMs = saved ? Number(saved) : 0;
+    if (!startMs || isNaN(startMs)) {
+      startMs = Date.now();
+      try { localStorage.setItem(qKey, String(startMs)); } catch {}
+    }
+    qStartTimeRef.current = startMs;
+    isQExpiredRef.current = false;
+
+    // Real wall-clock elapsed time
+    const elapsedSecSoFar = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+    const remaining = Math.max(0, currentQuestionDurationSec - elapsedSecSoFar);
+    setRemainingQuestionSec(remaining);
+
+    // Check if student was explicitly reset/unlocked by faculty
+    const isExplicitlyUnlocked = typeof window !== 'undefined' && Boolean(
+      cleanPrn && (
+        localStorage.getItem(`logicq_exam_unlocked_${assignmentId}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_test-assessment-4_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_assessment-4_${cleanPrn}`) === 'true'
+      )
+    );
+
+    // Check if this specific question was already locked or completed
+    const qLabel = currentQuestionIndex === 0 ? 'Q1' : 'Q2';
+    const isThisQLocked = !isExplicitlyUnlocked && !isExamSubmissionUnlocked && typeof window !== 'undefined' && Boolean(
+      cleanPrn
+        ? (
+            localStorage.getItem(`logicq_exam_q_completed_${assignmentId}_${qLabel}_${cleanPrn}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${cleanPrn}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_locked_q_${assignmentId}_${qLabel}_${cleanPrn}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${cleanPrn}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_locked_${assignmentId}_${problemId}_${cleanPrn}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${problemId}_${cleanPrn}`) === 'true'
+          )
+        : (
+            localStorage.getItem(`logicq_exam_locked_${assignmentId}_${problemId}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${problemId}`) === 'true'
+          )
+    );
+
+    if (isThisQLocked) {
+      setIsLocked(true);
+      // If student is on Question 1, and Question 1 is already finished/locked, auto-advance to Question 2!
+      if (currentQuestionIndex === 0 && nextProblemId && !isLockedByProctor) {
+        toast.info('Question 1 was already completed/locked. Advancing to Question 2...', { duration: 3000 });
+        setTimeout(() => {
+          navigate(`/exam/${assignmentId}/${nextProblemId}`, { replace: true });
+        }, 300);
+      }
+    } else if (isExplicitlyUnlocked || isExamSubmissionUnlocked) {
+      setIsLocked(false);
+      setIsLockedByProctor(false);
+    }
+  }, [assignmentId, problemId, currentQuestionIndex, currentQuestionDurationSec, user?.prn, currentStudentPrn, nextProblemId, isLockedByProctor]);
+
+  // Clean state reset when moving between questions (preserving locked state if question is completed/locked)
   useEffect(() => {
     setCode('');
     setTestResults([]);
-    setIsLocked(false);
+    const cleanPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+    const qLabel = currentQuestionIndex === 0 ? 'Q1' : 'Q2';
+    const isExplicitlyUnlocked = typeof window !== 'undefined' && Boolean(
+      cleanPrn && (
+        localStorage.getItem(`logicq_exam_unlocked_${assignmentId}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_test-assessment-4_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_unlocked_assessment-4_${cleanPrn}`) === 'true'
+      )
+    );
+    const isThisQLocked = !isExplicitlyUnlocked && !isExamSubmissionUnlocked && typeof window !== 'undefined' && Boolean(
+      cleanPrn && (
+        localStorage.getItem(`logicq_exam_q_completed_${assignmentId}_${qLabel}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_locked_q_${assignmentId}_${qLabel}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${cleanPrn}`) === 'true' ||
+        localStorage.getItem(`logicq_exam_locked_${assignmentId}_${problemId}_${cleanPrn}`) === 'true'
+      )
+    );
+    setIsLocked((isThisQLocked || isLockedByProctor) && !isExplicitlyUnlocked && !isExamSubmissionUnlocked);
     setAcademicScore(null);
     setElapsedSec(0);
     setStartedAt(null);
-  }, [assignmentId, problemId]);
+  }, [assignmentId, problemId, currentQuestionIndex, isLockedByProctor]);
 
   // 1. Start or resume question attempt (Single authoritative query with zero race condition)
   const { data: startData, isLoading, error, refetch } = useQuery({
     queryKey: ['start-exam-question', assignmentId, problemId],
+    initialData: () => {
+      try {
+        const local = handleFallbackRequest('/exam/start-question', {
+          method: 'POST',
+          body: JSON.stringify({ assignmentId, problemId }),
+        } as any);
+        return local;
+      } catch {
+        return undefined;
+      }
+    },
     queryFn: async () => {
       try {
-        return await api.post('/exam/start-question', {
-          assignmentId,
-          problemId,
-        });
+        return await Promise.race([
+          api.post('/exam/start-question', {
+            assignmentId,
+            problemId,
+          }),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 1500))
+        ]);
       } catch (postErr: any) {
-        if (postErr?.message?.includes('QUESTION_LOCKED')) {
+        const prnToCheck = (user?.prn || '').toUpperCase().trim();
+        const isExplicitlyUnlocked = typeof window !== 'undefined' && Boolean(
+          prnToCheck && (
+            localStorage.getItem(`logicq_exam_unlocked_${assignmentId}_${prnToCheck}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${prnToCheck}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_unlocked_test-assessment-4_${prnToCheck}`) === 'true' ||
+            localStorage.getItem(`logicq_exam_unlocked_assessment-4_${prnToCheck}`) === 'true'
+          )
+        );
+        if (postErr?.message?.includes('QUESTION_LOCKED') && !isExplicitlyUnlocked) {
           throw postErr;
         }
         return await handleFallbackRequest('/exam/start-question', {
@@ -253,11 +1028,28 @@ export const ExamWorkspacePage: React.FC = () => {
     setAttemptId(res.attemptId);
     setVariantId(res.questionVariantId);
     setProblemData(res.problem);
-    setIsLocked(res.isLocked || false);
-    // Draft resilience: restore in-progress exam code if student refreshed or browser crashed
+
+    // Draft resilience: restore in-progress exam code if student refreshed or browser crashed (skip if student was reset by faculty)
+    const cleanStudentPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+    const isStudentReset = typeof window !== 'undefined' && Boolean(
+      localStorage.getItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${cleanStudentPrn}`) === 'true' ||
+      localStorage.getItem(`logicq_exam_unlocked_test-assessment-4_${cleanStudentPrn}`) === 'true' ||
+      localStorage.getItem(`logicq_exam_unlocked_assessment-4_${cleanStudentPrn}`) === 'true' ||
+      localStorage.getItem(`logicq_exam_unlocked_${assignmentId}_${cleanStudentPrn}`) === 'true'
+    );
+    setIsLocked(isStudentReset ? false : (res.isLocked || false));
+    const qLabel = currentQuestionIndex === 0 ? 'Q1' : 'Q2';
     const draftKey = `logicq_exam_draft_${res.attemptId || (assignmentId + '_' + problemId)}`;
-    const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(draftKey) : null;
-    if (savedDraft && !code) {
+    const studentDraftKey = cleanStudentPrn ? `logicq_exam_draft_${assignmentId}_${problemId}_${cleanStudentPrn}` : null;
+    const submittedCodeKey = cleanStudentPrn ? `logicq_exam_submitted_code_${assignmentId}_${qLabel}_${cleanStudentPrn}` : null;
+
+    let savedDraft: string | null = null;
+    if (typeof window !== 'undefined' && !isStudentReset) {
+      savedDraft = (submittedCodeKey && localStorage.getItem(submittedCodeKey)) ||
+        (studentDraftKey && localStorage.getItem(studentDraftKey)) ||
+        localStorage.getItem(draftKey);
+    }
+    if (savedDraft) {
       setCode(savedDraft);
       previousCodeLenRef.current = savedDraft.length;
     } else if (res.problem?.starterCode && !code) {
@@ -314,116 +1106,268 @@ export const ExamWorkspacePage: React.FC = () => {
   // 2b. Total Assessment Test Countdown & Auto-Submit on Expiration
   useEffect(() => {
     if (!assignmentId) return;
-    const testStartKey = `logicq_exam_test_start_${assignmentId}`;
+    const cleanPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+    const testStartKey = cleanPrn
+      ? `logicq_exam_test_start_${assignmentId}_${cleanPrn}`
+      : `logicq_exam_test_start_${assignmentId}`;
     let saved = typeof window !== 'undefined' ? localStorage.getItem(testStartKey) : null;
     let startMs = saved ? Number(saved) : 0;
-    if (!startMs || isNaN(startMs)) {
+    // Guard against ancient timestamps from earlier testing sessions: if older than duration, start fresh
+    if (!startMs || isNaN(startMs) || (Date.now() - startMs > totalTestDurationSec * 1000)) {
       startMs = Date.now();
       try { localStorage.setItem(testStartKey, String(startMs)); } catch {}
     }
     testStartTimeRef.current = startMs;
-  }, [assignmentId]);
+  }, [assignmentId, totalTestDurationSec, user?.prn, currentStudentPrn]);
 
-  useEffect(() => {
-    const checkCountdown = () => {
-      const elapsed = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
-      const remaining = Math.max(0, totalTestDurationSec - elapsed);
-      setRemainingTestSec(remaining);
+  // 2b. Auto-Submit & Test Evaluation Handler on Question or Assessment Timeout
+  const autoSubmitAndEvaluateQuestion = useCallback(async (isQ1: boolean) => {
+    setIsLocked(true);
+    const cleanCode = (code || '').trim();
+    const cleanStarter = (problemData?.starterCode || '').trim();
+    const normCode = cleanCode.replace(/\s+/g, ' ');
+    const normStarter = cleanStarter.replace(/\s+/g, ' ');
+    const hasValidCode = Boolean(
+      cleanCode &&
+      (!normStarter || normCode !== normStarter) &&
+      cleanCode.length >= 25 &&
+      (cleanCode.includes('main(') || cleanCode.includes('main ('))
+    );
 
-      // Auto-submit entire test when timer hits 0
-      if (remaining <= 0 && !isTimeExpiredRef.current && !isLocked) {
-        isTimeExpiredRef.current = true;
-        setIsLocked(true);
-        toast.error("Time's up! Total examination time limit has ended. Submitting assessment as LATE...", {
-          duration: 6000,
-        });
+    const maxMarks = Number(problemData?.maxMarks ?? problemData?.marks ?? 5.0);
+    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+    const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+    const cleanPrn = user?.prn || (user as any)?.rollNo || studentId;
+    const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+    const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
 
-        // If user has written code in editor, submit current question as LATE
-        const cleanCode = (code || '').trim();
-        const cleanStarter = (problemData?.starterCode || '').trim();
-        if (cleanCode && cleanCode !== cleanStarter && attemptId) {
-          const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
-          const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
-          const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
-          const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
-          const maxMarks = Number(problemData?.maxMarks || problemData?.marks || 10);
+    let earnedScore = 0;
+    let verdict = 'TIME_LIMIT_EXCEEDED';
+    let evaluatedOutcomes: any[] = [];
 
-          const latePayload = {
-            testId: assignmentId || 'UNIT',
-            assignmentId: assignmentId || 'UNIT',
-            testTitle: assignmentData?.title || 'UNIT',
-            userId: uid,
-            problemId: problemId || assignmentId || 'exam-q1',
-            problemTitle: problemData?.title || 'Continuous Internal Evaluation Question',
-            problemSlug: problemId || assignmentId || 'exam-q1',
-            difficulty: problemData?.difficulty || 'MEDIUM',
-            code: cleanCode,
-            verdict: 'LATE_SUBMISSION',
-            academicScore: 0,
-            marksAwarded: 0,
-            score: 0,
-            maxMarks,
-            isLate: true,
-            lateStatus: 'LATE',
-            manualGradingRequired: true,
-            allocatedDurationMinutes: totalTestMinutes,
-            timeLimitSeconds: totalTestDurationSec,
-            attemptNumber: currentAttemptNum,
-            timeTakenSeconds: elapsedSec,
-            submissionType: 'ASSESSMENT',
-            prn: user?.prn || '',
-            studentPrn: user?.prn || '',
-            email: user?.email || '',
-            studentEmail: user?.email || '',
-            studentName: user?.fullName || user?.displayName || 'Student',
-            tabSwitchCount,
-            copyPasteAttempts,
-            cutAttempts,
-            contextMenuAttempts,
-            fullscreenExits: fullScreenExitCount,
-            totalKeystrokes,
-            largestBurstChars,
-            incidents: proctorIncidentsLog,
-          };
+    // Permanent lock on this problem in local storage
+    try {
+      localStorage.setItem(`logicq_exam_locked_${assignmentId}_${problemId}`, 'true');
+      localStorage.setItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${problemId}`, 'true');
+      localStorage.removeItem(`logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`);
+    } catch {}
 
-          FirestoreDataService.recordAssessmentSubmission(latePayload).catch(() => {});
-          FirestoreDataService.recordDailySubmission(uid, latePayload).catch(() => {});
-
-          api.post('/exam/submit-question', {
+    if (hasValidCode && attemptId) {
+      try {
+        let res: any = null;
+        try {
+          res = await api.post('/exam/submit-question', {
             attemptId,
-            code,
+            code: cleanCode,
             problemId,
             assignmentId,
-            isLate: true,
             attemptNumber: currentAttemptNum,
-            clientMetrics: {
-              tabSwitchCount,
-              focusLossCount,
-              fullScreenExitCount,
-              totalKeystrokes,
-              largestBurstChars,
-              activeInteractionTimeSec: activeSec,
-            },
-          }).catch(() => {});
+            isLate: false,
+          });
+        } catch {
+          res = await handleFallbackRequest('/exam/submit-question', {
+            method: 'POST',
+            body: JSON.stringify({ attemptId, code: cleanCode, problemId, assignmentId }),
+          } as any);
         }
 
-        try {
-          localStorage.setItem(`logicq_exam_test_completed_${assignmentId}`, 'true');
-        } catch {}
-        RealtimeSyncService.emit('SUBMISSIONS');
-        RealtimeSyncService.emit('TESTS');
-        RealtimeSyncService.emit('DASHBOARD');
+        const subScore = Number(res?.academicScore ?? res?.data?.academicScore ?? 0);
+        if (res?.verdict === 'ACCEPTED') {
+          earnedScore = Number(res?.academicScore ?? maxMarks);
+          verdict = 'ACCEPTED';
+        } else if (subScore > 0 || res?.verdict === 'PARTIAL') {
+          earnedScore = subScore;
+          verdict = 'PARTIAL';
+        } else {
+          verdict = res?.verdict || 'WRONG_ANSWER';
+          earnedScore = 0;
+        }
+        evaluatedOutcomes = res?.testOutcomes || res?.data?.testOutcomes || [];
+      } catch (evalErr) {
+        console.warn('Auto evaluation error on timeout:', evalErr);
+        earnedScore = 0;
+        verdict = 'COMPILATION_ERROR';
+      }
+    } else {
+      earnedScore = 0;
+      verdict = cleanCode ? 'COMPILATION_ERROR' : 'NOT_SUBMITTED';
+    }
 
+    setAcademicScore(earnedScore);
+    if (evaluatedOutcomes.length > 0) {
+      setTestResults(evaluatedOutcomes);
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
+    }
+
+    const qMinutes = isQ1 ? 20 : 40;
+    const subPayload = {
+      testId: assignmentId || 'UNIT',
+      assignmentId: assignmentId || 'UNIT',
+      testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+      userId: uid,
+      problemId: problemId || (isQ1 ? 'q1' : 'q2'),
+      problemTitle: problemData?.title || (isQ1 ? 'Question 1: Arrays' : 'Question 2: Searching & Sorting'),
+      problemSlug: problemId || (isQ1 ? 'q1' : 'q2'),
+      difficulty: problemData?.difficulty || (isQ1 ? 'EASY' : 'MEDIUM'),
+      code: cleanCode,
+      questionIndex: isQ1 ? 0 : 1,
+      qKey: isQ1 ? 'Q1' : 'Q2',
+      verdict,
+      academicScore: earnedScore,
+      score: earnedScore,
+      marksAwarded: earnedScore,
+      maxMarks,
+      testOutcomes: evaluatedOutcomes,
+      passedCount: evaluatedOutcomes.filter((t: any) => t.passed).length,
+      totalTestCases: evaluatedOutcomes.length,
+      isLate: false,
+      lateStatus: 'ON_TIME',
+      // TIME_OVER flag — admin portal shows ⏰ badge on this student
+      isTimeOver: true,
+      timeOverReason: isQ1
+        ? `Q1 (Arrays) timer expired after ${qMinutes} minutes. Code evaluated: ${earnedScore}/${maxMarks} Marks awarded.`
+        : `Q2 (Search & Sort) timer expired after ${qMinutes} minutes. Code evaluated: ${earnedScore}/${maxMarks} Marks awarded. EXAM COMPLETE.`,
+      allocatedDurationMinutes: qMinutes,
+      timeLimitSeconds: qMinutes * 60,
+      timeTakenSeconds: qMinutes * 60,
+      submissionType: 'ASSESSMENT',
+      prn: cleanPrn,
+      studentPrn: cleanPrn,
+      email: user?.email || '',
+      studentEmail: user?.email || '',
+      studentName: user?.fullName || user?.displayName || 'Student',
+      tabSwitchCount,
+      copyPasteAttempts,
+      cutAttempts,
+      contextMenuAttempts,
+      fullscreenExits: fullScreenExitCount,
+      totalKeystrokes,
+      largestBurstChars,
+      cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || 1)) * 60))),
+      typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || 1)) * 60))),
+      incidents: incidentsLogRef.current,
+    };
+
+    FirestoreDataService.recordAssessmentSubmission(subPayload).catch(() => {});
+    FirestoreDataService.recordDailySubmission(uid, subPayload).catch(() => {});
+    AttendanceSyncService.broadcastStudentSubmission(subPayload).catch(() => {});
+    RealtimeSyncService.emit('SUBMISSIONS');
+    RealtimeSyncService.emit('TESTS');
+    RealtimeSyncService.emit('DASHBOARD');
+
+    const targetPrn = (cleanPrn || user?.prn || '').toUpperCase().trim();
+    if (isQ1) {
+      if (targetPrn) {
+        try {
+          localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_Q1_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_Q1_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_submitted_code_${assignmentId}_Q1_${targetPrn}`, cleanCode);
+          localStorage.setItem(`logicq_code_sub_${targetPrn}_Q1`, cleanCode);
+          localStorage.setItem(`logicq_exam_q_score_${assignmentId}_Q1_${targetPrn}`, String(earnedScore));
+          localStorage.setItem(`logicq_exam_in_progress_${assignmentId}_${targetPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_student_sub_${assignmentId}_${targetPrn}_Q1`, `${targetPrn}:${earnedScore}:${fullScreenExitCount}:${tabSwitchCount}:${20 * 60}:${copyPasteAttempts}:${totalKeystrokes}:${largestBurstChars}:0`);
+        } catch {}
+      }
+
+      if (earnedScore > 0) {
+        toast.success(`🎉 Question 1 Time Up (20 Mins)! Test cases passed: ${earnedScore}/${maxMarks} Marks awarded. Moving to Question 2 (40 Mins)...`, { duration: 5000 });
+      } else {
+        toast.error(`⏰ Question 1 Time Up (20 Mins)! Incomplete / Failed test cases: 0/${maxMarks} Marks. Moving to Question 2 (40 Mins)...`, { duration: 5000 });
+      }
+
+      if (nextProblemId) {
         setTimeout(() => {
-          exitExamTo('/student/tests');
-        }, 2000);
+          navigate(`/exam/${assignmentId}/${nextProblemId}`);
+        }, 2200);
+      }
+    } else {
+      // Question 2 (or Final Question) Timeout
+      if (earnedScore > 0) {
+        toast.success(`🎉 Question 2 Time Up (40 Mins)! Test cases passed: ${earnedScore}/${maxMarks} Marks awarded. Examination Complete!`, { duration: 5000 });
+      } else {
+        toast.error(`⏰ Question 2 Time Up (40 Mins)! 0/${maxMarks} Marks awarded. Examination Complete!`, { duration: 5000 });
+      }
+
+      // Mark the entire test completed permanently & locked from re-attempts
+      try {
+        const testAliases = Array.from(new Set([
+          assignmentId,
+          'test-assessment-4',
+          'assessment-4',
+          'test-continuous-arrays-search-sort'
+        ].filter(Boolean) as string[]));
+
+        testAliases.forEach(alias => {
+          localStorage.setItem(`logicq_exam_test_completed_${alias}`, 'true');
+          if (cleanPrn) {
+            localStorage.setItem(`logicq_exam_student_submitted_${alias}_${cleanPrn}`, 'true');
+            localStorage.setItem(`logicq_exam_student_submitted_prn_${cleanPrn}`, 'true');
+            localStorage.removeItem(`logicq_exam_unlocked_${alias}_${cleanPrn}`);
+            localStorage.removeItem(`logicq_exam_in_progress_${alias}_${cleanPrn}`);
+          }
+          localStorage.removeItem(`logicq_exam_unlocked_${alias}`);
+          localStorage.removeItem(`logicq_exam_in_progress_${alias}`);
+        });
+
+        if (cleanPrn) {
+          localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_Q2_${cleanPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${cleanPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_Q2_${cleanPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${cleanPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_locked_${assignmentId}_${problemId}_${cleanPrn}`, 'true');
+          localStorage.setItem(`logicq_exam_submitted_code_${assignmentId}_Q2_${cleanPrn}`, cleanCode);
+          localStorage.setItem(`logicq_code_sub_${cleanPrn}_Q2`, cleanCode);
+          localStorage.setItem(`logicq_exam_q_score_${assignmentId}_Q2_${cleanPrn}`, String(earnedScore));
+          localStorage.setItem(`logicq_exam_student_sub_${assignmentId}_${cleanPrn}_Q2`, `${cleanPrn}:${earnedScore}:${fullScreenExitCount}:${tabSwitchCount}:${40 * 60}:${copyPasteAttempts}:${totalKeystrokes}:${largestBurstChars}:0`);
+        }
+      } catch {}
+
+      RealtimeSyncService.emit('TESTS');
+      RealtimeSyncService.emit('DASHBOARD');
+
+      isExitingRef.current = true;
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      setTimeout(() => {
+        navigate('/student/tests');
+      }, 2500);
+    }
+  }, [code, problemData, attemptId, problemId, assignmentId, user, nextProblemId, tabSwitchCount, copyPasteAttempts, cutAttempts, contextMenuAttempts, fullScreenExitCount, totalKeystrokes, largestBurstChars, proctorIncidentsLog, navigate]);
+
+  // Unified Countdown Timer Loop (Active Question 20m/40m + Overall Assessment 60m)
+  useEffect(() => {
+    const checkCountdown = () => {
+      // 1. Total Assessment Remaining
+      const totalElapsed = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
+      const remainingTotal = Math.max(0, totalTestDurationSec - totalElapsed);
+      setRemainingTestSec(remainingTotal);
+
+      // 2. Active Question Remaining
+      const qElapsed = Math.max(0, Math.floor((Date.now() - qStartTimeRef.current) / 1000));
+      const remainingQ = Math.max(0, currentQuestionDurationSec - qElapsed);
+      setRemainingQuestionSec(remainingQ);
+
+      // Auto-submit condition for active question or total test expiration
+      const isTotalExpired = remainingTotal <= 0;
+      const isQuestionExpired = remainingQ <= 0 || isTotalExpired;
+      if (isQuestionExpired && !isQExpiredRef.current && !isLocked) {
+        isQExpiredRef.current = true;
+        // If total test duration expired (remainingTotal <= 0), it must conclude the whole exam!
+        const isOnlyQ1Expired = !isTotalExpired && currentQuestionIndex === 0;
+        autoSubmitAndEvaluateQuestion(isOnlyQ1Expired);
       }
     };
 
     checkCountdown();
     const interval = setInterval(checkCountdown, 1000);
     return () => clearInterval(interval);
-  }, [totalTestDurationSec, isLocked, code, problemData, attemptId, problemId, assignmentId, exitExamTo, activeSec, focusLossCount, fullScreenExitCount, largestBurstChars, tabSwitchCount, totalKeystrokes]);
+  }, [totalTestDurationSec, currentQuestionDurationSec, isLocked, autoSubmitAndEvaluateQuestion, currentQuestionIndex]);
 
   // 3. Silent Non-blocking Telemetry Heartbeat (Phase 3 Deliverable)
   const sendTelemetryPing = useCallback((overrideMetrics?: Record<string, any>) => {
@@ -443,6 +1387,8 @@ export const ExamWorkspacePage: React.FC = () => {
           fullScreenExitCount,
           totalKeystrokes,
           largestBurstChars,
+          cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+          typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
           activeInteractionTimeSec: activeSec,
           ...overrideMetrics,
         },
@@ -466,6 +1412,8 @@ export const ExamWorkspacePage: React.FC = () => {
       fullScreenExitCount: overrideMetrics?.fullScreenExitCount ?? fullScreenExitCount,
       totalKeystrokes,
       largestBurstChars,
+      cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || 1)) * 60))),
+      typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || 1)) * 60))),
       activeSec,
       status: (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 3 || (overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 3 ? 'CRITICAL_BREACH' : ((overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 0 || (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 0 ? 'NEEDS_REVIEW' : 'CLEAN'),
     }).catch(() => {});
@@ -511,7 +1459,7 @@ export const ExamWorkspacePage: React.FC = () => {
     }
   }, [isLocked]);
 
-  // 4. Fullscreen & Focus Proctoring Event Listeners (Section 21)
+  // 4. Fullscreen & Focus Proctoring Event Listeners (Hariprasad Sir 2-Violation Rule)
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
@@ -520,112 +1468,19 @@ export const ExamWorkspacePage: React.FC = () => {
       if (active) {
         hasEnteredFullscreenRef.current = true;
       } else if (!active && hasEnteredFullscreenRef.current && !isLocked && !isExitingRef.current && !isStaffUser) {
-        // Proctoring violation: Student exited full-screen! (staff exempt)
-        setFullScreenExitCount((c) => {
-          const next = c + 1;
-          sendTelemetryPing({ fullScreenExitCount: next });
-          const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
-          FirestoreDataService.recordStudentLiveTelemetry(targetUser, {
-            prn: user?.prn,
-            studentName: user?.fullName || user?.displayName || 'Student',
-            studentEmail: user?.email,
-            testId: assignmentId,
-            testTitle: assignmentData?.title || 'Continuous Practical Assessment',
-            problemId,
-            problemTitle: problemData?.title || 'Continuous Practical Assessment',
-            tabSwitchCount,
-            copyPasteAttempts,
-            fullScreenExitCount: next,
-            totalKeystrokes,
-            largestBurstChars,
-            activeSec,
-            status: 'NEEDS_REVIEW',
-            incident: {
-              type: 'FULLSCREEN_EXIT',
-              details: 'Fullscreen perimeter exited: Student minimized or exited proctored full-screen mode.',
-              severity: 'WARNING',
-            },
-          }).catch(() => {});
-          return next;
-        });
-        addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter exited: Student minimized or exited full-screen mode.', 'WARNING');
-
-        const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
-
-        // Immediately persist breach record to assessment_test_submissions so it reflects exclusively in test audit modal
-        FirestoreDataService.recordAssessmentSubmission({
-          testId: assignmentData?.id || assignmentId || 'UNIT',
-          assignmentId: assignmentId || 'UNIT',
-          testTitle: assignmentData?.title || 'Continuous Practical Assessment',
-          userId: targetUser,
-          studentName: user?.fullName || user?.displayName || 'Student',
-          studentPrn: user?.prn || '',
-          studentEmail: user?.email || '',
-          problemId: problemId || 'exam-q1',
-          problemTitle: problemData?.title || assignmentData?.title || 'Continuous Practical Assessment',
-          code: code || '// Code auto-saved upon proctoring breach exit',
-          verdict: 'IN_PROGRESS',
-          status: 'CLEAN',
-          tabSwitchCount,
-          copyPasteAttempts,
-          fullscreenExits: 1,
-          totalKeystrokes,
-          incidents: [
-            {
-              type: 'FULLSCREEN_EXIT',
-              details: 'Fullscreen exited: Student minimized or exited full-screen mode. Code auto-saved.',
-              severity: 'INFO',
-              timestamp: new Date().toLocaleTimeString(),
-            }
-          ],
-          isCheatAttempt: false,
-        }).catch(() => {});
-
-        toast.info('Fullscreen Exited: Returned to tests dashboard. Your code is auto-saved.');
-
-        isExitingRef.current = true;
-        if (typeof document !== 'undefined' && document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
-        navigate('/student/tests');
+        setFullScreenExitCount((c) => c + 1);
+        sendTelemetryPing({ fullScreenExitCount: fullScreenExitCount + 1 });
+        triggerProctorBreach('FULLSCREEN_EXIT', 'Fullscreen perimeter exited or minimized.');
       }
     };
 
     const handleVisibilityChange = () => {
       if (isStaffUser) return; // Staff exempt from tab-switch tracking
       if (document.hidden && !isLocked) {
-        setTabSwitchCount((c) => {
-          const next = c + 1;
-          sendTelemetryPing({ tabSwitchCount: next });
-          addProctorIncident('TAB_SWITCH', `Tab switch #${next} detected: Exam window was hidden.`, 'WARNING');
-          const targetId = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
-          FirestoreDataService.recordStudentLiveTelemetry(targetId, {
-            prn: user?.prn,
-            studentName: user?.fullName || user?.displayName || 'Student',
-            studentEmail: user?.email,
-            testId: assignmentId,
-            testTitle: assignmentData?.title || 'Continuous Practical Assessment',
-            problemId,
-            problemTitle: problemData?.title || 'Assessment Question',
-            tabSwitchCount: next,
-            copyPasteAttempts,
-            fullScreenExitCount,
-            totalKeystrokes,
-            largestBurstChars,
-            activeSec,
-            status: 'NEEDS_REVIEW',
-            incident: {
-              type: 'TAB_SWITCH',
-              details: `Tab switch #${next} detected: Exam window was hidden.`,
-              severity: 'WARNING',
-            },
-          }).catch(() => {});
-          return next;
-        });
+        setTabSwitchCount((c) => c + 1);
+        sendTelemetryPing({ tabSwitchCount: tabSwitchCount + 1 });
+        triggerProctorBreach('TAB_SWITCH', 'Exam window was hidden / student switched tabs.');
         focusLossStartRef.current = Date.now();
-        toast.error('Proctoring Warning: Tab / Window switch detected! Tab navigation is strictly monitored.', {
-          duration: 5000,
-        });
       } else if (!document.hidden && focusLossStartRef.current) {
         const duration = Date.now() - focusLossStartRef.current;
         totalFocusLossMsRef.current += duration;
@@ -663,12 +1518,55 @@ export const ExamWorkspacePage: React.FC = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
 
+    // Global Capture-phase clipboard & keyboard guards (intercepts Ctrl+V, Right-Click Paste, Browser Edit->Paste everywhere)
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      if (isStaffUser || isLocked) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleEditorBlockedAction('paste');
+    };
+
+    const handleGlobalCopy = (e: ClipboardEvent) => {
+      if (isStaffUser || isLocked) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleEditorBlockedAction('copy');
+    };
+
+    const handleGlobalCut = (e: ClipboardEvent) => {
+      if (isStaffUser || isLocked) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleEditorBlockedAction('cut');
+    };
+
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      if (isStaffUser || isLocked) return;
+      e.preventDefault();
+      handleEditorBlockedAction('contextmenu');
+    };
+
+    window.addEventListener('paste', handleGlobalPaste, true);
+    window.addEventListener('copy', handleGlobalCopy, true);
+    window.addEventListener('cut', handleGlobalCut, true);
+    window.addEventListener('contextmenu', handleGlobalContextMenu, true);
+    document.addEventListener('paste', handleGlobalPaste, true);
+    document.addEventListener('copy', handleGlobalCopy, true);
+    document.addEventListener('cut', handleGlobalCut, true);
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('paste', handleGlobalPaste, true);
+      window.removeEventListener('copy', handleGlobalCopy, true);
+      window.removeEventListener('cut', handleGlobalCut, true);
+      window.removeEventListener('contextmenu', handleGlobalContextMenu, true);
+      document.removeEventListener('paste', handleGlobalPaste, true);
+      document.removeEventListener('copy', handleGlobalCopy, true);
+      document.removeEventListener('cut', handleGlobalCut, true);
     };
-  }, [isLocked, sendTelemetryPing, navigate, user, problemId, assignmentId, problemData, tabSwitchCount, copyPasteAttempts, totalKeystrokes, largestBurstChars, activeSec, fullScreenExitCount]);
+  }, [isLocked, sendTelemetryPing, isStaffUser, fullScreenExitCount, tabSwitchCount, triggerProctorBreach]);
 
   const toggleFullscreen = async () => {
     try {
@@ -704,6 +1602,8 @@ export const ExamWorkspacePage: React.FC = () => {
           fullScreenExitCount,
           totalKeystrokes,
           largestBurstChars,
+          cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+          typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
           activeSec,
           status: 'NEEDS_REVIEW',
           incident: {
@@ -715,6 +1615,7 @@ export const ExamWorkspacePage: React.FC = () => {
         return next;
       });
       addProctorIncident('CLIPBOARD_BLOCKED', `Proctoring guard blocked ${actionName.toUpperCase()} attempt in code editor.`, 'WARNING');
+      triggerProctorBreach('COPY_PASTE', `Unauthorized ${actionName.toUpperCase()} attempt intercepted in editor.`);
     } else if (actionName === 'cut') {
       setCutAttempts((c) => c + 1);
       addProctorIncident('CLIPBOARD_BLOCKED', 'Proctoring guard blocked CUT attempt in code editor.', 'WARNING');
@@ -744,9 +1645,12 @@ export const ExamWorkspacePage: React.FC = () => {
     setCode(newCode);
 
     // Save exam draft immediately to localStorage & IndexedDB/Firestore
+    const cleanStudentPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
     const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
+    const studentDraftKey = cleanStudentPrn ? `logicq_exam_draft_${assignmentId}_${problemId}_${cleanStudentPrn}` : null;
     try {
       localStorage.setItem(draftKey, newCode);
+      if (studentDraftKey) localStorage.setItem(studentDraftKey, newCode);
     } catch {}
     if (user?.id && attemptId) {
       DraftSyncService.saveRemoteDraft(user.id, {
@@ -772,12 +1676,24 @@ export const ExamWorkspacePage: React.FC = () => {
         throw new Error('Please write your C code logic in the editor before running test cases.');
       }
 
-      return api.post('/exam/run-code', {
-        attemptId,
-        code,
-        problemId,
-        assignmentId,
-      });
+      try {
+        return await api.post('/exam/run-code', {
+          attemptId,
+          code,
+          problemId,
+          assignmentId,
+        });
+      } catch {
+        return await handleFallbackRequest('/exam/run-code', {
+          method: 'POST',
+          body: JSON.stringify({
+            attemptId,
+            code,
+            problemId,
+            assignmentId,
+          }),
+        } as any);
+      }
     },
     onSuccess: (res) => {
       setTestResults(res.testResults || []);
@@ -785,8 +1701,7 @@ export const ExamWorkspacePage: React.FC = () => {
       setIsDrawerOpen(true);
       const allPassed = res.testResults?.length > 0 && res.testResults.every((t: any) => t.passed);
       if (allPassed) {
-        toast.success('All visible test cases passed! Submitting final solution...');
-        submitMutation.mutate();
+        toast.success('All visible test cases passed! Review your code and click "Submit Solution" when ready.');
       } else {
         // Increment attempt counter on failed test execution
         const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
@@ -831,31 +1746,59 @@ export const ExamWorkspacePage: React.FC = () => {
       const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
       const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
 
-      return api.post('/exam/submit-question', {
-        attemptId,
-        code,
-        problemId,
-        assignmentId,
-        attemptNumber: currentAttemptNum,
-        clientMetrics: {
-          copyPasteAttempts,
-          cutAttempts,
-          contextMenuAttempts,
-          tabSwitchCount,
-          focusLossCount,
-          totalFocusLossDurationMs: totalFocusLossMsRef.current,
-          fullScreenExitCount,
-          totalKeystrokes,
-          largestBurstChars,
-          activeInteractionTimeSec: activeSec,
-        },
-      });
+      try {
+        return await api.post('/exam/submit-question', {
+          attemptId,
+          code,
+          problemId,
+          assignmentId,
+          attemptNumber: currentAttemptNum,
+          clientMetrics: {
+            copyPasteAttempts,
+            cutAttempts,
+            contextMenuAttempts,
+            tabSwitchCount,
+            focusLossCount,
+            totalFocusLossDurationMs: totalFocusLossMsRef.current,
+            fullScreenExitCount,
+            totalKeystrokes,
+            largestBurstChars,
+            cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+            typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+            activeInteractionTimeSec: activeSec,
+          },
+        });
+      } catch {
+        return await handleFallbackRequest('/exam/submit-question', {
+          method: 'POST',
+          body: JSON.stringify({
+            attemptId,
+            code,
+            problemId,
+            assignmentId,
+            attemptNumber: currentAttemptNum,
+            clientMetrics: {
+              copyPasteAttempts,
+              cutAttempts,
+              contextMenuAttempts,
+              tabSwitchCount,
+              focusLossCount,
+              totalFocusLossDurationMs: totalFocusLossMsRef.current,
+              fullScreenExitCount,
+              totalKeystrokes,
+              largestBurstChars,
+              cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+              typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+            },
+          }),
+        } as any);
+      }
     },
     onSuccess: (res) => {
       setTestResults(res.testOutcomes || []);
       setActiveBottomTab('output');
       setIsDrawerOpen(true);
-      if (res.verdict === 'ACCEPTED') {
+      if (res.verdict === 'ACCEPTED' || res.verdict === 'PARTIAL') {
         setIsLocked(true);
         const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
         try { localStorage.removeItem(draftKey); } catch {}
@@ -877,9 +1820,9 @@ export const ExamWorkspacePage: React.FC = () => {
         const timeDeviationSec = elapsedSec - expectedRefTimeSec;
         const deviationPercent = Number((((elapsedSec - expectedRefTimeSec) / Math.max(1, expectedRefTimeSec)) * 100).toFixed(1));
 
-        const maxMarks = Number(problemData?.maxMarks ?? problemData?.marks ?? 1.0);
-        // Section 5: Correct within prescribed time = 1 mark; Correct but outside prescribed time = 0.5 mark; Incorrect = 0 marks
-        const earnedScore = isLate ? 0.5 : Number(res.academicScore ?? maxMarks);
+        const maxMarks = Number(problemData?.maxMarks ?? problemData?.marks ?? 5.0);
+        const rawScore = Number(res.academicScore != null ? res.academicScore : maxMarks);
+        const earnedScore = isLate ? Math.round((rawScore / 2) * 10) / 10 : rawScore;
         setAcademicScore(earnedScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
 
@@ -904,6 +1847,9 @@ export const ExamWorkspacePage: React.FC = () => {
           score: earnedScore,
           marksAwarded: earnedScore,
           maxMarks,
+          testOutcomes: res.testOutcomes || [],
+          passedCount: (res.testOutcomes || []).filter((t: any) => t.passed).length,
+          totalTestCases: (res.testOutcomes || []).length,
           isLate,
           lateStatus: isLate ? 'LATE' : 'ON_TIME',
           manualGradingRequired: isLate,
@@ -917,6 +1863,8 @@ export const ExamWorkspacePage: React.FC = () => {
           timeDeviationSeconds: timeDeviationSec,
           deviationPercent,
           submissionType: 'ASSESSMENT',
+          questionIndex: currentQuestionIndex,
+          qKey: currentQuestionIndex === 0 ? 'Q1' : 'Q2',
           prn: user?.prn || '',
           studentPrn: user?.prn || '',
           email: user?.email || '',
@@ -929,94 +1877,187 @@ export const ExamWorkspacePage: React.FC = () => {
           fullscreenExits: fullScreenExitCount,
           totalKeystrokes,
           largestBurstChars,
-          incidents: proctorIncidentsLog,
+          cpm: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+          typingVelocityCPM: Math.min(450, Math.max(0, Math.round(((totalKeystrokes || (code?.length || 0)) / Math.max(5, activeSec || elapsedSec || 60)) * 60))),
+          incidents: incidentsLogRef.current,
         };
 
         FirestoreDataService.recordAssessmentSubmission(subPayload).catch(() => {});
         FirestoreDataService.recordDailySubmission(uid, subPayload).catch(() => {});
+        AttendanceSyncService.broadcastStudentSubmission(subPayload).catch(() => {});
         RealtimeSyncService.emit('SUBMISSIONS');
         RealtimeSyncService.emit('DASHBOARD');
         RealtimeSyncService.emit('TESTS');
 
-        if (isLate) {
-          toast.warning(`Submitted Outside Prescribed Time! Academic Score: 0.5 / ${maxMarks} Mark awarded (Time Deviation: ${timeDeviationSec > 0 ? '+' : ''}${timeDeviationSec}s).`, {
+        if (res.verdict === 'PARTIAL') {
+          toast.success(`🎉 Solution Submitted with Partial Credit: ${earnedScore} / ${maxMarks} Marks awarded.`, { duration: 4000 });
+        } else if (isLate) {
+          toast.warning(`Submitted Outside Prescribed Time! Academic Score: ${earnedScore} / ${maxMarks} Mark awarded (Time Deviation: ${timeDeviationSec > 0 ? '+' : ''}${timeDeviationSec}s).`, {
             duration: 6000,
           });
         } else {
-          toast.success(`Accepted! Correct & On-Time: ${earnedScore} / ${maxMarks} Mark awarded.`, {
+          toast.success(`🎉 Accepted! Correct & On-Time: ${earnedScore} / ${maxMarks} Marks awarded.`, {
             duration: 3500,
           });
         }
 
-        // Automatic Next Question Navigation
-        if (nextProblemId) {
-          setTimeout(() => {
-            navigate(`/exam/${assignmentId}/${nextProblemId}`);
-          }, 1500);
-        } else {
-          toast.success('Final Question Accepted! Assessment Complete!', {
-            duration: 4000,
-          });
+        // In Assessments / Tests: AI Viva is disabled (AI Viva is strictly for Lab Internal coursework)
+        const isFinalQuestion = !nextProblemId;
+        const hasViva = false;
+
+        // Record completion flags if final question accepted
+        if (isFinalQuestion) {
+          const targetPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+          const qLabel = currentQuestionIndex === 0 ? 'Q1' : 'Q2';
+          try {
+            const testAliases = Array.from(new Set([
+              assignmentId,
+              'test-assessment-4',
+              'assessment-4',
+              'test-continuous-arrays-search-sort'
+            ].filter(Boolean) as string[]));
+
+            testAliases.forEach(alias => {
+              localStorage.setItem(`logicq_exam_test_completed_${alias}`, 'true');
+              if (targetPrn) {
+                localStorage.setItem(`logicq_exam_student_submitted_${alias}_${targetPrn}`, 'true');
+                localStorage.setItem(`logicq_exam_student_submitted_prn_${targetPrn}`, 'true');
+                localStorage.removeItem(`logicq_exam_unlocked_${alias}_${targetPrn}`);
+                localStorage.removeItem(`logicq_exam_in_progress_${alias}_${targetPrn}`);
+              }
+              localStorage.removeItem(`logicq_exam_unlocked_${alias}`);
+              localStorage.removeItem(`logicq_exam_in_progress_${alias}`);
+            });
+
+            if (targetPrn) {
+              localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${qLabel}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${qLabel}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_submitted_code_${assignmentId}_${qLabel}_${targetPrn}`, code);
+              localStorage.setItem(`logicq_code_sub_${targetPrn}_${qLabel}`, code);
+              localStorage.setItem(`logicq_exam_q_score_${assignmentId}_${qLabel}_${targetPrn}`, String(earnedScore));
+              localStorage.setItem(`logicq_exam_student_sub_${assignmentId}_${targetPrn}_${qLabel}`, `${targetPrn}:${earnedScore}:${fullScreenExitCount}:${tabSwitchCount}:${elapsedSec}:${copyPasteAttempts}:${totalKeystrokes}:${largestBurstChars}:0`);
+            }
+          } catch {}
+
+          RealtimeSyncService.emit('TESTS');
+          RealtimeSyncService.emit('DASHBOARD');
+
           isExitingRef.current = true;
           if (typeof document !== 'undefined' && document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
           }
+          toast.success('🎉 Assessment Completed! All questions evaluated and recorded.', { duration: 4000 });
           setTimeout(() => {
             navigate('/student/tests');
           }, 1500);
-        }
-
-        // Section 29: Trigger AI Viva Verification if returned by engine
-        if (res.vivaTriggered && res.vivaId) {
-          setActiveViva({
-            vivaId: res.vivaId,
-            questionText: res.vivaQuestionText,
-            remainingSec: 10,
-          });
+        } else {
+          // Automatic Next Question Navigation (Question 1 -> Question 2) without AI Viva
+          const targetPrn = (user?.prn || currentStudentPrn || resolveExamStudentPrn() || '').toUpperCase().trim();
+          const qLabel = currentQuestionIndex === 0 ? 'Q1' : 'Q2';
+          if (targetPrn) {
+            try {
+              localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${qLabel}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_q_completed_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${qLabel}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_q_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_locked_${assignmentId}_${problemId}_${targetPrn}`, 'true');
+              localStorage.setItem(`logicq_exam_submitted_code_${assignmentId}_${qLabel}_${targetPrn}`, code);
+              localStorage.setItem(`logicq_code_sub_${targetPrn}_${qLabel}`, code);
+              localStorage.setItem(`logicq_exam_q_score_${assignmentId}_${qLabel}_${targetPrn}`, String(earnedScore));
+              localStorage.setItem(`logicq_exam_student_sub_${assignmentId}_${targetPrn}_${qLabel}`, `${targetPrn}:${earnedScore}:${fullScreenExitCount}:${tabSwitchCount}:${elapsedSec}:${copyPasteAttempts}:${totalKeystrokes}:${largestBurstChars}:0`);
+              localStorage.setItem(`logicq_exam_in_progress_${assignmentId}_${targetPrn}`, 'true');
+            } catch {}
+          }
+          toast.success('🎉 Question 1 Accepted! Advancing to Question 2...', { duration: 3000 });
+          setTimeout(() => {
+            navigate(`/exam/${assignmentId}/${nextProblemId}`);
+          }, 1200);
         }
       } else {
-        toast.error(`Evaluation failed (${res.verdict}). Academic Score: 0.0 marks.`);
+        const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+        const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+        FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
+          .then((num) => {
+            currentExamAttemptRef.current = num;
+            setCurrentExamAttempt(num);
+          })
+          .catch(() => {});
+
+        const outcomes = res.testOutcomes || res.testResults || [];
+        const failedCases = outcomes.filter((t: any) => !t.passed);
+        if (res.verdict === 'COMPILATION_ERROR') {
+          toast.error('Compilation Error in your C code! Please inspect the compiler output below.', {
+            duration: 5000,
+          });
+        } else {
+          toast.error(
+            `Evaluation Failed: ${failedCases.length > 0 ? failedCases.length : 'Some'} test case(s) failed. Fix your code and run again.`,
+            { duration: 5000 }
+          );
+        }
       }
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Submission failed.');
+      setIsDrawerOpen(true);
+      const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+      const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+      FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
+        .then((num) => {
+          currentExamAttemptRef.current = num;
+          setCurrentExamAttempt(num);
+        })
+        .catch(() => {});
+      toast.error(err.message || 'Compilation or evaluation failed. Please fix your code and try again.');
     },
   });
 
-  // Safe execution handler with validation guard
-  const handleExecuteTests = useCallback(() => {
+  // Unified Compile & Run handler: Compiles code and verifies test cases.
+  // If all pass -> Submits solution, awards marks, and auto-navigates to next question.
+  // If tests fail / error -> Keeps student on current question and displays compiler/test error in drawer.
+  const handleCompileAndRun = useCallback(() => {
     if (isExamConcluded) {
       toast.error('This examination has been marked completed by the administrator.');
       return;
     }
-    if (isLocked || runMutation.isPending || submitMutation.isPending) return;
+    if (isLocked || submitMutation.isPending || runMutation.isPending) return;
+
     const cleanCode = (code || '').trim();
     const cleanStarter = (problemData?.starterCode || '').trim();
-    if (!cleanCode || cleanCode === cleanStarter) {
-      toast.error('Please write your solution code before running tests!');
-      return;
-    }
-    if (!cleanCode.includes('main(') && !cleanCode.includes('main (')) {
-      toast.error("Compilation Error: Missing 'int main()' entrypoint in C program.");
-      return;
-    }
-    setActiveMobileTab('editor');
-    runMutation.mutate();
-  }, [isExamConcluded, isLocked, runMutation, submitMutation, code, problemData]);
+    const normCode = cleanCode.replace(/\s+/g, ' ');
+    const normStarter = cleanStarter.replace(/\s+/g, ' ');
 
-  // Apple-grade Keyboard Shortcut: Ctrl + Enter or Cmd + Enter to Run Tests
+    if (!cleanCode || (normStarter && normCode === normStarter) || cleanCode.length < 25) {
+      toast.error('Please write your C solution logic before compiling!');
+      return;
+    }
+
+    if (!cleanCode.includes('main(') && !cleanCode.includes('main (')) {
+      toast.error("Compilation Error: Missing 'int main()' entrypoint in C code.");
+      return;
+    }
+
+    setActiveMobileTab('editor');
+    submitMutation.mutate();
+  }, [isExamConcluded, isLocked, submitMutation, runMutation, code, problemData]);
+
+  const handleExecuteTests = handleCompileAndRun;
+
+  // Apple-grade Keyboard Shortcut: Ctrl + Enter or Cmd + Enter to Compile & Run
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        if (!isLocked && !runMutation.isPending && !submitMutation.isPending) {
+        if (!isLocked && !submitMutation.isPending && !runMutation.isPending) {
           e.preventDefault();
-          handleExecuteTests();
+          handleCompileAndRun();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLocked, runMutation, submitMutation, handleExecuteTests]);
+  }, [isLocked, submitMutation, runMutation, handleCompileAndRun]);
 
   // Unified Total Countdown Timer formatting
   const formatCountdown = (totalSec: number) => {
@@ -1037,6 +2078,7 @@ export const ExamWorkspacePage: React.FC = () => {
         id: tc.id || `tc-${i + 1}`,
         input: tc.input || '',
         expectedOutput: tc.expectedOutput || tc.output || '',
+        explanation: tc.explanation || '',
       }));
     }
     const cases: any[] = [];
@@ -1045,13 +2087,15 @@ export const ExamWorkspacePage: React.FC = () => {
         id: 'tc1',
         input: problemData.visibleTestCase1.input || '',
         expectedOutput: problemData.visibleTestCase1.output || problemData.visibleTestCase1.expectedOutput || '',
+        explanation: problemData.visibleTestCase1.explanation || '',
       });
     }
-    if (problemData.visibleTestCase2) {
+    if (problemData.visibleTestCase2 && (problemData.visibleTestCase2.input || problemData.visibleTestCase2.output)) {
       cases.push({
         id: 'tc2',
         input: problemData.visibleTestCase2.input || '',
         expectedOutput: problemData.visibleTestCase2.output || problemData.visibleTestCase2.expectedOutput || '',
+        explanation: problemData.visibleTestCase2.explanation || '',
       });
     }
     if (cases.length > 0) return cases;
@@ -1062,13 +2106,22 @@ export const ExamWorkspacePage: React.FC = () => {
           id: tc.id || `tc-${i + 1}`,
           input: tc.input || '',
           expectedOutput: tc.expectedOutput || tc.output || '',
+          explanation: tc.explanation || '',
         }));
       }
     }
     return [
-      { id: 'tc1', input: 'PKT 101 25.4', expectedOutput: 'CRC: 0x4A12' },
-      { id: 'tc2', input: 'PKT 102 0.0', expectedOutput: 'CRC: 0x1120' },
+      { id: 'tc1', input: 'PKT 101 25.4', expectedOutput: 'CRC: 0x4A12', explanation: '' },
     ];
+  }, [problemData]);
+
+  const hasHiddenCase: boolean = React.useMemo(() => {
+    if (!problemData) return true;
+    if (problemData.hiddenTestCase) return true;
+    if (Array.isArray(problemData.testCases)) {
+      return problemData.testCases.some((tc: any) => tc.isHidden);
+    }
+    return true;
   }, [problemData]);
 
   return (
@@ -1113,16 +2166,21 @@ export const ExamWorkspacePage: React.FC = () => {
       {/* Top Proctoring & Institutional Header Bar (Apple Minimal Clean Style) */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs font-mono text-slate-800 shadow-xs shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => exitExamTo('/student/tests')}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium cursor-pointer"
-            title="Exit proctored test environment"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Exit Test</span>
-          </button>
-          <span className="text-slate-300">|</span>
+          {/* Exit Test button is ONLY enabled and visible after exam is completed, locked, or submitted */}
+          {(isExamConcluded || isLocked || isLockedByProctor) && (
+            <>
+              <button
+                type="button"
+                onClick={() => exitExamTo('/student/tests')}
+                className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium cursor-pointer"
+                title="Exit proctored test environment"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Exit Test</span>
+              </button>
+              <span className="text-slate-300">|</span>
+            </>
+          )}
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-bold text-slate-900 truncate max-w-[200px] sm:max-w-md font-sans text-sm">
               {assignmentData?.title || 'Continuous Practical Assessment'}
@@ -1130,19 +2188,33 @@ export const ExamWorkspacePage: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[11px] font-bold shrink-0">
               Question {currentQuestionIndex >= 0 ? currentQuestionIndex + 1 : 1} of {questionSequence.length || 1}
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] font-bold shrink-0">
-              {problemData?.maxMarks || problemData?.marks || 10} Marks
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-200/80 text-purple-700 text-[11px] font-bold shrink-0 flex items-center gap-1 font-mono">
-              <RotateCcw className="w-3 h-3 text-purple-600" />
-              <span>Attempt #{currentExamAttempt}</span>
-            </span>
           </div>
         </div>
 
-        {/* Live Proctoring & Total Test Countdown Timer */}
+        {/* Live Proctoring & Dual Countdown Timers (Active Question + Overall Test) */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Total Test Countdown Timer (Shared across all questions) */}
+          {/* Active Question-Specific Countdown Timer (Q1: 20m, Q2: 40m) */}
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold transition-all ${
+              remainingQuestionSec <= 120
+                ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse shadow-sm shadow-rose-500/20'
+                : remainingQuestionSec <= 300
+                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+            }`}
+            title={`Active Question ${currentQuestionIndex + 1} Limit: ${currentQuestionDurationMinutes} mins. Auto-submits and evaluates when timer reaches 00:00.`}
+          >
+            <Clock className={`w-3.5 h-3.5 ${remainingQuestionSec <= 120 ? 'text-rose-600' : 'text-indigo-600'}`} />
+            <span className="font-sans font-bold text-[11px] uppercase tracking-wider text-indigo-600">
+              Q{currentQuestionIndex + 1}:
+            </span>
+            <span>{formatCountdown(remainingQuestionSec)}</span>
+            <span className="hidden sm:inline text-[10px] text-slate-400 font-sans font-normal">
+              / {currentQuestionDurationMinutes}m
+            </span>
+          </div>
+
+          {/* Total Test Countdown Timer (Overall Assessment Window: 60m) */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold transition-all ${
               remainingTestSec <= 300
@@ -1153,11 +2225,8 @@ export const ExamWorkspacePage: React.FC = () => {
             }`}
             title={`Total Test Duration: ${totalTestMinutes} Minutes. Test will auto-submit when time expires.`}
           >
-            <Clock className={`w-3.5 h-3.5 ${remainingTestSec <= 300 ? 'text-rose-600' : 'text-indigo-600'}`} />
+            <span className="hidden sm:inline font-sans text-[11px] text-slate-500 font-normal">Total:</span>
             <span>{formatCountdown(remainingTestSec)}</span>
-            <span className="hidden sm:inline text-[10px] text-slate-400 font-sans font-normal">
-              left
-            </span>
           </div>
 
           {/* Proctored Live Radar Indicator */}
@@ -1187,7 +2256,7 @@ export const ExamWorkspacePage: React.FC = () => {
           <div className="flex items-center gap-2.5 font-mono">
             <Lock className={`w-4 h-4 flex-shrink-0 ${academicScore === 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
             <span>
-              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Incorrect solution (0 marks).' : academicScore === 0.5 ? 'Submitted outside prescribed time (0.5 mark awarded as per time-based scoring).' : `Your solution was accepted (${academicScore ?? 1.0} / 1.0 Mark awarded). Under examination policy, edits and resets are locked.`}
+              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Incomplete / 0 marks awarded.' : academicScore != null && academicScore < 5 ? `Partial marks awarded (${academicScore} / 5.0 Marks). Under examination policy, edits and resets are locked.` : `Your solution was accepted (${academicScore ?? 5.0} / 5.0 Marks awarded). Under examination policy, edits and resets are locked.`}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1247,18 +2316,7 @@ export const ExamWorkspacePage: React.FC = () => {
             <div className="space-y-2.5 pb-4 border-b border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  {problemData?.difficulty || 'HARD'}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
-                  <RotateCcw className="w-3 h-3 text-purple-600" />
-                  <span>Attempt #{currentExamAttempt}</span>
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  20.0 Marks
-                </span>
-                <span className="text-xs text-slate-500 font-mono font-medium flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  <span>Total Exam: {totalTestMinutes}m</span>
+                  {problemData?.difficulty || 'EASY'}
                 </span>
               </div>
 
@@ -1284,14 +2342,17 @@ export const ExamWorkspacePage: React.FC = () => {
               />
             </div>
 
-            {/* Visible Sample Test Cases */}
+            {/* Verified Test Cases Suite (1 Open + 1 Hidden) */}
             <div className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-bold text-slate-900 font-sans uppercase tracking-wider">
-                  Sample Test Cases
-                </h2>
+              <div className="flex items-center justify-between font-sans">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">Test Cases</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    {visibleCasesList.length + (hasHiddenCase ? 1 : 0)} Cases
+                  </span>
+                </div>
                 <span className="text-[11px] font-mono text-slate-400">
-                  2 visible sample tests
+                  {visibleCasesList.length} Visible {hasHiddenCase ? '• 1 Hidden' : ''}
                 </span>
               </div>
 
@@ -1302,27 +2363,57 @@ export const ExamWorkspacePage: React.FC = () => {
                     className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 font-mono text-xs space-y-2.5 shadow-xs"
                   >
                     <div className="flex items-center justify-between text-slate-600">
-                      <span className="font-bold text-slate-900">Sample Case #{idx + 1}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                        VISIBLE
+                      <span className="font-bold text-slate-900 flex items-center gap-1.5 font-sans">
+                        <span>Test Case #{idx + 1}</span>
+                        <span className="text-[10px] text-slate-400 font-normal font-sans">(Sample Application)</span>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold font-mono">
+                        OPEN
                       </span>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-slate-400">Input:</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400 font-mono">Input:</div>
                       <pre className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono shadow-inner font-semibold overflow-x-auto">
                         {tc.input}
                       </pre>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-emerald-600">Expected Output:</div>
+                      <div className="text-[10px] uppercase font-bold text-emerald-600 font-mono">Expected Output:</div>
                       <pre className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 font-mono font-bold shadow-inner overflow-x-auto">
                         {tc.expectedOutput}
                       </pre>
                     </div>
+
+                    {tc.explanation && (
+                      <div className="text-[11px] text-slate-600 font-sans italic pt-1 border-t border-slate-200/60">
+                        💡 <strong>Explanation:</strong> {tc.explanation}
+                      </div>
+                    )}
                   </div>
                 ))}
+
+                {/* Hidden Test Case Card (Lab Internal Style) */}
+                {hasHiddenCase && (
+                  <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 font-mono text-xs space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between text-amber-900">
+                      <span className="font-bold flex items-center gap-1.5 font-sans">
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Test Case #{visibleCasesList.length + 1}</span>
+                        <span className="text-[10px] text-amber-700 font-normal font-sans">(Hidden Evaluation)</span>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100/90 text-amber-800 border border-amber-300 font-bold flex items-center gap-1 font-mono">
+                        <Lock className="w-2.5 h-2.5 text-amber-700" />
+                        <span>HIDDEN</span>
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] font-sans text-amber-900/80 leading-relaxed pt-0.5">
+                      Input and expected output are tested automatically upon clicking <strong>"Compile &amp; Run"</strong> to verify boundary cases and algorithmic logic.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1378,6 +2469,12 @@ export const ExamWorkspacePage: React.FC = () => {
               readOnly={isLocked}
               hideHeader={true}
               forceTheme="dark"
+              disableCopyPaste={!isStaffUser}
+              onBlockedAction={(act) => {
+                if (!isStaffUser) {
+                  handleEditorBlockedAction(act);
+                }
+              }}
             />
           </div>
 
@@ -1391,27 +2488,27 @@ export const ExamWorkspacePage: React.FC = () => {
             <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-50/80 border-b border-slate-200 shrink-0 font-sans text-xs">
               {/* Left Status Indicator */}
               <div className="flex items-center gap-2 min-w-0">
-                {submitMutation.isPending ? (
-                  <div className="flex items-center gap-2 text-emerald-700 font-bold">
-                    <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
-                    <span>All Tests Passed! Submitting &amp; Advancing...</span>
-                  </div>
-                ) : runMutation.isPending ? (
-                  <div className="flex items-center gap-2 text-indigo-700 font-semibold">
+                {submitMutation.isPending || runMutation.isPending ? (
+                  <div className="flex items-center gap-2 text-indigo-700 font-bold animate-pulse">
                     <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                    <span>Compiling &amp; running visible test cases...</span>
+                    <span>Compiling code &amp; running test cases...</span>
+                  </div>
+                ) : isLocked ? (
+                  <div className={`flex items-center gap-2 font-bold ${Number(academicScore) > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    <CheckCircle2 className={`w-4 h-4 ${Number(academicScore) > 0 ? 'text-emerald-600' : 'text-amber-600'}`} />
+                    <span>{Number(academicScore) > 0 ? `Solution Saved (${academicScore} / 5 Marks)` : 'Question Locked (0 Marks)'}</span>
                   </div>
                 ) : testResults.length > 0 ? (
                   testResults.every((t: any) => t.passed) ? (
                     <div className="flex items-center gap-2 text-emerald-700 font-bold">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>All {testResults.length} Visible Tests Passed</span>
+                      <Sparkles className="w-4 h-4 text-emerald-600 animate-bounce" />
+                      <span>All Test Cases Passed! Advancing to Next Question...</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-rose-700 font-bold">
                       <XCircle className="w-4 h-4 text-rose-600" />
                       <span>{testResults.filter((t: any) => t.passed).length}/{testResults.length} Tests Passed</span>
-                      <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">• Check output below</span>
+                      <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">• Fix errors below &amp; retry</span>
                     </div>
                   )
                 ) : (
@@ -1422,30 +2519,25 @@ export const ExamWorkspacePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Right Action Buttons */}
+              {/* Single Unified Action Button: Compile & Run */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                  onClick={handleExecuteTests}
-                  className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
-                  title="Run Visible Tests & Auto-Submit on Pass (Ctrl + Enter)"
+                  disabled={isLocked || submitMutation.isPending || runMutation.isPending}
+                  onClick={handleCompileAndRun}
+                  className="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Compile & Run Code (Ctrl + Enter)"
                 >
-                  {submitMutation.isPending ? (
+                  {submitMutation.isPending || runMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Submitting...</span>
-                    </>
-                  ) : runMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Running...</span>
+                      <span>Compiling &amp; Evaluating...</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Run Visible Tests</span>
-                      <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">Ctrl+↵</span>
+                      <span>Compile &amp; Run</span>
+                      <span className="text-[10px] text-emerald-200 font-mono hidden sm:inline bg-emerald-700/60 px-1.5 py-0.5 rounded">Ctrl+↵</span>
                     </>
                   )}
                 </button>
@@ -1454,7 +2546,7 @@ export const ExamWorkspacePage: React.FC = () => {
                   type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors cursor-pointer"
                   title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
                 >
                   <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
@@ -1472,50 +2564,94 @@ export const ExamWorkspacePage: React.FC = () => {
                     </div>
                     <div className="text-xs font-bold text-slate-700">Ready to Evaluate</div>
                     <div className="text-[11px] text-slate-400 max-w-sm leading-relaxed">
-                      Write your solution in the editor and click <strong className="text-slate-600 font-mono">Run Visible Tests</strong> (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[10px]">Ctrl+Enter</kbd>).
+                      Write your C solution in the editor and click <strong className="text-slate-600 font-mono">Compile &amp; Run</strong> (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[10px]">Ctrl+Enter</kbd>). All test cases will be validated automatically.
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {testResults.map((tr: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className={`p-3.5 rounded-2xl border text-xs space-y-2.5 transition-all ${
-                          tr.passed
-                            ? 'border-emerald-200 bg-emerald-50/40'
-                            : 'border-rose-200 bg-rose-50/40'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-sans">
-                          <span className="flex items-center gap-1.5 font-bold">
-                            {tr.passed ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-rose-600" />
-                            )}
-                            <span className={tr.passed ? 'text-emerald-900' : 'text-rose-900'}>
-                              Sample Case #{tr.testIndex || (idx + 1)}: {tr.passed ? 'PASSED' : 'FAILED'}
-                            </span>
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-400">{tr.runtimeMs ?? 0}ms</span>
-                        </div>
+                    {testResults.map((tr: any, idx: number) => {
+                      const tcInput = tr.input || (idx === 0 ? problemData?.visibleTestCase1?.input : problemData?.visibleTestCase2?.input) || problemData?.visibleTestCases?.[idx]?.input || '';
+                      const tcExpected = tr.expectedOutput || (idx === 0 ? (problemData?.visibleTestCase1?.output || problemData?.visibleTestCase1?.expectedOutput) : (problemData?.visibleTestCase2?.output || problemData?.visibleTestCase2?.expectedOutput)) || problemData?.visibleTestCases?.[idx]?.output || problemData?.visibleTestCases?.[idx]?.expectedOutput || '(Expected output not specified)';
+                      const tcActual = tr.actualOutput || (tr.passed ? 'PASSED' : '(No output produced or compiler error)');
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
-                          <div>
-                            <span className="text-slate-400 uppercase text-[10px] font-bold font-mono">Expected:</span>
-                            <pre className="bg-white border border-slate-200 text-emerald-800 p-2.5 rounded-xl mt-1 overflow-x-auto font-mono font-bold shadow-inner">
-                              {tr.expectedOutput}
-                            </pre>
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3.5 rounded-2xl border text-xs space-y-2.5 transition-all ${
+                            tr.passed
+                              ? 'border-emerald-200 bg-emerald-50/40'
+                              : 'border-rose-200 bg-rose-50/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-sans">
+                            <span className="flex items-center gap-1.5 font-bold">
+                              {tr.passed ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-rose-600" />
+                              )}
+                              <span className={tr.passed ? 'text-emerald-900' : 'text-rose-900'}>
+                                {tr.isHidden ? 'Hidden Boundary Case' : `Test Case #${tr.testIndex || (idx + 1)}`}: {tr.passed ? 'PASSED' : tr.verdict || 'FAILED'}
+                              </span>
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400">{tr.runtimeMs ?? 0}ms</span>
                           </div>
-                          <div>
-                            <span className="text-slate-400 uppercase text-[10px] font-bold font-mono">Your Output:</span>
-                            <pre className={`bg-white border border-slate-200 p-2.5 rounded-xl mt-1 overflow-x-auto font-mono shadow-inner ${tr.passed ? 'text-emerald-800 font-bold' : 'text-rose-700 font-bold'}`}>
-                              {tr.actualOutput || '(No output produced)'}
-                            </pre>
-                          </div>
+
+                          {tr.stderr && !tr.passed && (
+                            <div className="p-3 rounded-xl bg-slate-900 text-rose-300 font-mono text-[11px] overflow-x-auto border border-rose-500/40 shadow-sm">
+                              <div className="text-[10px] uppercase font-bold text-rose-400 mb-1 flex items-center gap-1.5">
+                                <span>⚠️</span>
+                                <span>Compiler Diagnostics / Error:</span>
+                              </div>
+                              <pre className="whitespace-pre-wrap break-all leading-relaxed">{tr.stderr}</pre>
+                            </div>
+                          )}
+
+                          {!tr.isHidden && (
+                            <div className={`grid grid-cols-1 ${tcInput ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2.5 text-[11px] pt-0.5`}>
+                              {tcInput && (
+                                <div className="space-y-1">
+                                  <span className="text-sky-700 dark:text-sky-400 uppercase text-[10px] font-extrabold font-mono tracking-wider block">
+                                    Input (stdin):
+                                  </span>
+                                  <pre className="bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-cyan-200 p-2.5 rounded-xl font-mono font-semibold text-xs min-h-[46px] whitespace-pre-wrap break-all shadow-inner">
+                                    {tcInput}
+                                  </pre>
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <span className="text-emerald-700 dark:text-emerald-400 uppercase text-[10px] font-extrabold font-mono tracking-wider block">
+                                  Expected Output:
+                                </span>
+                                <pre className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-300 p-2.5 rounded-xl font-mono font-bold text-xs min-h-[46px] whitespace-pre-wrap break-all shadow-inner">
+                                  {tcExpected}
+                                </pre>
+                              </div>
+                              <div className="space-y-1">
+                                <span className={`uppercase text-[10px] font-extrabold font-mono tracking-wider block ${tr.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+                                  Your Code Output:
+                                </span>
+                                <pre className={`p-2.5 rounded-xl font-mono font-bold text-xs min-h-[46px] whitespace-pre-wrap break-all shadow-inner border ${tr.passed ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-300'}`}>
+                                  {tcActual}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
+
+                          {tr.isHidden && !tr.passed && (
+                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+                              <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                                <span>💡</span>
+                                <span>Hidden Boundary Case Diagnostic:</span>
+                              </div>
+                              <p className="font-sans text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed">
+                                Hidden boundary test case failed. Check edge cases such as single element, negative numbers, zero, or boundary constraints.
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1533,19 +2669,228 @@ export const ExamWorkspacePage: React.FC = () => {
         contextType="EXAM"
       />
 
-      {/* AI Viva Verification Modal (Sections 29 - 33) */}
-      {activeViva && (
-        <AiVivaModal
-          vivaId={activeViva.vivaId}
-          questionText={activeViva.questionText}
-          initialRemainingSec={activeViva.remainingSec ?? 60}
-          onCompleted={(outcome) => {
-            setActiveViva(null);
-            if (outcome?.submittedBeforeTimeout) {
-              toast.success('AI Viva explanation recorded successfully.');
-            }
-          }}
-        />
+      {/* In Assessments / Tests: AI Viva is completely disabled (strictly reserved for Lab Internal) */}
+
+      {/* Mandatory In-Lab Attendance Verification Overlay (Only when faculty explicitly enforces attendance) */}
+      {assignmentData?.requireAttendance && !isAttendanceVerified && !isStaffUser && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-lg flex items-center justify-center p-4 animate-in fade-in">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-slate-900 border border-amber-500/40 shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/15 text-amber-500 border border-amber-500/30 flex items-center justify-center mx-auto shadow-inner">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-white tracking-tight">
+                Lab Attendance Mandatory
+              </h2>
+              <span className="inline-block px-3 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                {!AttendanceSyncService.isAttendanceConfirmed(canonicalTestId)
+                  ? 'Awaiting Faculty Attendance Confirmation'
+                  : 'Marked Absent by Faculty'}
+              </span>
+              <p className="text-xs text-slate-300 pt-2 leading-relaxed">
+                {!AttendanceSyncService.isAttendanceConfirmed(canonicalTestId)
+                  ? 'Faculty is taking lab attendance. Once faculty clicks "Confirm & Save Attendance", your test will unlock automatically.'
+                  : 'You have been marked Absent by faculty. Only verified present students can take this test.'}
+              </p>
+            </div>
+            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/80 text-[11px] text-slate-300 font-mono text-left space-y-1">
+              <div><strong className="text-slate-400">Student:</strong> {user?.fullName || user?.prn}</div>
+              <div><strong className="text-slate-400">PRN:</strong> {user?.prn || 'N/A'}</div>
+              <div>
+                <strong className="text-slate-400">Attendance:</strong>{' '}
+                {!AttendanceSyncService.isAttendanceConfirmed(canonicalTestId) ? (
+                  <span className="text-amber-400 font-bold">AWAITING FACULTY CONFIRMATION</span>
+                ) : (
+                  <span className="text-rose-400 font-bold">MARKED ABSENT</span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 pt-1">
+                ⚡ Once your faculty confirms attendance and marks you PRESENT, this screen will auto-unlock instantly.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => exitExamTo('/student/tests')}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+            >
+              Exit to Tests
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Strict 2-Violation Proctor Lock Overlay (Hariprasad Sir Specification) */}
+      {isLockedByProctor && !isStaffUser && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-[#0c1017] border border-rose-500/30 shadow-[0_20px_70px_rgba(244,63,94,0.25)] text-center space-y-4 relative overflow-hidden">
+            {/* Ambient Red Glow */}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-rose-500/15 blur-3xl rounded-full pointer-events-none" />
+
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500/20 to-rose-600/10 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto shadow-inner shadow-rose-950/40 relative">
+              <Lock className="w-8 h-8" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 ring-4 ring-[#0c1017] animate-ping" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500" />
+            </div>
+
+            <div className="space-y-1.5 relative">
+              <h2
+                style={{ color: '#ffffff', fontFamily: 'inherit' }}
+                className="text-2xl font-bold tracking-tight text-white !text-white"
+              >
+                Assessment Locked
+              </h2>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                <span>2 / 2 Proctoring Violations Reached</span>
+              </div>
+              <p style={{ color: '#cbd5e1' }} className="text-xs text-slate-300 pt-1 leading-relaxed">
+                You reached the permissible limit of violations. Your solution has been auto-saved and submitted to your course faculty.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs text-slate-300 font-mono text-left space-y-1.5 shadow-inner">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 text-[11px]">Student</span>
+                <span className="text-slate-100 font-semibold text-[11px] truncate">{user?.fullName || user?.prn}</span>
+              </div>
+              <div className="border-b border-slate-800/80 pb-1.5">
+                <div className="text-slate-400 text-[11px]">Trigger</div>
+                <div className="text-rose-300 text-[11px] leading-snug mt-0.5">{proctorLockReason}</div>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <span className="text-slate-400 text-[11px]">Status</span>
+                <span className="text-amber-400 font-semibold text-[11px] flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3" />
+                  Locked · Awaiting Faculty
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => exitExamTo('/student/tests')}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-bold text-xs tracking-wide transition-all shadow-lg shadow-rose-600/25 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>Exit to Student Tests</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const toastId = toast.loading('Checking faculty unlock status...');
+                try {
+                  const cloudLocked = await AttendanceSyncService.fetchLockedStudentsFromCloud();
+                  if (!cloudLocked[cleanPrnForLock]) {
+                    setIsExamSubmissionUnlocked(true);
+                    setIsLockedByProctor(false);
+                    setIsLocked(false);
+                    totalViolationsRef.current = 0;
+                    try {
+                      localStorage.removeItem(`logicq_exam_locked_${assignmentId}_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_locked_test-continuous-arrays-search-sort_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_locked_test-assessment-4_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_locked_assessment-4_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_locked_test-assessment-4`);
+                      localStorage.removeItem(`logicq_exam_locked_assessment-4`);
+                      localStorage.removeItem(`logicq_exam_proctor_locked_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_proctor_locked`);
+                      localStorage.removeItem(`logicq_exam_proctor_lock_reason_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_proctor_lock_reason`);
+                      localStorage.removeItem(`logicq_exam_violations_${assignmentId}_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_violations_test-continuous-arrays-search-sort_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_violations_test-assessment-4_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_violations_assessment-4_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_violations_${assignmentId}`);
+                      localStorage.removeItem(`logicq_exam_violations_test-assessment-4`);
+                      localStorage.removeItem(`logicq_exam_student_submitted_${assignmentId}_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_student_submitted_test-continuous-arrays-search-sort_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_student_submitted_test-assessment-4_${cleanPrnForLock}`);
+                      localStorage.removeItem(`logicq_exam_student_submitted_assessment-4_${cleanPrnForLock}`);
+                      localStorage.setItem(`logicq_exam_unlocked_${assignmentId}_${cleanPrnForLock}`, 'true');
+                      localStorage.setItem(`logicq_exam_unlocked_test-continuous-arrays-search-sort_${cleanPrnForLock}`, 'true');
+                      localStorage.setItem(`logicq_exam_unlocked_test-assessment-4_${cleanPrnForLock}`, 'true');
+                      localStorage.setItem(`logicq_exam_unlocked_assessment-4_${cleanPrnForLock}`, 'true');
+                      localStorage.setItem(`logicq_student_reset_${cleanPrnForLock}`, 'true');
+                    } catch {}
+                    toast.success('🎉 Faculty unlocked your exam! You can now continue.', { id: toastId });
+                  } else {
+                    toast.error('Still locked in faculty console. Ask faculty to click "Unlock Student".', { id: toastId });
+                  }
+                } catch {
+                  toast.error('Network check error.', { id: toastId });
+                }
+              }}
+              className="w-full py-2.5 px-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-medium text-xs transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+              <span>Faculty Unlocked? Check & Resume Test</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Assessment Already Completed / Re-attempt Locked Modal Overlay */}
+      {isTestAlreadyCompleted && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Test Already Submitted
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                You have already completed and submitted your practical examination. Re-attempts are strictly disabled as per evaluation guidelines.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                isExitingRef.current = true;
+                if (typeof document !== 'undefined' && document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                navigate('/student/tests');
+              }}
+              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition active:scale-95 cursor-pointer shadow-md shadow-emerald-500/20"
+            >
+              Return to Tests Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Assessment Scheduled / Not Started Modal Overlay */}
+      {isTestUpcoming && !isExamConcluded && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center mx-auto">
+              <Clock className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Assessment Scheduled
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Your faculty has scheduled this practical evaluation and has not clicked "Start Test Now" yet. Please wait for your faculty to start the test session.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                isExitingRef.current = true;
+                if (typeof document !== 'undefined' && document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                navigate('/student/tests');
+              }}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition active:scale-95 cursor-pointer shadow-md shadow-indigo-500/20"
+            >
+              Back to Assigned Tests
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Assessment Concluded Modal Overlay */}

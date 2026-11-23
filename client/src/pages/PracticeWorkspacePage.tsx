@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
@@ -718,6 +719,29 @@ export const PracticeWorkspacePage: React.FC = () => {
   const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
   const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
 
+  const diffStr = String(problem?.difficulty || 'EASY').toUpperCase();
+  const allocatedMinutes = diffStr === 'HARD' ? 30 : diffStr === 'MEDIUM' ? 20 : 10;
+
+  const isProblemSolved = useMemo(() => {
+    if (submissionResult) {
+      return submissionResult.verdict === 'ACCEPTED';
+    }
+    if (isLabRoute) {
+      const modP = (moduleProblems || []).find((p: any) => p.slug === problemSlug);
+      return Boolean(modP?.isSolved && modP?.isSolved !== false);
+    }
+    return Boolean(userProgress?.isSolved && userProgress?.lastVerdict === 'ACCEPTED');
+  }, [submissionResult, isLabRoute, moduleProblems, problemSlug, userProgress]);
+
+  const currentModuleSolvedCount = useMemo(() => {
+    return (moduleProblems || []).filter((p: any) => {
+      if (p.slug === problemSlug && submissionResult) {
+        return submissionResult.verdict === 'ACCEPTED';
+      }
+      return Boolean(p.isSolved || solvedSlugs.has(p.slug));
+    }).length;
+  }, [moduleProblems, problemSlug, submissionResult, solvedSlugs]);
+
   const sampleCases = useMemo(() => {
     if (problem?.sampleTests && problem.sampleTests.length > 0) {
       return problem.sampleTests;
@@ -891,31 +915,28 @@ export const PracticeWorkspacePage: React.FC = () => {
   useEffect(() => {
     let isCancelled = false;
     const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
-    const localSolved = getSolvedPracticeTopicIds(effectiveUid);
-    const fallbackSolvedSlugs: string[] = [];
+    const isLab = location.pathname.startsWith('/lab-internal');
+
+    // Wipe stale mock fallback that previously polluted solved counts
     try {
-      const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
-      if (rawProg) {
-        const progMap = JSON.parse(rawProg);
-        Object.keys(progMap).forEach((k) => {
-          if (progMap[k]?.isSolved) {
-            const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
-            fallbackSolvedSlugs.push(cleanSlug);
-          }
-        });
-      }
+      localStorage.removeItem('logicq_fallback_practice_progress_v1');
     } catch {}
 
+    const localSolved = isLab ? [] : getSolvedPracticeTopicIds(effectiveUid);
+
     setSolvedSlugs((prev) => {
-      const next = new Set(prev);
-      localSolved.forEach((s) => next.add(s));
-      fallbackSolvedSlugs.forEach((s) => next.add(s));
+      const next = new Set<string>();
+      // In practice mode, retain local topic progress
+      if (!isLab) {
+        prev.forEach((s) => next.add(s));
+        localSolved.forEach((s) => next.add(s));
+      }
       if (moduleProblems && moduleProblems.length > 0) {
         moduleProblems.forEach((p: any) => {
           if (p.isSolved) next.add(p.slug);
         });
       }
-      if (userProgress?.isSolved && problemSlug) {
+      if (submissionResult?.verdict === 'ACCEPTED' && problemSlug) {
         next.add(problemSlug);
       }
       return next;
@@ -936,10 +957,21 @@ export const PracticeWorkspacePage: React.FC = () => {
           ])
         );
         if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
+          if (!isLab) {
+            cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
+          }
           setSolvedSlugs((prev) => {
             const next = new Set(prev);
-            cloudSolved.forEach((s) => next.add(s));
+            cloudSolved.forEach((s) => {
+              if (isLab) {
+                // In Lab Internal, only add if problem belongs to current module
+                if (moduleProblems.some((mp: any) => mp.slug === s)) {
+                  next.add(s);
+                }
+              } else {
+                next.add(s);
+              }
+            });
             return next;
           });
         }
@@ -951,7 +983,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [moduleProblems, userProgress, problemSlug, user]);
+  }, [moduleProblems, submissionResult, problemSlug, user, location.pathname]);
 
   // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved OR quarantined
   const isProblemUnlocked = (idx: number): boolean => {
@@ -1517,8 +1549,69 @@ export const PracticeWorkspacePage: React.FC = () => {
         studentName: user?.fullName || user?.displayName || '',
       }).catch(() => {});
 
+      // Authoritative Supabase & Real-time Mesh Sync (Immune to Firestore Quotas)
+      const cleanStudentPrn = (user?.prn || '').toUpperCase().trim();
+      const probId = String(problem?.id || problemSlug || '');
+      if (cleanStudentPrn && probId) {
+        try {
+          const raw = localStorage.getItem(`logicq_completed_problems_${cleanStudentPrn}`) || localStorage.getItem(`logicq_solved_${cleanStudentPrn}`);
+          const curSolved: string[] = raw ? JSON.parse(raw) : [];
+          const updated = Array.from(new Set([...curSolved, probId]))
+            .filter((id: string) => id && !id.startsWith('cs-demo-') && !id.startsWith('demo-'));
+          localStorage.setItem(`logicq_completed_problems_${cleanStudentPrn}`, JSON.stringify(updated));
+          localStorage.setItem(`logicq_solved_${cleanStudentPrn}`, JSON.stringify(updated));
+
+          if (isSupabaseConfigured) {
+            Promise.resolve(
+              supabase.from('practice_progress').upsert({
+                student_prn: cleanStudentPrn,
+                student_email: user?.email || '',
+                solved_topic_ids: updated,
+                total_solved: updated.length,
+                last_solved_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'student_prn' })
+            ).catch(() => null);
+          }
+
+          if (isLab) {
+            try {
+              const localSubs = JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
+              localSubs.unshift({
+                id: `sub_${Date.now()}_${probId}`,
+                testId: probId,
+                problemId: probId,
+                problemTitle: problem?.title || probId,
+                studentPrn: cleanStudentPrn,
+                studentName: user?.fullName || user?.displayName || '',
+                studentEmail: user?.email || '',
+                academicScore: 1.0,
+                score: 1.0,
+                verdict: 'ACCEPTED',
+                submissionType: 'CONTINUOUS_LAB',
+                code,
+                submittedAt: new Date().toISOString(),
+              });
+              localStorage.setItem('logicq_assessment_submissions', JSON.stringify(localSubs.slice(0, 100)));
+            } catch {}
+          }
+
+          const bc = new BroadcastChannel('logicq_practice_sync_v1');
+          bc.postMessage({
+            type: 'TOPIC_SOLVED',
+            prn: cleanStudentPrn,
+            topicId: probId,
+            totalSolved: updated.length,
+            timestamp: Date.now(),
+          });
+          bc.close();
+        } catch {}
+      }
+
       // Invalidate query caches so Dashboard, History, and Admin reflect progress in real-time
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-lab-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-recent-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-admin-lab-submissions'] });
@@ -1670,12 +1763,47 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         if (immediateSub.verdict === 'ACCEPTED') {
           triggerAcceptedCelebration(nextProblem);
-          // Only trigger AI Viva in Continuous Lab Internal (Never in practice)
-          const isLabInternal = location.pathname.startsWith('/lab-internal');
-          if (isLabInternal && res?.vivaTriggered && res?.vivaId && res?.vivaQuestionText) {
+          // Trigger Conceptual AI Viva ONLY in Continuous Lab Internal (/lab-internal)
+          const isLabInternal = location.pathname.startsWith('/lab-internal') || 
+                                Boolean((problem as any)?.isLabInternal);
+
+          if (isLabInternal) {
+            const vivaId = res?.data?.vivaId || 
+                           res?.data?.data?.submission?.vivaId || 
+                           immediateSub?.vivaId || 
+                           (res as any)?.vivaId ||
+                           `viva_lab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+            let vivaQ = res?.data?.vivaQuestionText || 
+                        res?.data?.data?.submission?.vivaQuestionText || 
+                        immediateSub?.vivaQuestionText || 
+                        (res as any)?.vivaQuestionText;
+
+            if (!vivaQ) {
+              const codeStr = (code || '').toLowerCase();
+              if (codeStr.includes('for') || codeStr.includes('while')) {
+                vivaQ = `Your C solution uses a loop. Explain how your loop condition and boundary checks guarantee correct execution and prevent off-by-one errors.`;
+              } else if (codeStr.includes('if') || codeStr.includes('else')) {
+                vivaQ = `Explain the conditional branching logic in your solution: which condition is prioritized first, and how do you handle edge cases?`;
+              } else if (codeStr.includes('scanf') || codeStr.includes('printf')) {
+                vivaQ = `Explain how your input parsing with scanf works and why the chosen data types ensure precision for this problem.`;
+              } else {
+                vivaQ = `Explain the step-by-step logic and time complexity of your C solution for "${problem?.title || 'this problem'}".`;
+              }
+            }
+
+            try {
+              sessionStorage.setItem(`logicq_pending_viva_${vivaId}`, JSON.stringify({
+                vivaId,
+                questionText: vivaQ,
+                studentPrn: (user?.prn || '').toUpperCase().trim(),
+                problemSlug: problemSlug || problem?.id || 'lab-problem',
+              }));
+            } catch {}
+
             setTimeout(() => {
-              setActiveViva({ vivaId: res.vivaId, questionText: res.vivaQuestionText });
-            }, 1500);
+              setActiveViva({ vivaId, questionText: vivaQ });
+            }, 1200);
           }
         } else {
           toast.error(`Verdict: ${immediateSub.verdict.replace(/_/g, ' ')}`);
@@ -1713,12 +1841,43 @@ export const PracticeWorkspacePage: React.FC = () => {
               });
               if (currentSub.verdict === 'ACCEPTED') {
                 triggerAcceptedCelebration(nextProblem);
-                // Only trigger AI Viva in Continuous Lab Internal (Never in practice)
-                const isLabInternal = location.pathname.startsWith('/lab-internal');
-                if (isLabInternal && (currentSub as any).vivaTriggered && (currentSub as any).vivaId) {
+                // Trigger Conceptual AI Viva ONLY in Continuous Lab Internal (/lab-internal)
+                const isLabInternal = location.pathname.startsWith('/lab-internal') || 
+                                      Boolean((problem as any)?.isLabInternal);
+
+                if (isLabInternal) {
+                  const vivaId = (currentSub as any)?.vivaId || 
+                                 (pollRes as any)?.data?.vivaId || 
+                                 `viva_lab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+                  let vivaQ = (currentSub as any)?.vivaQuestionText || 
+                              (pollRes as any)?.data?.vivaQuestionText;
+
+                  if (!vivaQ) {
+                    const codeStr = (code || '').toLowerCase();
+                    if (codeStr.includes('for') || codeStr.includes('while')) {
+                      vivaQ = `Your C solution uses a loop. Explain how your loop condition and boundary checks guarantee correct execution and prevent off-by-one errors.`;
+                    } else if (codeStr.includes('if') || codeStr.includes('else')) {
+                      vivaQ = `Explain the conditional branching logic in your solution: which condition is prioritized first, and how do you handle edge cases?`;
+                    } else if (codeStr.includes('scanf') || codeStr.includes('printf')) {
+                      vivaQ = `Explain how your input parsing with scanf works and why the chosen data types ensure precision for this problem.`;
+                    } else {
+                      vivaQ = `Explain the step-by-step logic and time complexity of your C solution for "${problem?.title || 'this problem'}".`;
+                    }
+                  }
+
+                  try {
+                    sessionStorage.setItem(`logicq_pending_viva_${vivaId}`, JSON.stringify({
+                      vivaId,
+                      questionText: vivaQ,
+                      studentPrn: (user?.prn || '').toUpperCase().trim(),
+                      problemSlug: problemSlug || problem?.id || 'lab-problem',
+                    }));
+                  } catch {}
+
                   setTimeout(() => {
-                    setActiveViva({ vivaId: (currentSub as any).vivaId, questionText: (currentSub as any).vivaQuestionText || 'Explain your approach.' });
-                  }, 1500);
+                    setActiveViva({ vivaId, questionText: vivaQ });
+                  }, 1200);
                 }
               } else {
                 toast.error(`Verdict: ${currentSub.verdict.replace(/_/g, ' ')}`);
@@ -1934,11 +2093,14 @@ export const PracticeWorkspacePage: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0 pr-4 sm:pr-8">
           {problem && (
             <PracticeTimer
+              key={problem.id || problemSlug}
               ref={practiceTimerRef}
-              problemId={problem.id}
+              problemId={problem.id || problemSlug || ''}
+              difficulty={diffStr}
+              allocatedMinutes={allocatedMinutes}
               initialActiveSeconds={userProgress?.activeSeconds || 0}
-              isSolved={Boolean(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED')}
-              timeToSolveSeconds={userProgress?.timeToSolveSeconds}
+              isSolved={isProblemSolved}
+              timeToSolveSeconds={isProblemSolved ? (userProgress?.timeToSolveSeconds || null) : null}
               hideTimerPreference={Boolean(user?.hidePracticeTimer)}
             />
           )}
@@ -1962,7 +2124,7 @@ export const PracticeWorkspacePage: React.FC = () => {
             title="Open Question Palette"
           >
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Palette ({solvedSlugs.size}/{moduleProblems.length || 20})</span>
+            <span>Palette ({Math.min(moduleProblems.length || 20, Math.max(0, currentModuleSolvedCount))}/{moduleProblems.length || 20})</span>
           </button>
         </div>
       </div>
@@ -2035,9 +2197,19 @@ export const PracticeWorkspacePage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
               <span>{problem.category}</span>
               <span>•</span>
-              <span>Time Limit: {problem.timeLimitMs}ms</span>
+              <span className={`px-2 py-0.5 rounded font-bold border uppercase tracking-wider ${
+                diffStr === 'HARD'
+                  ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                  : diffStr === 'MEDIUM'
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+              }`}>
+                Difficulty: {diffStr} ({allocatedMinutes} Min Limit)
+              </span>
               <span>•</span>
-              <span>Memory Limit: {problem.memoryLimitMb}MB</span>
+              <span>GCC Limit: {problem.timeLimitMs}ms</span>
+              <span>•</span>
+              <span>Memory: {problem.memoryLimitMb}MB</span>
               <span>•</span>
               <span className="text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/25">
                 Current: Attempt #{currentAttempt}
@@ -2050,10 +2222,10 @@ export const PracticeWorkspacePage: React.FC = () => {
                   </span>
                 </>
               )}
-              {Boolean(userProgress?.timeToSolveSeconds) && (
+              {isProblemSolved && Boolean(userProgress?.timeToSolveSeconds) && (
                 <>
                   <span>•</span>
-                  <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
+                  <span className="text-emerald-400 font-semibold inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     Solved in:{' '}
                     {userProgress.timeToSolveSeconds >= 60
@@ -2884,6 +3056,9 @@ export const PracticeWorkspacePage: React.FC = () => {
           vivaId={activeViva.vivaId}
           questionText={activeViva.questionText}
           initialRemainingSec={120}
+          studentPrn={(user?.prn || (user as any)?.studentPrn || '').toUpperCase().trim()}
+          problemId={problemSlug || problem?.id || 'lab-problem'}
+          assignmentId="lab-internal"
           onCompleted={(result) => {
             setActiveViva(null);
             if (result?.verdict === 'PASS') {

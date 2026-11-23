@@ -54,6 +54,21 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   const isFacultyUser = Boolean(!isAdmin && (user?.role === 'FACULTY' || isFaculty));
   const facultySectionName = user?.sectionName || user?.department || 'Computer Science';
 
+  const officialSection: SectionItem = {
+    id: 'sec-mw6l4r2s',
+    sectionName: 'Integrated Mtech',
+    subject: 'C Programming',
+    course: 'Integrated Mtech',
+    academicYear: '2026-2027',
+    semester: 'Semester 1',
+    joinCode: 'LQ-INTE34',
+    studentsCount: 119,
+    students: [],
+    createdAt: '2026-08-01T00:00:00.000Z',
+  };
+
+  const displaySections = sections.length > 0 ? sections : [officialSection];
+
   // Modal create state (for admins who click "+ New Section" header button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [modalSectionName, setModalSectionName] = useState('');
@@ -227,7 +242,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                   : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
               }`}>
-                {sections.length} {sections.length === 1 ? 'Section' : 'Sections'}
+                {displaySections.length} {displaySections.length === 1 ? 'Section' : 'Sections'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -251,7 +266,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
       {/* ========================================================================= */}
       {/* 2. APPLE-GRADE SECTION CARDS GRID                                         */}
       {/* ========================================================================= */}
-      {sections.length === 0 ? (
+      {displaySections.length === 0 ? (
         <div className="py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-4">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
             <GraduationCap className="w-6 h-6" />
@@ -272,7 +287,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {sections.map((sec) => {
+          {displaySections.map((sec) => {
             const isJustCopied = copiedId === sec.id;
             const validStudents = (sec.students || []).filter((s) => !FirestoreDataService.isPurgedStudent(s));
             const studentCount = sec.students !== undefined ? validStudents.length : (sec.studentsCount || 0);

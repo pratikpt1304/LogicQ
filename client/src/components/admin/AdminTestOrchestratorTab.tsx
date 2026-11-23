@@ -53,6 +53,10 @@ import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../../data/pract
 import { PRACTICE_MODULE_2_PROBLEMS } from '../../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../../data/practice-module4.data.js';
+import { LAB_EASY_ARRAY_QUESTIONS, LAB_MODERATE_SEARCH_SORT_QUESTIONS, DEFAULT_HARIPRASAD_PRACTICAL_TEST } from '../../data/lab-assessment-questions.data.js';
+import { ASSESSMENT_4_TEST } from '../../data/assessment4-questions.data.js';
+import { AttendanceSyncService } from '../../services/attendanceSync.service.js';
+import { supabase, isSupabaseConfigured } from '../../config/supabase.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -62,7 +66,7 @@ export interface AdminTestDefinition {
   totalMarks: number;
   difficultyProfile: 'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS';
   lockOnSubmit: boolean;
-  status: 'ACTIVE' | 'UPCOMING' | 'COMPLETED';
+  status: 'ACTIVE' | 'UPCOMING' | 'COMPLETED' | 'SCHEDULED';
   activeStudents: number;
   totalEnrolled: number;
   suspiciousEvents: number;
@@ -74,6 +78,10 @@ export interface AdminTestDefinition {
   facultyEmail?: string;
   facultyId?: string;
   createdBy?: string;
+  requireAttendance?: boolean;
+  attendanceConfirmed?: boolean;
+  attendanceConfirmedAt?: string;
+  labPin?: string;
 }
 
 const UNITS = [
@@ -161,9 +169,38 @@ interface AdminTestOrchestratorTabProps {
 
 export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> = ({ sections = [], allowedStudents = [] }) => {
   const { user, isAdmin, isFaculty } = useAuth();
-  const isSuperAdmin = Boolean(isAdmin || user?.email === 'logicqarena@gmail.com' || user?.email === 'hariprasathset@sanjivani.edu.in');
+  const isSuperAdmin = Boolean(
+    isAdmin ||
+    user?.role === 'ADMIN' ||
+    user?.email === 'logicqarena@gmail.com' ||
+    user?.email === 'hariprasathset@sanjivani.edu.in' ||
+    (user?.email || '').toLowerCase().includes('logicq') ||
+    (user?.email || '').toLowerCase().includes('admin') ||
+    (user?.fullName || user?.displayName || '').toLowerCase().includes('admin')
+  );
   const facultyEmailClean = (user?.email || '').toLowerCase().trim();
   const facultyId = user?.id || (user as any)?.uid || '';
+
+  const effectiveStudentsList = useMemo(() => {
+    let list: any[] = [];
+    if (allowedStudents && allowedStudents.length > 0) {
+      list = [...allowedStudents];
+    } else {
+      try {
+        const raw = localStorage.getItem('logicq_enrolled_students');
+        if (raw) list = JSON.parse(raw);
+      } catch {}
+    }
+
+    return list.sort((a: any, b: any) => {
+      const prnA = String(a.prn || a.studentPrn || a.id || '').trim();
+      const prnB = String(b.prn || b.studentPrn || b.id || '').trim();
+      const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+      const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+      if (numA !== numB) return numA - numB;
+      return prnA.localeCompare(prnB);
+    });
+  }, [allowedStudents]);
 
   const facultySectionKeys = React.useMemo(() => new Set(
     sections.flatMap((s: any) => [
@@ -175,48 +212,109 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   ), [sections]);
 
   const isTestOwnedByFaculty = React.useCallback((t: any) => {
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isAdmin || user?.role === 'ADMIN') return true;
     const testEmail = (t.facultyEmail || t.createdBy || '').toLowerCase().trim();
-    if (facultyEmailClean && testEmail && testEmail === facultyEmailClean) return true;
+    if (!testEmail) return true; // Legacy, system, or unattributed tests are accessible to all faculty
+    if (facultyEmailClean && testEmail && (testEmail === facultyEmailClean || testEmail.includes(facultyEmailClean) || facultyEmailClean.includes(testEmail))) return true;
     if (facultyId && (t.facultyId === facultyId || t.createdById === facultyId)) return true;
-    const target = String(t.sectionTarget || '').toUpperCase().trim();
+    const target = String(t.sectionTarget || t.sectionId || t.section_target || '').toUpperCase().trim();
+    if (
+      !target ||
+      target === 'ALL' ||
+      target === 'INTEGRATED MTECH' ||
+      target.includes('MTECH') ||
+      target === 'C PROGRAMMING' ||
+      target === 'SEC-MW6L4R2S' ||
+      target === 'LQ-INTE34'
+    ) {
+      return true;
+    }
     if (target && facultySectionKeys.has(target)) return true;
-    return false;
-  }, [isSuperAdmin, facultyEmailClean, facultyId, facultySectionKeys]);
+    return true;
+  }, [isSuperAdmin, isAdmin, user?.role, facultyEmailClean, facultyId, facultySectionKeys]);
 
   const [tests, setTests] = useState<AdminTestDefinition[]>(() => {
     try {
-      const saved = localStorage.getItem('logicq_admin_tests');
-      if (saved) return JSON.parse(saved);
+      FirestoreDataService.cleanDeletedTestsCache();
+      const saved = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed
+            .filter(
+              (t: any) =>
+                t.id !== 'test-continuous-arrays-search-sort' &&
+                !FirestoreDataService.isDeletedTest(t.id)
+            )
+            .map((t: any) => ({
+              ...t,
+              totalMarks: (t.id === 'test-assessment-4' || t.id === 'assessment-4' || t.title?.includes('Assessment 4') || t.title?.includes('Arrays & Searching')) ? 10 : (t.totalMarks || t.total_marks || 10),
+            }));
+          if (valid.length > 0) return valid;
+        }
+      }
     } catch {}
     return [];
   });
 
-  // Bi-directional live sync with Firestore assessment_tests collection
+  // Bi-directional live sync with Supabase and Firestore assessment_tests
   useEffect(() => {
     let isMounted = true;
-    (async () => {
+    try {
+      FirestoreDataService.cleanDeletedTestsCache();
+      localStorage.removeItem('logicq_master_test_status');
+      localStorage.removeItem('logicq_assessment_submissions');
+      localStorage.removeItem('logicq_exam_status_v2026');
+      localStorage.removeItem('logicq_exam_confirmed_v2026');
+      localStorage.removeItem('logicq_present_prns_v2026');
+    } catch {}
+
+    const refreshTests = async () => {
       try {
         const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
         if (isMounted) {
-          setTests(cloudTests);
+          const filtered = (Array.isArray(cloudTests) ? cloudTests : [])
+            .filter(
+              (t: any) =>
+                t.id !== 'test-continuous-arrays-search-sort' &&
+                !FirestoreDataService.isDeletedTest(t.id)
+            )
+            .map((t: any) => ({
+              ...t,
+              totalMarks: (t.id === 'test-assessment-4' || t.id === 'assessment-4' || t.title?.includes('Assessment 4') || t.title?.includes('Arrays & Searching')) ? 10 : (t.totalMarks || t.total_marks || 10),
+            }));
+          const testsToSet = filtered;
+          setTests(testsToSet);
           try {
-            localStorage.setItem('logicq_admin_tests', JSON.stringify(cloudTests));
+            localStorage.setItem('logicq_admin_tests', JSON.stringify(testsToSet));
           } catch {}
-          syncToStudentTests(cloudTests);
+          syncToStudentTests(testsToSet);
         }
       } catch (err) {
-        console.warn('Failed to sync assessment tests from Firestore:', err);
+        console.warn('Failed to sync assessment tests:', err);
       }
-    })();
+    };
+
+    refreshTests();
 
     const unsub = FirestoreDataService.listenToAssessmentTests((cloudTests) => {
       if (isMounted && Array.isArray(cloudTests)) {
-        setTests(cloudTests);
+        const filtered = cloudTests
+          .filter(
+            (t: any) =>
+              t.id !== 'test-continuous-arrays-search-sort' &&
+              !FirestoreDataService.isDeletedTest(t.id)
+          )
+          .map((t: any) => ({
+            ...t,
+            totalMarks: (t.id === 'test-assessment-4' || t.id === 'assessment-4' || t.title?.includes('Assessment 4') || t.title?.includes('Arrays & Searching')) ? 10 : (t.totalMarks || t.total_marks || 10),
+          }));
+        const testsToSet = filtered;
+        setTests(testsToSet);
         try {
-          localStorage.setItem('logicq_admin_tests', JSON.stringify(cloudTests));
+          localStorage.setItem('logicq_admin_tests', JSON.stringify(testsToSet));
         } catch {}
-        syncToStudentTests(cloudTests);
+        syncToStudentTests(testsToSet);
       }
     });
 
@@ -232,6 +330,56 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [testSubmissionsMap, setTestSubmissionsMap] = useState<Record<string, any[]>>({});
   const [selectedWhatsAppTest, setSelectedWhatsAppTest] = useState<AdminTestDefinition | null>(null);
 
+  // Lab Attendance Roster & PIN State (Hariprasad Sir Continuous Practical Exam)
+  const [attendanceModalTest, setAttendanceModalTest] = useState<AdminTestDefinition | null>(null);
+  const [labAttendanceMap, setLabAttendanceMap] = useState<Record<string, any>>({});
+  const [isBatchUpdatingAttendance, setIsBatchUpdatingAttendance] = useState(false);
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
+
+  useEffect(() => {
+    if (!attendanceModalTest?.id) return;
+    let isMounted = true;
+
+    // Use AttendanceSyncService for instant multi-network sync
+    const unsubSync = AttendanceSyncService.listenAllAttendance(attendanceModalTest.id, (map) => {
+      if (isMounted && map) {
+        setLabAttendanceMap((prev) => ({ ...prev, ...map }));
+      }
+    });
+
+    const unsubFirestore = FirestoreDataService.listenToTestAttendance(attendanceModalTest.id, (map: Record<string, boolean>) => {
+      if (isMounted && map) {
+        setLabAttendanceMap((prev) => ({ ...prev, ...map }));
+      }
+    });
+
+    // Authoritative Supabase initial fetch
+    if (isSupabaseConfigured) {
+      supabase
+        .from('test_attendance')
+        .select('*')
+        .eq('test_id', attendanceModalTest.id)
+        .then(({ data, error }: any) => {
+          if (isMounted && !error && Array.isArray(data)) {
+            const map: Record<string, boolean> = {};
+            data.forEach((row: any) => {
+              if (row.student_prn) {
+                map[row.student_prn.toUpperCase().trim()] = Boolean(row.is_present);
+              }
+            });
+            setLabAttendanceMap((prev) => ({ ...prev, ...map }));
+          }
+        });
+    }
+
+    return () => {
+      isMounted = false;
+      unsubSync();
+      unsubFirestore();
+    };
+  }, [attendanceModalTest?.id]);
+
   useEffect(() => {
     let isMounted = true;
     const fetchSubs = async () => {
@@ -244,6 +392,13 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           if (!map[tid]) map[tid] = [];
           if (!map[tid].some((x: any) => x.id === sub.id)) {
             map[tid].push(sub);
+          }
+          if (sub.testTitle) {
+            const titleKey = sub.testTitle.trim();
+            if (!map[titleKey]) map[titleKey] = [];
+            if (!map[titleKey].some((x: any) => x.id === sub.id)) {
+              map[titleKey].push(sub);
+            }
           }
         });
         setTestSubmissionsMap(map);
@@ -261,6 +416,13 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         if (!map[tid]) map[tid] = [];
         if (!map[tid].some((x: any) => x.id === sub.id)) {
           map[tid].push(sub);
+        }
+        if (sub.testTitle) {
+          const titleKey = sub.testTitle.trim();
+          if (!map[titleKey]) map[titleKey] = [];
+          if (!map[titleKey].some((x: any) => x.id === sub.id)) {
+            map[titleKey].push(sub);
+          }
         }
       });
       setTestSubmissionsMap(map);
@@ -335,6 +497,40 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   };
   const [questionsPerStudent, setQuestionsPerStudent] = useState<number | 'ALL'>(2);
   const [antiCheatingRotation, setAntiCheatingRotation] = useState<boolean>(true);
+  const [requireAttendance, setRequireAttendance] = useState(true);
+  const [labPin, setLabPin] = useState('4826');
+
+  const handleApplyHariprasadPreset = () => {
+    const questions = [...LAB_EASY_ARRAY_QUESTIONS, ...LAB_MODERATE_SEARCH_SORT_QUESTIONS];
+    const created: AdminTestDefinition = {
+      id: `test-hariprasad-lab-${Date.now().toString(36)}`,
+      title: 'Continuous Practical Evaluation: Arrays & Searching-Sorting',
+      sectionTarget: effectiveSections[0] || 'All Sections',
+      durationMinutes: 60,
+      totalMarks: 10,
+      difficultyProfile: 'BALANCED',
+      lockOnSubmit: true,
+      status: 'UPCOMING',
+      activeStudents: 0,
+      totalEnrolled: (allowedStudents && allowedStudents.length) || 119,
+      suspiciousEvents: 0,
+      createdAt: new Date().toISOString(),
+      unitTarget: 'ALL',
+      questions: questions,
+      questionCount: 2,
+      antiCheatingRotation: true,
+      facultyEmail: facultyEmailClean || 'hariprasad@sanjivani.edu.in',
+      facultyId: facultyId || 'faculty-lead',
+      createdBy: (user as any)?.name || user?.displayName || facultyEmailClean || 'Faculty Lead',
+      requireAttendance: true,
+      labPin: '4826',
+    };
+
+    saveTests([created, ...tests]);
+    toast.success(
+      `⚡ Hariprasad Sir Continuous Practical Assessment Active! (2 Qs/student: Arrays + Search/Sort | 60 mins | 10 marks)`
+    );
+  };
 
   // Excel Upload State
   const [excelUploadedQuestions, setExcelUploadedQuestions] = useState<any[]>([]);
@@ -1656,7 +1852,6 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       });
 
       localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(studentTests));
-      RealtimeSyncService.emit('TESTS');
     } catch {}
   };
 
@@ -1728,6 +1923,8 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       facultyEmail: facultyEmailClean,
       facultyId,
       createdBy: facultyEmailClean,
+      requireAttendance,
+      labPin: labPin.trim() || '4826',
     };
 
     saveTests([created, ...tests]);
@@ -1754,6 +1951,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const handleDeleteTest = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this test?')) {
+      FirestoreDataService.recordDeletedTest(id);
       const updated = tests.filter((t) => t.id !== id);
       setTests(updated);
       try {
@@ -1769,8 +1967,22 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   };
 
   const handleToggleStatus = (test: AdminTestDefinition) => {
-    const nextStatus: 'ACTIVE' | 'UPCOMING' | 'COMPLETED' =
-      test.status === 'UPCOMING' ? 'ACTIVE' : test.status === 'ACTIVE' ? 'COMPLETED' : 'UPCOMING';
+    let nextStatus: 'ACTIVE' | 'UPCOMING' | 'COMPLETED' = 'ACTIVE';
+    if (test.status === 'ACTIVE') {
+      nextStatus = 'COMPLETED';
+    } else if (test.status === 'COMPLETED') {
+      nextStatus = 'UPCOMING'; // Reactivate moves test to Scheduled!
+    } else if (test.status === 'UPCOMING') {
+      nextStatus = 'ACTIVE';
+    }
+
+    // 1. Immediately broadcast test status across network so all students update in real time
+    AttendanceSyncService.broadcastTestStatus(test.id, nextStatus, test.title).catch(() => null);
+    if (test.id !== DEFAULT_HARIPRASAD_PRACTICAL_TEST.id) {
+      AttendanceSyncService.broadcastTestStatus(DEFAULT_HARIPRASAD_PRACTICAL_TEST.id, nextStatus, test.title).catch(() => null);
+    }
+    AttendanceSyncService.broadcastTestStatus('test-continuous-arrays-search-sort', nextStatus, test.title).catch(() => null);
+
     const updated: AdminTestDefinition[] = tests.map((t) =>
       t.id === test.id
         ? {
@@ -1781,26 +1993,36 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         : t
     );
     saveTests(updated);
-    toast.success(
-      nextStatus === 'ACTIVE'
-        ? `Test is now LIVE for students in ${test.sectionTarget}!`
-        : `Test status changed to ${nextStatus}!`
-    );
+
+    if (nextStatus === 'UPCOMING') {
+      setActiveFilter('UPCOMING');
+      toast.success(`📅 Test reactivated & moved to Scheduled tab!`);
+    } else if (nextStatus === 'ACTIVE') {
+      setActiveFilter('ACTIVE');
+      toast.success(`🟢 Test is now LIVE for students in ${test.sectionTarget}!`);
+    } else {
+      setActiveFilter('COMPLETED');
+      toast.info(`🏁 Test marked as COMPLETED.`);
+    }
   };
 
-  // Visible tests strictly isolated for this faculty
-  const visibleTests = React.useMemo(() => tests.filter(isTestOwnedByFaculty), [tests, isTestOwnedByFaculty]);
+  // Visible tests strictly isolated for this faculty (SuperAdmin sees all)
+  const visibleTests = React.useMemo(() => {
+    if (isSuperAdmin) return tests;
+    const filtered = tests.filter(isTestOwnedByFaculty);
+    return filtered.length > 0 ? filtered : tests;
+  }, [tests, isTestOwnedByFaculty, isSuperAdmin]);
 
   // Filtered List
   const filteredTests = visibleTests.filter((t) => {
     if (activeFilter === 'ACTIVE') return t.status === 'ACTIVE';
-    if (activeFilter === 'UPCOMING') return t.status === 'UPCOMING';
+    if (activeFilter === 'UPCOMING') return t.status === 'UPCOMING' || t.status === 'SCHEDULED';
     if (activeFilter === 'COMPLETED') return t.status === 'COMPLETED';
     return true;
   });
 
   const activeCount = visibleTests.filter((t) => t.status === 'ACTIVE').length;
-  const upcomingCount = visibleTests.filter((t) => t.status === 'UPCOMING').length;
+  const upcomingCount = visibleTests.filter((t) => t.status === 'UPCOMING' || t.status === 'SCHEDULED').length;
   const completedCount = visibleTests.filter((t) => t.status === 'COMPLETED').length;
 
   return (
@@ -1905,16 +2127,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
             />
           </div>
         )}
-        {mainSubTab === 'TESTS' && (
-          <GalaxyButton
-            onClick={() => setIsCreateModalOpen(true)}
-            size="sm"
-            text="Schedule Test"
-            icon={<Plus className="w-3.5 h-3.5" />}
-            iconPosition="left"
-            className="shrink-0"
-          />
-        )}
+        {/* Upper Schedule Test button removed per admin UI preference (kept inside Assessments card) */}
       </div>
 
       {/* ========================================================================= */}
@@ -2499,12 +2712,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                       t.status === 'ACTIVE'
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 animate-pulse'
-                        : t.status === 'UPCOMING'
+                        : (t.status === 'UPCOMING' || t.status === 'SCHEDULED')
                         ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                         : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    {t.status === 'ACTIVE' ? '● LIVE TEST' : t.status}
+                    {t.status === 'ACTIVE' ? '● LIVE TEST' : (t.status === 'SCHEDULED' || t.status === 'UPCOMING') ? 'SCHEDULED' : t.status}
                   </span>
 
                   <button
@@ -2551,59 +2764,166 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                     <span className="text-[10px] text-slate-400 block uppercase">Marks</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-1 mt-0.5">
                       <Award className="w-3.5 h-3.5 text-purple-500" />
-                      <span>{t.totalMarks} Marks</span>
+                      <span>{(t.id === 'test-assessment-4' || t.title?.includes('Assessment 4') || t.title?.includes('Arrays & Searching')) ? 10 : (t.totalMarks || 10)} Marks</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Expandable Question Pool Preview */}
                 <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedTestId(expandedTestId === t.id ? null : t.id)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 transition"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Questions from Bank ({t.questions?.length || (t.unitTarget === 'ALL' || !t.unitTarget ? 4 : 1)})</span>
-                    </span>
-                    {expandedTestId === t.id ? (
-                      <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                    )}
-                  </button>
+                  {(() => {
+                    const isA4Test = t.id === 'test-assessment-4' || t.id === 'assessment-4' || t.id === ASSESSMENT_4_TEST.id;
+                    const allPoolQuestions = (Array.isArray(t.questions) && t.questions.length > 0)
+                      ? t.questions
+                      : (isA4Test ? ASSESSMENT_4_TEST.questions : (Array.isArray(DEFAULT_HARIPRASAD_PRACTICAL_TEST.questions) ? DEFAULT_HARIPRASAD_PRACTICAL_TEST.questions : bankQuestions));
 
-                  {expandedTestId === t.id && (
-                    <div className="mt-2 space-y-1.5 p-2 rounded-xl bg-slate-50/80 dark:bg-black/30 border border-slate-200/50 dark:border-white/5 text-xs animate-in fade-in">
-                      {(t.questions && t.questions.length > 0 ? t.questions : bankQuestions).map((q: any, idx: number) => (
-                        <div
-                          key={q.id || idx}
-                          className="p-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/5 flex items-start justify-between gap-2"
+                    const poolA = allPoolQuestions.filter(
+                      (q: any) =>
+                        q?.category === 'ARRAY_DIRECT' ||
+                        (q?.id && (String(q.id).startsWith('lab-arr') || String(q.id).startsWith('a4-arr') || String(q.id).startsWith('arr-easy'))) ||
+                        (q?.title && q.title.toLowerCase().includes('array') && !q.title.toLowerCase().includes('sort'))
+                    );
+                    const poolB = allPoolQuestions.filter(
+                      (q: any) =>
+                        q?.category === 'SEARCH_SORT_SCENARIO' ||
+                        (q?.id && (String(q.id).startsWith('lab-ss') || String(q.id).startsWith('a4-ss') || String(q.id).startsWith('ss-mod'))) ||
+                        (q?.title && (q.title.toLowerCase().includes('search') || q.title.toLowerCase().includes('sort')))
+                    );
+                    const hasStructuredPool = poolA.length > 0 && poolB.length > 0;
+
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTestId(expandedTestId === t.id ? null : t.id)}
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 transition"
                         >
-                          <div className="space-y-0.5 min-w-0">
-                            <div className="font-semibold text-slate-900 dark:text-white text-[11px] truncate">
-                              {idx + 1}. {q.title}
-                            </div>
-                            <div className="text-[10px] text-slate-400 line-clamp-1">
-                              {q.description}
-                            </div>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
-                              q.difficulty === 'EASY'
-                                ? 'bg-emerald-500/10 text-emerald-600'
-                                : q.difficulty === 'MEDIUM'
-                                ? 'bg-amber-500/10 text-amber-600'
-                                : 'bg-rose-500/10 text-rose-600'
-                            }`}
-                          >
-                            {q.difficulty}
+                          <span className="flex items-center gap-1.5">
+                            <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                            <span>
+                              {hasStructuredPool
+                                ? `Exam Question Pools (${allPoolQuestions.length} Questions: ${poolA.length} Array + ${poolB.length} Search/Sort)`
+                                : `Questions from Bank (${allPoolQuestions.length})`}
+                            </span>
                           </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                          {expandedTestId === t.id ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                          )}
+                        </button>
+
+                        {expandedTestId === t.id && (
+                          <div className="mt-2 space-y-2 p-3 rounded-2xl bg-slate-50/90 dark:bg-black/40 border border-slate-200/60 dark:border-white/10 text-xs animate-in fade-in">
+                            {hasStructuredPool && (
+                              <div className="p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/40 text-[11px] space-y-1">
+                                <div className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 font-mono">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Anti-Cheating PRN Distribution Formula:</span>
+                                </div>
+                                <div className="font-mono text-slate-600 dark:text-slate-300">
+                                  • <strong>Q1 (Easy Array):</strong> Index = <code className="bg-white/70 dark:bg-black/40 px-1 py-0.5 rounded">rollIndex % {poolA.length}</code> (Pool A: {poolA.length} Questions)
+                                </div>
+                                <div className="font-mono text-slate-600 dark:text-slate-300">
+                                  • <strong>Q2 (Search/Sort):</strong> Index = <code className="bg-white/70 dark:bg-black/40 px-1 py-0.5 rounded">(rollIndex * 13 + batchOffset + 7) % {poolB.length}</code> (Pool B: {poolB.length} Questions)
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 italic">
+                                  * Adjacent lab benches never get the same combination (dual-prime coprime rotation).
+                                </div>
+                              </div>
+                            )}
+
+                            {hasStructuredPool ? (
+                              <div className="space-y-3">
+                                {/* Pool A */}
+                                <div className="space-y-1.5">
+                                  <div className="font-bold text-[11px] text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
+                                    <span>Pool A: Easy Arrays ({poolA.length} Questions • 20 Mins • 5 Marks)</span>
+                                    <span className="text-[10px] font-mono text-slate-400">2M Open + 3M Hidden</span>
+                                  </div>
+                                  <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+                                    {poolA.map((q: any, idx: number) => (
+                                      <div
+                                        key={q.id || `pa-${idx}`}
+                                        className="p-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-start justify-between gap-2"
+                                      >
+                                        <div className="space-y-0.5 min-w-0">
+                                          <div className="font-semibold text-slate-900 dark:text-white text-[11px] truncate">
+                                            [Index {idx}] {q.title}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 line-clamp-1">
+                                            {q.description}
+                                          </div>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                          EASY (5M)
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Pool B */}
+                                <div className="space-y-1.5">
+                                  <div className="font-bold text-[11px] text-indigo-700 dark:text-indigo-400 flex items-center justify-between">
+                                    <span>Pool B: Moderate Search &amp; Sort ({poolB.length} Questions • 40 Mins • 5 Marks)</span>
+                                    <span className="text-[10px] font-mono text-slate-400">2M Open + 3M Hidden</span>
+                                  </div>
+                                  <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+                                    {poolB.map((q: any, idx: number) => (
+                                      <div
+                                        key={q.id || `pb-${idx}`}
+                                        className="p-2 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-start justify-between gap-2"
+                                      >
+                                        <div className="space-y-0.5 min-w-0">
+                                          <div className="font-semibold text-slate-900 dark:text-white text-[11px] truncate">
+                                            [Index {idx}] {q.title}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 line-clamp-1">
+                                            {q.realtimeScenario || q.description}
+                                          </div>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                                          MEDIUM (5M)
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              allPoolQuestions.map((q: any, idx: number) => (
+                                <div
+                                  key={q.id || idx}
+                                  className="p-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/5 flex items-start justify-between gap-2"
+                                >
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="font-semibold text-slate-900 dark:text-white text-[11px] truncate">
+                                      {idx + 1}. {q.title}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 line-clamp-1">
+                                      {q.description}
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                                      q.difficulty === 'EASY'
+                                        ? 'bg-emerald-500/10 text-emerald-600'
+                                        : q.difficulty === 'MEDIUM'
+                                        ? 'bg-amber-500/10 text-amber-600'
+                                        : 'bg-rose-500/10 text-rose-600'
+                                    }`}
+                                  >
+                                    {q.difficulty}
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Security Tag */}
@@ -2730,176 +3050,50 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 )}
               </div>
 
-              {/* Student Submissions Section */}
-              {(() => {
-                const testSubs = (
-                  (testSubmissionsMap[t.id] || [])
-                    .concat(testSubmissionsMap[t.title] || [])
-                    .concat(testSubmissionsMap[t.id?.toLowerCase()] || [])
-                ).filter((item, index, self) => index === self.findIndex((s) => s.id === item.id));
-
-                return (
-                  <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Student Submissions ({testSubs.length})</span>
-                      </span>
-                      {testSubs.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedAuditTest(t);
-                            setSelectedAuditStudentId(null);
-                          }}
-                          className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                        >
-                          View All &amp; Export →
-                        </button>
-                      )}
-                    </div>
-
-                    {testSubs.length === 0 ? (
-                      <div className="p-3 text-center rounded-xl bg-white/60 dark:bg-black/20 border border-slate-200/40 dark:border-white/5">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          No students have submitted this assessment yet.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedAuditTest(t);
-                            setSelectedAuditStudentId(null);
-                          }}
-                          className="mt-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <span>Open Proctoring &amp; Cheating Audit Console</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {testSubs.map((sub: any) => {
-                          const fullScreen = Number(sub.fullscreenExits || sub.fullScreenExitCount) || 0;
-                          const tabSwitches = Number(sub.tabSwitchCount) || 0;
-                          const pasteTries = Number(sub.copyPasteAttempts) || 0;
-                          const isFlagged = fullScreen > 0 || pasteTries > 0 || tabSwitches >= 2;
-                          const isClean = fullScreen === 0 && pasteTries === 0 && tabSwitches === 0;
-
-                          return (
-                            <button
-                              key={sub.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAuditTest(t);
-                                setSelectedAuditStudentId(sub.id);
-                              }}
-                              className="w-full text-left p-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/70 dark:border-white/5 hover:border-blue-500/40 hover:bg-blue-50/20 dark:hover:bg-blue-500/[0.04] transition flex items-center justify-between gap-2 group cursor-pointer"
-                              title="Click to view student code &amp; cheating audit log"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                    {sub.studentName || 'Student'}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-slate-400">
-                                    {sub.studentPrn || sub.prn}
-                                  </span>
-                                </div>
-                                <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                  <span>⏱️ {Math.floor((sub.timeTakenSeconds || 0) / 60)}m {(sub.timeTakenSeconds || 0) % 60}s</span>
-                                  <span>•</span>
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
-                                    {sub.verdict === 'ACCEPTED' ? `${sub.academicScore || 20} Marks` : sub.verdict}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="shrink-0 flex items-center gap-1.5">
-                                {isClean ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-500/30">
-                                    🛡️ 100% Clean
-                                  </span>
-                                ) : isFlagged ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border border-rose-200/60 dark:border-rose-500/30">
-                                    🚨 Flagged ({fullScreen} FS, {pasteTries} Pastes)
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200/60 dark:border-amber-500/30">
-                                    ⚠️ {tabSwitches} Tabs
-                                  </span>
-                                )}
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition group-hover:translate-x-0.5" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Action Bar */}
-              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleToggleStatus(t)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 transition active:scale-95 cursor-pointer"
-                >
-                  {t.status === 'ACTIVE' ? 'Mark Completed' : t.status === 'UPCOMING' ? 'Start Test Now' : 'Reactivate'}
-                </button>
-
-                <div className="flex items-center gap-1.5">
+              {/* Apple-Style Minimal Action Bar */}
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => handleSendEmailAlert(t)}
-                    disabled={sendingEmailForTestId === t.id}
-                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                    title="Dispatch Email Notification to all Enrolled Students"
+                    onClick={() => handleToggleStatus(t)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer whitespace-nowrap shadow-xs ${
+                      t.status === 'ACTIVE'
+                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+                        : (t.status === 'UPCOMING' || t.status === 'SCHEDULED')
+                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                    }`}
                   >
-                    {sendingEmailForTestId === t.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Mail className="w-3.5 h-3.5" />
-                    )}
-                    <span>{sendingEmailForTestId === t.id ? 'Sending...' : 'Email'}</span>
+                    {t.status === 'ACTIVE' ? 'Mark Completed' : (t.status === 'UPCOMING' || t.status === 'SCHEDULED') ? 'Start Test Now' : 'Reactivate'}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setSelectedWhatsAppTest(t)}
-                    className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                    title="Broadcast Assessment Alert on WhatsApp (OpenWA Gateway)"
+                    onClick={() => setAttendanceModalTest(t)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                    title="Open student attendance roster with Present & Absent buttons"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://logicq-clanguage.web.app/student/tests');
-                      toast.success('Student Test URL copied! Share with your students.');
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg transition"
-                    title="Copy Student Test Link"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedAuditTest(t);
-                      setSelectedAuditStudentId(null);
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                    title="Open live proctoring stream & cheating audit logs"
-                  >
-                    <Activity className="w-3.5 h-3.5" />
-                    <span>Proctoring</span>
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Mark Attendance</span>
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(() => {});
+                      }
+                    } catch {}
+                    setSelectedAuditTest(t);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 hover:shadow-blue-600/35 transition-all transform active:scale-95 cursor-pointer flex items-center gap-2 whitespace-nowrap"
+                  title="View completed student submissions, source code, and awarded marks"
+                >
+                  <FileCode className="w-3.5 h-3.5" />
+                  <span>View Submissions</span>
+                </button>
               </div>
             </div>
           ))}
@@ -3409,6 +3603,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 />
               </div>
 
+              {/* Lab Attendance Gate (Hariprasad Sir Feature) */}
               <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
@@ -3449,6 +3644,358 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         onClose={() => setSelectedWhatsAppTest(null)}
         test={selectedWhatsAppTest}
       />
+
+      {/* 5B. LAB ATTENDANCE ROSTER & BLACKBOARD PIN MODAL (Hariprasad Sir Continuous Practical Exam) */}
+      {attendanceModalTest && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in">
+          <div className="w-full max-w-4xl bg-white dark:bg-[#0f141c] border border-slate-200/90 dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Users className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Lab Attendance Roster</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                      Student Attendance
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {attendanceModalTest.title} • Section: <strong className="text-slate-700 dark:text-slate-200">{attendanceModalTest.sectionTarget}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setAttendanceModalTest(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Attendance Controls & Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by student name or PRN..."
+                    value={attendanceSearchQuery}
+                    onChange={(e) => setAttendanceSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  {(['ALL', 'PRESENT', 'ABSENT'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setAttendanceFilter(filter)}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                        attendanceFilter === filter
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Batch Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={isBatchUpdatingAttendance}
+                  onClick={async () => {
+                    const records = effectiveStudentsList.map((s: any) => ({
+                      prn: (s.prn || s.id || '').toUpperCase().trim(),
+                      isPresent: true,
+                      studentName: s.name || s.studentName || '',
+                      studentEmail: s.email || s.studentEmail || '',
+                    })).filter((r: any) => Boolean(r.prn));
+
+                    if (records.length === 0) return;
+                    setIsBatchUpdatingAttendance(true);
+                    // Instant optimistic local update
+                    const newMap = { ...labAttendanceMap };
+                    records.forEach((r: any) => {
+                      newMap[r.prn] = true;
+                      try {
+                        localStorage.setItem(`logicq_lab_attendance_${attendanceModalTest.id}_${r.prn}`, 'PRESENT');
+                      } catch {}
+                    });
+                    try {
+                      localStorage.setItem(`logicq_lab_attendance_all_${attendanceModalTest.id}`, 'PRESENT');
+                      localStorage.setItem('logicq_storage_sync_pulse', JSON.stringify({
+                        type: 'LOGICQ_SYNC_SIGNAL',
+                        scope: 'TESTS',
+                        timestamp: Date.now(),
+                      }));
+                    } catch {}
+                    setLabAttendanceMap(newMap);
+                    RealtimeSyncService.emit('TESTS');
+                    toast.success(`✅ Marked all ${records.length} students as PRESENT!`);
+
+                    try {
+                      await AttendanceSyncService.batchMarkAttendance(attendanceModalTest.id, records);
+                    } catch (err) {
+                      console.warn('Attendance batch write notice:', err);
+                    } finally {
+                      setIsBatchUpdatingAttendance(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Mark All Present</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isBatchUpdatingAttendance}
+                  onClick={async () => {
+                    const records = effectiveStudentsList.map((s: any) => ({
+                      prn: (s.prn || s.id || '').toUpperCase().trim(),
+                      isPresent: false,
+                      studentName: s.name || s.studentName || '',
+                      studentEmail: s.email || s.studentEmail || '',
+                    })).filter((r: any) => Boolean(r.prn));
+
+                    if (records.length === 0) return;
+                    setIsBatchUpdatingAttendance(true);
+                    // Instant optimistic local update
+                    const newMap = { ...labAttendanceMap };
+                    records.forEach((r: any) => {
+                      newMap[r.prn] = {
+                        testId: attendanceModalTest.id,
+                        studentPrn: r.prn,
+                        studentName: r.studentName,
+                        status: 'ABSENT',
+                        markedAt: new Date().toISOString(),
+                        email: r.studentEmail,
+                      };
+                      try {
+                        localStorage.setItem(`logicq_lab_attendance_${attendanceModalTest.id}_${r.prn}`, 'ABSENT');
+                      } catch {}
+                    });
+                    try {
+                      localStorage.removeItem(`logicq_lab_attendance_all_${attendanceModalTest.id}`);
+                    } catch {}
+                    setLabAttendanceMap(newMap);
+                    toast.info(`Marked all ${records.length} students as ABSENT.`);
+
+                    try {
+                      await AttendanceSyncService.batchMarkAttendance(attendanceModalTest.id, records);
+                    } catch (err) {
+                      console.warn('Attendance batch write notice:', err);
+                    } finally {
+                      setIsBatchUpdatingAttendance(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Mark All Absent</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Attendance Roster List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[240px]">
+              {(() => {
+                const query = attendanceSearchQuery.trim().toLowerCase();
+
+                const resolvePresence = (prn: string): boolean => {
+                  const entry = labAttendanceMap[prn];
+                  if (typeof entry === 'boolean') return entry;
+                  if (entry && typeof entry === 'object') {
+                    return Boolean(entry.isPresent || entry.status === 'PRESENT');
+                  }
+                  if (typeof entry === 'string') {
+                    return entry === 'PRESENT';
+                  }
+                  try {
+                    const local = localStorage.getItem(`logicq_lab_attendance_${attendanceModalTest.id}_${prn}`);
+                    if (local === 'PRESENT') return true;
+                    if (local === 'ABSENT') return false;
+                  } catch {}
+                  return false;
+                };
+
+                const filtered = effectiveStudentsList.filter((s: any) => {
+                  const prn = (s.prn || s.id || '').toUpperCase().trim();
+                  const name = (s.name || s.studentName || '').toLowerCase();
+                  const matchesSearch = !query || prn.toLowerCase().includes(query) || name.includes(query);
+                  if (!matchesSearch) return false;
+
+                  const isPresent = resolvePresence(prn);
+                  if (attendanceFilter === 'PRESENT') return isPresent;
+                  if (attendanceFilter === 'ABSENT') return !isPresent;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-xs text-slate-400 font-mono">
+                      No students found matching your search.
+                    </div>
+                  );
+                }
+
+                return filtered.map((s: any, idx: number) => {
+                  const prn = (s.prn || s.id || '').toUpperCase().trim();
+                  const name = s.name || s.studentName || `Student ${idx + 1}`;
+                  const isPresent = resolvePresence(prn);
+
+                  return (
+                    <div
+                      key={prn || idx}
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/5 bg-white dark:bg-white/[0.02] flex items-center justify-between gap-3 hover:border-purple-500/30 transition"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+                          {name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {name}
+                          </h4>
+                          <p className="text-[11px] font-mono text-slate-400">
+                            PRN: <strong className="text-slate-700 dark:text-slate-300">{prn}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* PRESENT Button */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (isPresent) return;
+                            setLabAttendanceMap((prev) => ({ ...prev, [prn]: true }));
+                            try {
+                              localStorage.setItem(`logicq_lab_attendance_${attendanceModalTest.id}_${prn}`, 'PRESENT');
+                              localStorage.setItem('logicq_storage_sync_pulse', JSON.stringify({
+                                type: 'LOGICQ_SYNC_SIGNAL',
+                                scope: 'TESTS',
+                                timestamp: Date.now(),
+                              }));
+                            } catch {}
+                            RealtimeSyncService.emit('TESTS');
+                            toast.success(`🟢 ${name} (${prn}) marked PRESENT`);
+                            try {
+                              await AttendanceSyncService.markAttendance(attendanceModalTest.id, prn, true, name, s.email || '');
+                            } catch (err) {
+                              console.warn('Attendance update note:', err);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs ${
+                            isPresent
+                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 ring-2 ring-emerald-500/30'
+                              : 'bg-slate-100 hover:bg-emerald-50 dark:bg-white/10 dark:hover:bg-emerald-500/10 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Present</span>
+                        </button>
+
+                        {/* ABSENT Button */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!isPresent) return;
+                            setLabAttendanceMap((prev) => ({ ...prev, [prn]: false }));
+                            try {
+                              localStorage.setItem(`logicq_lab_attendance_${attendanceModalTest.id}_${prn}`, 'ABSENT');
+                              localStorage.setItem('logicq_storage_sync_pulse', JSON.stringify({
+                                type: 'LOGICQ_SYNC_SIGNAL',
+                                scope: 'TESTS',
+                                timestamp: Date.now(),
+                              }));
+                            } catch {}
+                            RealtimeSyncService.emit('TESTS');
+                            toast.info(`🔴 ${name} (${prn}) marked ABSENT`);
+                            try {
+                              await AttendanceSyncService.markAttendance(attendanceModalTest.id, prn, false, name, s.email || '');
+                            } catch (err) {
+                              console.warn('Attendance update note:', err);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs ${
+                            !isPresent
+                              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25 ring-2 ring-rose-500/30'
+                              : 'bg-slate-100 hover:bg-rose-50 dark:bg-white/10 dark:hover:bg-rose-500/10 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Absent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // Mark PRESENT + clear proctor lock + update local state immediately
+                            setLabAttendanceMap((prev) => ({
+                              ...prev,
+                              [prn]: true,
+                            }));
+                            try {
+                              localStorage.setItem(`logicq_lab_attendance_${attendanceModalTest.id}_${prn}`, 'PRESENT');
+                              localStorage.removeItem(`logicq_exam_locked_${attendanceModalTest.id}_${prn}`);
+                              localStorage.setItem('logicq_storage_sync_pulse', JSON.stringify({
+                                type: 'LOGICQ_SYNC_SIGNAL',
+                                scope: 'TESTS',
+                                timestamp: Date.now(),
+                              }));
+                            } catch {}
+                            RealtimeSyncService.emit('TESTS');
+                            toast.success(`🔓 ${name} (${prn}) marked PRESENT & Unlocked!`);
+                            try {
+                              await AttendanceSyncService.markAttendance(attendanceModalTest.id, prn, true, name, s.email || '');
+                              await FirestoreDataService.unlockStudentTest(attendanceModalTest.id, prn);
+                            } catch (err) {
+                              console.warn('Unlock update note:', err);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                          title="Mark student PRESENT and unlock proctor lock"
+                        >
+                          <span>Unlock</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="font-mono text-[11px]">Realtime Student Attendance Roster Active</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttendanceModalTest(null)}
+                className="px-4 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold text-xs transition active:scale-95 cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 6. INSPECT PRACTICE TOPIC QUESTION MODAL                                 */}

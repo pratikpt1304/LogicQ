@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { auth, db } from '../config/firebase.js';
+import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
@@ -88,6 +89,20 @@ export const PracticeModuleProblemsPage: React.FC = () => {
         const prnClean = (user?.prn || '').toUpperCase().trim();
         let cohortProblems: string[] = [];
         if (prnClean) {
+          // 0. High-speed Supabase sync (immune to Firestore quota limits)
+          if (isSupabaseConfigured) {
+            try {
+              const { data: sbProg } = await supabase
+                .from('practice_progress')
+                .select('solved_topic_ids')
+                .eq('student_prn', prnClean)
+                .maybeSingle();
+              if (sbProg?.solved_topic_ids && Array.isArray(sbProg.solved_topic_ids)) {
+                cohortProblems = [...sbProg.solved_topic_ids];
+              }
+            } catch {}
+          }
+
           try {
             const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
             if (cohortSnap && cohortSnap.exists()) {
