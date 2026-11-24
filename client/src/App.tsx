@@ -361,6 +361,9 @@ export const App: React.FC = () => {
       (window.location.hostname.endsWith('.web.app') && window.location.hostname !== 'logicq-clanguage.web.app') ||
       (import.meta as any).env?.VITE_IS_STAGING === 'true');
 
+  // Platform 404 Lockdown Mode (Set true to put entire website on 404 Not Found)
+  const IS_WEBSITE_404 = true;
+
   // Scheduled Platform Maintenance Gate (Set false to open platform live to all students)
   const IS_MAINTENANCE_ACTIVE = false;
   const isFacultyOrAdmin = Boolean(
@@ -372,6 +375,15 @@ export const App: React.FC = () => {
     user?.prn === 'LOGICQARENA'
   );
   const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname === '/login';
+
+  if (IS_WEBSITE_404) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] justify-center items-center">
+        <NotFoundPage />
+        <PwaManager />
+      </div>
+    );
+  }
 
   if (IS_MAINTENANCE_ACTIVE && !isAdminRoute && !isFacultyOrAdmin) {
     return (

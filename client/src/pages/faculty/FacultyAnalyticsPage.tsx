@@ -450,7 +450,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
         ],
       };
     },
-    refetchInterval: 5000,
+    refetchInterval: 60000,
     refetchOnWindowFocus: true,
   });
 

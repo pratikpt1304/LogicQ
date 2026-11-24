@@ -595,7 +595,7 @@ export const DashboardPage: React.FC = () => {
       );
       return combined;
     },
-    refetchInterval: 6000,
+    refetchInterval: 60000,
   });
 
     // Real-time synchronization across all portals and tabs

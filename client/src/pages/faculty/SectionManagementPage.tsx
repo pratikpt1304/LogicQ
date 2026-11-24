@@ -248,7 +248,7 @@ export const SectionManagementPage: React.FC = () => {
 
       return mergedList;
     },
-    refetchInterval: 6000, // Live real-time sync with student enrollments & admin
+    refetchInterval: 60000, // Live real-time sync with student enrollments & admin
   });
 
   // Real-time synchronization when students enroll or switch sections
@@ -326,7 +326,7 @@ export const SectionManagementPage: React.FC = () => {
         return [];
       }
     },
-    refetchInterval: 8000,
+    refetchInterval: 60000,
   });
 
   // Live Lab Internal coursework submissions for the currently inspected section

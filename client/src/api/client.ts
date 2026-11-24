@@ -293,7 +293,13 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // into browser localStorage fallback in production.
   // Practice submissions are allowed to use resilient fallback execution when remote judge is unreachable.
   if (useFallback || !response) {
-    if ((import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
+    if (
+      import.meta.env.PROD &&
+      (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/exam')) &&
+      !cleanEndpoint.includes('-otp') &&
+      !cleanEndpoint.includes('change-password') &&
+      !cleanEndpoint.includes('bind-email')
+    ) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
       let errorMsg = 'Server is temporarily unavailable. Please try again in a moment.';

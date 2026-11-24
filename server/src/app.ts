@@ -28,6 +28,9 @@ import { prisma } from './utils/prisma.js';
 
 export const app = express();
 
+// Enable reverse proxy trust (e.g. Render, Cloudflare) for accurate client IP identification and rate limiting
+app.set('trust proxy', 1);
+
 // Security & Parsing Middleware
 app.use(
   helmet({

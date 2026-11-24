@@ -28,7 +28,7 @@ export const authLimiter = rateLimit({
 
 export const submitLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // max 30 submissions per minute per student
+  max: 200, // max 200 submissions per minute per student
   keyGenerator: getUserOrIpKey,
   message: { success: false, message: 'Submission rate limit reached. Please wait before submitting again.' },
   standardHeaders: true,
@@ -37,7 +37,7 @@ export const submitLimiter = rateLimit({
 
 export const runLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // max 30 runs per minute per student
+  max: 300, // max 300 runs per minute per student
   keyGenerator: getUserOrIpKey,
   message: { success: false, message: 'Run rate limit reached. Please wait a few seconds.' },
   standardHeaders: true,
