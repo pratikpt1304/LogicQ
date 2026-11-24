@@ -362,10 +362,10 @@ export const App: React.FC = () => {
       (import.meta as any).env?.VITE_IS_STAGING === 'true');
 
   // Platform 404 Lockdown Mode (Set true to put entire website on 404 Not Found)
-  const IS_WEBSITE_404 = true;
+  const IS_WEBSITE_404 = false;
 
   // Scheduled Platform Maintenance Gate (Set false to open platform live to all students)
-  const IS_MAINTENANCE_ACTIVE = false;
+  const IS_MAINTENANCE_ACTIVE = true;
   const isFacultyOrAdmin = Boolean(
     isAdmin ||
     user?.role === 'ADMIN' ||
