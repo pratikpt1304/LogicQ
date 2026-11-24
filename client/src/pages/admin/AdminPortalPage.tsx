@@ -698,13 +698,13 @@ export const AdminPortalPage: React.FC = () => {
       }, () => {});
     } catch {}
 
-    // 2.5. Supabase Realtime Listener (unlimited bandwidth)
+    // 2.5. Supabase Realtime Listener (scoped to assessment_tests start/stop only)
     let sbChannel: any = null;
     if (isSupabaseConfigured) {
       try {
         sbChannel = supabase
           .channel('admin_portal_data')
-          .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'assessment_tests' }, () => {
             loadRealData();
             refreshOpenIssuesCount();
           })

@@ -158,18 +158,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       })
       .catch(() => {});
 
-    const channel = supabase
-      .channel(`modal_practice_progress_${targetPrn}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'practice_progress', filter: `student_prn=eq.${targetPrn}` },
-        (payload: any) => {
-          if (payload?.new) {
-            setSbPracticeProgress(payload.new);
-          }
-        }
-      )
-      .subscribe();
+    // Realtime subscription for practice_progress disabled to reduce Supabase connection load
+    const channel: any = null;
 
     const assessChannel = supabase
       .channel(`modal_assess_subs_${targetPrn}`)

@@ -450,7 +450,7 @@ export const DashboardPage: React.FC = () => {
     queryFn: async () => {
       let cloudTests: any[] = [];
       try {
-        cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore({ includeQuestions: false });
       } catch (err) {
         console.warn('Firestore assessment tests fetch notice:', err);
       }

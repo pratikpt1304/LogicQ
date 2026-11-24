@@ -5843,7 +5843,14 @@ export class FirestoreDataService {
   /**
    * Timed Assessment Tests Architecture (cross-device Firestore primary)
    */
-  public static async getAssessmentTestsFromFirestore(): Promise<any[]> {
+  public static async getAssessmentTestsFromFirestore(options?: {
+    includeQuestions?: boolean;
+  }): Promise<any[]> {
+    const includeQuestions = options?.includeQuestions ?? true;
+    const selectCols = includeQuestions
+      ? '*'
+      : 'id, title, section_target, status, duration_minutes, total_marks, anti_cheating_rotation, attendance_confirmed, created_at, updated_at';
+
     const ensureA4 = (list: any[]) => {
       const arr = Array.isArray(list) ? [...list] : [];
       const idx = arr.findIndex((t: any) => t?.id === 'test-assessment-4' || t?.id === 'assessment-4' || (t?.title && t.title.toLowerCase().includes('assessment 4')) || (t?.title && t.title.toLowerCase().includes('arrays & searching')));
@@ -5867,7 +5874,7 @@ export class FirestoreDataService {
     // 1. Fetch from Supabase (immune to Firestore quota limits)
     if (isSupabaseConfigured) {
       try {
-        const { data: sbTests, error } = await supabase.from('assessment_tests').select('*');
+        const { data: sbTests, error } = await supabase.from('assessment_tests').select(selectCols);
         if (!error && Array.isArray(sbTests)) {
           const list = sbTests
             .filter((t: any) => t.id !== 'test-continuous-arrays-search-sort' && !FirestoreDataService.isDeletedTest(t.id))
@@ -6128,11 +6135,13 @@ export class FirestoreDataService {
     // Immediate 0ms local emission
     emitMerged();
 
-    // Fetch authoritative tests from Supabase
+    // Fetch authoritative tests from Supabase (list columns only — questions loaded when test opens)
     const refreshFromSupabase = async () => {
       if (isSupabaseConfigured) {
         try {
-          const { data: sbTests, error } = await supabase.from('assessment_tests').select('*');
+          const { data: sbTests, error } = await supabase
+            .from('assessment_tests')
+            .select('id, title, section_target, status, duration_minutes, total_marks, anti_cheating_rotation, attendance_confirmed, created_at, updated_at');
           if (!error && Array.isArray(sbTests)) {
             latestSbTests = sbTests.map((t: any) => ({
               id: t.id,

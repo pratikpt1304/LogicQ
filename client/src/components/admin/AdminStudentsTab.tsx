@@ -902,37 +902,12 @@ export const AdminStudentsTab: React.FC<AdminStudentsTabProps> = ({
       };
     }
 
-    // Supabase Realtime Channel for instant 0ms updates on student progress
+    // Supabase Realtime Channel (practice_progress removed to reduce Realtime load)
     let sbChannel: any = null;
     if (isSupabaseConfigured) {
       try {
         sbChannel = supabase
           .channel('admin_students_tab_realtime')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'practice_progress' }, (payload: any) => {
-            const row = payload?.new;
-            if (row && row.student_prn) {
-              const pClean = String(row.student_prn).toUpperCase().trim();
-              const validTopics = Array.isArray(row.solved_topic_ids)
-                ? row.solved_topic_ids.filter((id: string) => id && !id.startsWith('cs-demo-') && !id.startsWith('demo-'))
-                : [];
-              const count = validTopics.length > 0 ? validTopics.length : (Number(row.total_solved) || 0);
-              setStudents((prev) => prev.map((s) => {
-                if ((s.prn || '').toUpperCase().trim() === pClean) {
-                  const newPractice = count;
-                  const newTotal = newPractice + (s.labSolved ?? 0);
-                  return {
-                    ...s,
-                    practiceSolved: newPractice,
-                    problemsSolved: newTotal,
-                    academicScore: Math.min(100, Math.round(((newTotal * 20) / 100) * 100)),
-                    lastActive: 'Just now'
-                  };
-                }
-                return s;
-              }));
-            }
-            debouncedLoadStudents();
-          })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'assessment_submissions' }, debouncedLoadStudents)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, debouncedLoadStudents)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'student_locks' }, debouncedLoadStudents)

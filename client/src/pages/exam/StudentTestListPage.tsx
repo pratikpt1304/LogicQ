@@ -135,7 +135,7 @@ export const StudentTestListPage: React.FC = () => {
     };
 
     checkPresence();
-    const pollInterval = setInterval(checkPresence, 5000);
+    const pollInterval = setInterval(checkPresence, 60000);
 
     // 2. Real-time Pub/Sub listener across browsers
     const unsubSync = AttendanceSyncService.listenToStudentAttendance(
@@ -230,7 +230,7 @@ export const StudentTestListPage: React.FC = () => {
         .catch(() => null);
     };
     checkLocked();
-    const lockInterval = setInterval(checkLocked, 15000);
+    const lockInterval = setInterval(checkLocked, 60000);
 
     // 5. Real-time SSE listener for instant faculty unlock
     let ntfySource: EventSource | null = null;
@@ -361,7 +361,7 @@ export const StudentTestListPage: React.FC = () => {
           }
         })
         .catch(() => null);
-    }, 2000);
+    }, 60000);
 
     const onFocus = () => {
       AttendanceSyncService.fetchLatestNetworkStatus()
@@ -469,7 +469,7 @@ export const StudentTestListPage: React.FC = () => {
     navigate(targetUrl);
   };
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['my-assigned-tests'],
     initialData: () => {
       try {
@@ -516,13 +516,17 @@ export const StudentTestListPage: React.FC = () => {
     },
     queryFn: async () => {
       let cloudTests: any[] = [];
+      let cloudFetchFailed = false;
       try {
-        const timeoutPromise = new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 5000));
+        const timeoutPromise = new Promise<any[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out')), 8000)
+        );
         cloudTests = await Promise.race([
-          FirestoreDataService.getAssessmentTestsFromFirestore(),
+          FirestoreDataService.getAssessmentTestsFromFirestore({ includeQuestions: false }),
           timeoutPromise,
         ]);
       } catch (err) {
+        cloudFetchFailed = true;
         console.warn('Firestore assessment tests fetch notice:', err);
       }
 
@@ -550,6 +554,11 @@ export const StudentTestListPage: React.FC = () => {
         } catch {}
       }
 
+      // If cloud fetch failed and no local cached tests exist, fail loudly instead of showing an empty list
+      if (cloudFetchFailed && safeCloudTests.length === 0) {
+        throw new Error('Server busy, tap retry');
+      }
+
       const hasA4 = safeCloudTests.some(
         (t: any) =>
           t?.id === 'test-assessment-4' ||
@@ -571,7 +580,7 @@ export const StudentTestListPage: React.FC = () => {
         tests: safeCloudTests,
       };
     },
-    staleTime: 5000,
+    staleTime: 60000,
     refetchOnWindowFocus: true,
     refetchInterval: 3000,
   });
@@ -978,12 +987,19 @@ export const StudentTestListPage: React.FC = () => {
         {error && (
           <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 flex items-start gap-3 text-rose-500">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-sm">Failed to load assigned tests</h3>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">Server busy, tap retry</h3>
               <p className="text-xs text-rose-400 mt-1">
-                {(error as any)?.message || 'Please verify your enrollment or try refreshing the page.'}
+                {(error as any)?.message || 'Unable to load assigned tests right now.'}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         )}
 
