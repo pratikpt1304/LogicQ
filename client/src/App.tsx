@@ -385,7 +385,7 @@ export const App: React.FC = () => {
     );
   }
 
-  if (IS_MAINTENANCE_ACTIVE && !isAdminRoute && !isFacultyOrAdmin) {
+  if (IS_MAINTENANCE_ACTIVE) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
         <MaintenancePage />

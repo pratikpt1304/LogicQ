@@ -1,11 +1,8 @@
 import React, { useEffect } from 'react';
 import { Logo } from '../components/common/Logo.js';
-import { ShieldCheck, Clock, Database, Sparkles, ArrowRight, Wrench, Lock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, Clock, Rocket, Wrench } from 'lucide-react';
 
 export const MaintenancePage: React.FC = () => {
-  const navigate = useNavigate();
-
   useEffect(() => {
     document.documentElement.classList.add('dark');
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -36,23 +33,40 @@ export const MaintenancePage: React.FC = () => {
 
       {/* Main Content Hero */}
       <main className="max-w-3xl mx-auto w-full px-6 py-8 flex flex-col items-center text-center relative z-10 my-auto">
+        {/* Elzeo Brand Photo */}
+        <div
+          className="mb-7 w-72 sm:w-88 h-36 sm:h-44 rounded-2xl overflow-hidden border shadow-2xl"
+          style={{
+            borderColor: 'rgba(99, 102, 241, 0.3)',
+            backgroundColor: '#0B1736',
+            boxShadow: '0 20px 50px rgba(11, 23, 54, 0.65)',
+          }}
+        >
+          <img
+            src="/elzeo-logo.jpg"
+            alt="Elzeo — Innovate | Transform"
+            className="w-full h-full object-cover object-bottom select-none pointer-events-none"
+            draggable={false}
+          />
+        </div>
+
         {/* Animated Badge */}
         <div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-xl text-xs font-semibold mb-6 shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-xl text-xs font-semibold mb-5 shadow-sm"
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.15)', color: '#E2E8F0' }}
         >
           <Wrench className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Core Infrastructure &amp; Database Upgrade</span>
+          <span>Platform Maintenance &amp; Major Upgrade</span>
         </div>
 
-        {/* Headline (Crystal clear high-contrast white & neon gradient) */}
+        {/* Headline */}
         <h1
           className="text-3xl sm:text-5xl font-black tracking-tight leading-tight"
           style={{ color: '#FFFFFF', textShadow: '0 2px 20px rgba(99, 102, 241, 0.25)' }}
         >
-          LogicQ is Currently <br className="hidden sm:inline" />
+          We Will Come Back Soon <br className="hidden sm:inline" />
           <span style={{ color: '#A5B4FC' }}>
-            Under Maintenance
+            With a Great Update
           </span>
         </h1>
 
@@ -60,16 +74,16 @@ export const MaintenancePage: React.FC = () => {
           className="mt-4 text-base sm:text-lg max-w-xl leading-relaxed font-normal"
           style={{ color: '#CBD5E1' }}
         >
-          We are upgrading to a high-performance dedicated PostgreSQL database to provide unlimited bandwidth and zero-latency assessments for all students.
+          LogicQ is currently under scheduled maintenance. We are upgrading our core platform to bring you a faster, smoother, and more powerful experience.
         </p>
 
-        {/* Resumption Banner */}
+        {/* Status Banner */}
         <div
           className="mt-6 px-5 py-3 rounded-2xl border text-xs sm:text-sm font-mono font-bold flex items-center gap-2 shadow-xs"
           style={{ backgroundColor: 'rgba(99, 102, 241, 0.12)', borderColor: 'rgba(99, 102, 241, 0.35)', color: '#C7D2FE' }}
         >
           <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>Platform will restart: <strong style={{ color: '#FFFFFF' }}>Tomorrow Morning (Saturday, 8:00 AM IST)</strong></span>
+          <span>Maintenance in progress &bull; <strong style={{ color: '#FFFFFF' }}>Back online soon with big improvements</strong></span>
         </div>
 
         {/* 3 Pillar Cards */}
@@ -88,61 +102,50 @@ export const MaintenancePage: React.FC = () => {
             </p>
           </div>
 
-          {/* Card 2: Database Migration */}
+          {/* Card 2: Infrastructure Upgrade */}
           <div
             className="p-4 rounded-2xl border backdrop-blur-md space-y-2"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
           >
             <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-              <Database className="w-4 h-4" />
+              <Wrench className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Next-Gen DB</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Core Upgrade</h3>
             <p className="text-[11px] leading-normal" style={{ color: '#94A3B8' }}>
-              Migrating to PostgreSQL for real-time WebSocket sync and zero daily rate limits.
+              Upgrading backend performance and stability to handle large-scale live assessments effortlessly.
             </p>
           </div>
 
-          {/* Card 3: Saturday Restart */}
+          {/* Card 3: Great Update */}
           <div
             className="p-4 rounded-2xl border backdrop-blur-md space-y-2"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
           >
             <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+              <Rocket className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Resumes Morning</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Great Update Coming</h3>
             <p className="text-[11px] leading-normal" style={{ color: '#94A3B8' }}>
-              Live tests and 100-problem practice arena will be live tomorrow morning.
+              We will be back shortly with an upgraded experience powered by Elzeo.
             </p>
           </div>
         </div>
       </main>
 
-      {/* Footer & Discreet Faculty Login */}
+      {/* Footer (Read-only, zero interactive actions) */}
       <footer
         className="max-w-6xl mx-auto w-full px-6 py-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs relative z-10"
         style={{ borderColor: 'rgba(255, 255, 255, 0.08)', color: '#64748B' }}
       >
         <div>
-          &copy; {new Date().getFullYear()} LogicQ Platform &bull; Sanjivani College of Engineering. All rights reserved.
+          &copy; {new Date().getFullYear()} LogicQ Platform &bull; Powered by Elzeo. All rights reserved.
         </div>
 
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5" style={{ color: '#94A3B8' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Status: Upgrading DB
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            Status: Maintenance Mode
           </span>
-          <button
-            type="button"
-            onClick={() => navigate('/admin')}
-            className="flex items-center gap-1 text-xs font-medium transition cursor-pointer hover:underline"
-            style={{ color: '#818CF8' }}
-            title="Faculty &amp; Administrator sign in"
-          >
-            <Lock className="w-3 h-3" />
-            <span>Faculty Access</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
         </div>
       </footer>
     </div>
