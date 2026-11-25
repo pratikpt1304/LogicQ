@@ -19,7 +19,7 @@ export const MaintenancePage: React.FC = () => {
 
       {/* Top Header */}
       <header className="max-w-6xl mx-auto w-full px-6 py-6 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pointer-events-none select-none dark text-white" style={{ ['--text-main' as any]: '#FFFFFF', ['--bg-surface' as any]: 'rgba(255,255,255,0.06)', ['--border-line' as any]: 'rgba(255,255,255,0.12)' }}>
           <Logo size="md" />
         </div>
         <div
@@ -35,7 +35,7 @@ export const MaintenancePage: React.FC = () => {
       <main className="max-w-3xl mx-auto w-full px-6 py-8 flex flex-col items-center text-center relative z-10 my-auto">
         {/* Elzeo Brand Photo */}
         <div
-          className="mb-7 w-72 sm:w-88 h-36 sm:h-44 rounded-2xl overflow-hidden border shadow-2xl"
+          className="mb-7 w-72 sm:w-80 h-32 sm:h-36 rounded-2xl overflow-hidden border shadow-2xl"
           style={{
             borderColor: 'rgba(99, 102, 241, 0.3)',
             backgroundColor: '#0B1736',
