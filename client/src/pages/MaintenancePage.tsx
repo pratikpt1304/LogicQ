@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { Logo } from '../components/common/Logo.js';
-import { ShieldCheck, Clock, Rocket, Wrench } from 'lucide-react';
+import { ShieldCheck, Rocket, ExternalLink, ArrowRight, Sparkles } from 'lucide-react';
+
+const NEW_APP_URL = 'https://xelo.dev-elzeo.workers.dev';
 
 export const MaintenancePage: React.FC = () => {
   useEffect(() => {
@@ -24,10 +26,10 @@ export const MaintenancePage: React.FC = () => {
         </div>
         <div
           className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-mono font-bold tracking-wide"
-          style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#FBBF24' }}
+          style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.35)', color: '#34D399' }}
         >
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span>SCHEDULED MAINTENANCE</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>NEW APP LIVE</span>
         </div>
       </header>
 
@@ -50,13 +52,13 @@ export const MaintenancePage: React.FC = () => {
           />
         </div>
 
-        {/* Animated Badge */}
+        {/* Badge */}
         <div
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-xl text-xs font-semibold mb-5 shadow-sm"
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.15)', color: '#E2E8F0' }}
         >
-          <Wrench className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Platform Maintenance &amp; Major Upgrade</span>
+          <Rocket className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Platform Upgraded &amp; Shifted</span>
         </div>
 
         {/* Headline */}
@@ -64,9 +66,9 @@ export const MaintenancePage: React.FC = () => {
           className="text-3xl sm:text-5xl font-black tracking-tight leading-tight"
           style={{ color: '#FFFFFF', textShadow: '0 2px 20px rgba(99, 102, 241, 0.25)' }}
         >
-          We Will Come Back Soon <br className="hidden sm:inline" />
+          Our App Has Shifted <br className="hidden sm:inline" />
           <span style={{ color: '#A5B4FC' }}>
-            With a Great Update
+            To a Brand-New Platform
           </span>
         </h1>
 
@@ -74,65 +76,81 @@ export const MaintenancePage: React.FC = () => {
           className="mt-4 text-base sm:text-lg max-w-xl leading-relaxed font-normal"
           style={{ color: '#CBD5E1' }}
         >
-          LogicQ is currently under scheduled maintenance. We are upgrading our core platform to bring you a faster, smoother, and more powerful experience.
+          LogicQ has moved to our new, faster workspace powered by Elzeo. Click the button below to open the new app and continue.
         </p>
 
-        {/* Status Banner */}
-        <div
-          className="mt-6 px-5 py-3 rounded-2xl border text-xs sm:text-sm font-mono font-bold flex items-center gap-2 shadow-xs"
-          style={{ backgroundColor: 'rgba(99, 102, 241, 0.12)', borderColor: 'rgba(99, 102, 241, 0.35)', color: '#C7D2FE' }}
-        >
-          <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>Maintenance in progress &bull; <strong style={{ color: '#FFFFFF' }}>Back online soon with big improvements</strong></span>
+        {/* Primary Clickable Redirect Button */}
+        <div className="mt-7 flex flex-col items-center gap-3 w-full">
+          <a
+            href={NEW_APP_URL}
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold text-base sm:text-lg text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #2563EB 100%)',
+              boxShadow: '0 12px 35px rgba(79, 70, 229, 0.45)',
+            }}
+          >
+            <span>Open New App</span>
+            <ArrowRight className="w-5 h-5" />
+          </a>
+
+          <a
+            href={NEW_APP_URL}
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-mono text-indigo-300 hover:text-white underline underline-offset-4 transition-colors"
+          >
+            <span>{NEW_APP_URL}</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
 
         {/* 3 Pillar Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 w-full text-left">
-          {/* Card 1: 100% Data Safe */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10 w-full text-left">
+          {/* Card 1 */}
           <div
             className="p-4 rounded-2xl border backdrop-blur-md space-y-2"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
           >
             <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+              <Rocket className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>100% Data Safe</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>New Platform</h3>
             <p className="text-[11px] leading-normal" style={{ color: '#94A3B8' }}>
-              All your solved problems, code history, exam submissions, and scores are securely preserved.
+              All labs, coding tests, and assessments have shifted to our new Xelo workspace.
             </p>
           </div>
 
-          {/* Card 2: Infrastructure Upgrade */}
+          {/* Card 2 */}
           <div
             className="p-4 rounded-2xl border backdrop-blur-md space-y-2"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
           >
             <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-              <Wrench className="w-4 h-4" />
+              <Sparkles className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Core Upgrade</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Faster &amp; Reliable</h3>
             <p className="text-[11px] leading-normal" style={{ color: '#94A3B8' }}>
-              Upgrading backend performance and stability to handle large-scale live assessments effortlessly.
+              Built for zero-latency code execution and smooth large-scale exams.
             </p>
           </div>
 
-          {/* Card 3: Great Update */}
+          {/* Card 3 */}
           <div
             className="p-4 rounded-2xl border backdrop-blur-md space-y-2"
             style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)' }}
           >
             <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <Rocket className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Great Update Coming</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: '#FFFFFF' }}>Powered by Elzeo</h3>
             <p className="text-[11px] leading-normal" style={{ color: '#94A3B8' }}>
-              We will be back shortly with an upgraded experience powered by Elzeo.
+              Click &ldquo;Open New App&rdquo; above to sign in with your student email on the new site.
             </p>
           </div>
         </div>
       </main>
 
-      {/* Footer (Read-only, zero interactive actions) */}
+      {/* Footer */}
       <footer
         className="max-w-6xl mx-auto w-full px-6 py-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs relative z-10"
         style={{ borderColor: 'rgba(255, 255, 255, 0.08)', color: '#64748B' }}
@@ -143,8 +161,8 @@ export const MaintenancePage: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5" style={{ color: '#94A3B8' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Status: Maintenance Mode
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Status: Moved to New App
           </span>
         </div>
       </footer>
